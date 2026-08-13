@@ -1,0 +1,16 @@
+{
+    "name": "AFPS.Input",
+    "rootNamespace": "",
+    "references": [
+        "GUID:ada213b6b3ed9ca46b3b145beabaec7d"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
