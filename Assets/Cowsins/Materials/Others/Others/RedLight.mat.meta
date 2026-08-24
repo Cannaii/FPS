@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 618e059aa98376b45baae02d2e2edbf3
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/Others/Others/RedLight.mat
+  uploadId: 937790

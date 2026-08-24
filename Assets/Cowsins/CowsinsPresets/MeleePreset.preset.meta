@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a46174b37c271c1418cb1f238b975774
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2655988077585873504
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/CowsinsPresets/MeleePreset.preset
+  uploadId: 937790

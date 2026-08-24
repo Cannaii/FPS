@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: cf2bdf6730151734c8b28c0ad057cd0b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Textures/VFX/MuzzleFlash/Skybox_Daytime 2.mat
+  uploadId: 937790

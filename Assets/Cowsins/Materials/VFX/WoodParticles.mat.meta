@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 66a2563df9490aa489c0919a52c2c1bd
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/VFX/WoodParticles.mat
+  uploadId: 937790

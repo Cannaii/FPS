@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8cf5557d6c0260745966dc2d92db1d99
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/VFX/MuzzleFlashes/TurretMuzzleFlashVFX.prefab
+  uploadId: 937790

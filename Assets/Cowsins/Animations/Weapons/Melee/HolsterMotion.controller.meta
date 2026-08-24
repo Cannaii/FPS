@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 04347852dbafb5643b7fe2c2e9f3a920
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/Weapons/Melee/HolsterMotion.controller
+  uploadId: 937790

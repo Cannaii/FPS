@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8ebf693fb6286f94c9f99bed3cfc607d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/Weapons/FNX/BlackFNX.mat
+  uploadId: 937790

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7fd78f54f7a120f4a83b21f5686d36da
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/TopTabButtonAnims/TopTabButton.controller
+  uploadId: 937790

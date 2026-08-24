@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f8206acd9535b694fa91a37458b00976
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Arms/FPSEngineRig.prefab
+  uploadId: 937790

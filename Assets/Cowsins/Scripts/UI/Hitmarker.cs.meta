@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: e1dce60a5a7e65c4fbd88241d05e35ac
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/UI/Hitmarker.cs
+  uploadId: 937790

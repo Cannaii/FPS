@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: e6307a362e4630e4d87b78ba02d631c5
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {fileID: 2800000, guid: 4648bb2bec0f9b442813a794338d90aa, type: 3}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/Player/PlayerState/PlayerJumpState.cs
+  uploadId: 937790

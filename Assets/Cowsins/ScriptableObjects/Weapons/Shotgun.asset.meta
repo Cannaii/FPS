@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 11986c1487b69b24fa433a76cf966fb5
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/ScriptableObjects/Weapons/Shotgun.asset
+  uploadId: 937790

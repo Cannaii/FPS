@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 064daa16e3058414ea0c7546940685e8
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/Target/Target_Die.anim
+  uploadId: 937790

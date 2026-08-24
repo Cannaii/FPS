@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 199b66cf33d37554fbd28011bf613e43
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {fileID: 2800000, guid: a56e11d69f295a041aa9eca6d079f930, type: 3}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/Behaviours/Movement Behaviours/GrapplingHookBehaviour.cs
+  uploadId: 937790

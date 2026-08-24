@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c96e3fa796718f1429c25e35623c4adc
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/Weapons/General/Cartridge_Yellow.mat
+  uploadId: 937790

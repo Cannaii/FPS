@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 00e58af669cd71542ace2ad071e32a18
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/VFX/MuzzleFlash/SoftGlow.mat
+  uploadId: 937790

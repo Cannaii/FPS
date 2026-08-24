@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 25194b97d49cf1948bcd7a0ac7e97c4e
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/DragAndDropExtras/[PRESETS]WeaponPickeables/Katana
+    Pickeable.prefab
+  uploadId: 937790

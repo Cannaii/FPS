@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8400be6c3054e54458d65cd6d1c9ef51
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/UI/WeaponStatesAnimation.anim
+  uploadId: 937790

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: fbad9be1c56019c4aa975a500a6092cb
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/Weapons/Rifle/Cloth.mat
+  uploadId: 937790

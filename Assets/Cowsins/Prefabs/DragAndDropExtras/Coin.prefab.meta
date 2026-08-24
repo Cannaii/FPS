@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8eb2324d906ba4b479b12c9936d11340
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/DragAndDropExtras/Coin.prefab
+  uploadId: 937790

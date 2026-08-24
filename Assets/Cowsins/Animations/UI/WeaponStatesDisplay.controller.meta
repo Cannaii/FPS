@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 267f19c55acef4c4c8a9bbb65b1df6e4
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/UI/WeaponStatesDisplay.controller
+  uploadId: 937790

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7398cf6333f343048878df03af22c20a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Bullets/lightAmmoBullet.prefab
+  uploadId: 937790

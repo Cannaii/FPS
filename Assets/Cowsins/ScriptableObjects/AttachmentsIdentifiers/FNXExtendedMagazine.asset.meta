@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5ab2fb2059e7ae84c83f7b9315b01737
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/ScriptableObjects/AttachmentsIdentifiers/FNXExtendedMagazine.asset
+  uploadId: 937790

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 8da74dcf5327a814ead4da61659c3f56
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/Extra/SettingsSystem/DropdownSettingUI.cs
+  uploadId: 937790

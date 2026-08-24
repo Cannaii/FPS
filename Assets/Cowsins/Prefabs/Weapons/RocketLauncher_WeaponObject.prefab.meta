@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 746a44ab2ff89b540aef7873f223835d
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Weapons/RocketLauncher_WeaponObject.prefab
+  uploadId: 937790

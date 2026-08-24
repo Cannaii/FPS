@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 32d04b55ddaac2e4ea1afd5dcba637dd
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {fileID: 2800000, guid: 90f76f80b0d2fd34d849d136a413d31a, type: 3}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/Player/IFallHeightProvider.cs
+  uploadId: 937790

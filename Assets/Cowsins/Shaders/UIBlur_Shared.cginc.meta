@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: e4647f7352223f3458235f7e56766da1
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  preprocessorOverride: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Shaders/UIBlur_Shared.cginc
+  uploadId: 937790

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: ed7e0d8f2cd44ff46831d0884b884c4b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/Target/Target_Revive.anim
+  uploadId: 937790

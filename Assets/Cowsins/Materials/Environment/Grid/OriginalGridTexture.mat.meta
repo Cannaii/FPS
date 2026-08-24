@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f4fb09e3a89041543904f5a9a8724a11
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/Environment/Grid/OriginalGridTexture.mat
+  uploadId: 937790

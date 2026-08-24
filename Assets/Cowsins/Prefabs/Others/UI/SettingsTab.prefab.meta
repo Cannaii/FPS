@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 21e4d5579b30c99459797011350c92b0
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Others/UI/SettingsTab.prefab
+  uploadId: 937790

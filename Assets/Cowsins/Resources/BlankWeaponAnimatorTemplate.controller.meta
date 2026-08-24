@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1b64be5c2e15e7a40b303a704b24df95
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Resources/BlankWeaponAnimatorTemplate.controller
+  uploadId: 937790

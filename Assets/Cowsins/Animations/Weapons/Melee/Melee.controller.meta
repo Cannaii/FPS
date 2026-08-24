@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 4738bd7b16c32194fbdffa19f8b0325d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/Weapons/Melee/Melee.controller
+  uploadId: 937790

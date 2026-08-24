@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 237a51dffc526b642b3bf5e93fe39c05
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/UI/CrosshairShape.cs
+  uploadId: 937790

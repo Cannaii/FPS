@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: eac9281d3847852488979e3265573bb4
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/Props/Coin/CoinAnimation.anim
+  uploadId: 937790

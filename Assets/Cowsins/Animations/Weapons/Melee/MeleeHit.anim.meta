@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d63979f66d06dc744a0dfc54ca2069ca
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/Weapons/Melee/MeleeHit.anim
+  uploadId: 937790

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b1f67ff7adc974a42b7f3ba6c908ecae
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2655988077585873504
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/CowsinsPresets/Weapons/RevolverPreset.preset
+  uploadId: 937790

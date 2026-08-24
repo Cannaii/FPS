@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e02fc7ec606308e47a9b911ffe99f8ed
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/DragAndDropExtras/Lootbox_Free.prefab
+  uploadId: 937790

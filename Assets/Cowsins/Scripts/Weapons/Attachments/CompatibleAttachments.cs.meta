@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 6950ecd66525ce842bb4ac2d394c3294
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/Weapons/Attachments/CompatibleAttachments.cs
+  uploadId: 937790

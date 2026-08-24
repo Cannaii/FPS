@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5ed616db5ea453c448066b233600ae5b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Resources/InventoryUISlot.prefab
+  uploadId: 937790

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 74a10d1aa9464994aacf2b45ca48a06d
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Others/UI/DMGPopUp.prefab
+  uploadId: 937790

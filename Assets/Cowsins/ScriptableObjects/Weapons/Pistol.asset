@@ -1,0 +1,226 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d01ed731769af95429c32ba164942b3e, type: 3}
+  m_Name: Pistol
+  m_EditorClassIdentifier: 
+  _name: Pistol
+  description: 
+  icon: {fileID: 21300000, guid: 243d28a3ac1a4914da8cea587a10bf36, type: 3}
+  pickUpGraphics: {fileID: 2092819957812016947, guid: 648b96c7695310045ab6523fd4a2ed5c, type: 3}
+  maxStack: 1
+  itemSize: {x: 1, y: 1}
+  irregularItemIcon: {fileID: 0}
+  applyWeight: 1
+  weightMultiplier: 1
+  weaponObject: {fileID: 4366474878721369578, guid: f19ba59a96cc01c4aad28a7bb59dc612, type: 3}
+  shootStyle: 0
+  shootMethod: 1
+  holdProgressSpeed: 454
+  reloadStyle: 0
+  allowCancelReload: 0
+  bulletTypeIdentifier: {fileID: 0}
+  projectile: {fileID: 0}
+  projectileUsesGravity: 0
+  shootDelay: 0
+  bulletDuration: 8
+  speed: 50
+  explosionOnHit: 0
+  hurtsPlayer: 0
+  explosionRadius: 10
+  explosionForce: 5
+  explosionVFX: {fileID: 5018994898019192216, guid: ab977a440365d1c4092c15552e5ff157, type: 3}
+  continuousFire: 0
+  fireRate: 0.28
+  reloadTime: 2.6
+  emptyReloadTime: 2.6
+  overrideUnholsterTime: 0
+  unholsterTime: 0.2
+  coolSpeed: 0.3
+  cooledPercentageAfterOverheat: 0.6
+  infiniteBullets: 0
+  magazineSize: 17
+  bulletsPerFire: 1
+  ammoCostPerFire: 1
+  bulletRange: 100
+  timeBetweenShots: 0
+  penetrationAmount: 5
+  penetrationDamageReduction: 0.579
+  allowAim: 1
+  ignoreAimPoint: 0
+  aimDistance: 0.3
+  aimingRotation: {x: 0, y: 0, z: 0}
+  aimingSpeed: 10.7
+  aimingFOV: 45
+  allowAimingIfReloading: 0
+  movementSpeedWhileAiming: 6
+  setMovementSpeedWhileAiming: 1
+  crosshairResize: 50
+  crosshairParts:
+    topPart: 1
+    downPart: 1
+    leftPart: 1
+    rightPart: 1
+    center: 1
+    topLeftBracket: 0
+    topRightBracket: 0
+    bottomLeftBracket: 0
+    bottomRightBracket: 0
+  applyBulletSpread: 1
+  spreadAmount: 0.01
+  aimSpreadAmount: 0.005
+  applyRecoil: 1
+  recoilX:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0.12671255
+      outSlope: 0.12671255
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 0.11722936
+      value: 0.014854431
+      inSlope: 0.08717621
+      outSlope: 0.08717621
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.096715815
+    - serializedVersion: 3
+      time: 0.31043607
+      value: -0.013479859
+      inSlope: 0.07768841
+      outSlope: 0.07768841
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.18840523
+      outWeight: 0.093630046
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0.01954838
+      outSlope: 0.01954838
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  recoilY:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 0.5551441
+      value: 0.5551441
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  xRecoilAmount: 100
+  yRecoilAmount: 1
+  recoilRelaxSpeed: 6
+  applyDifferentRecoilOnAiming: 1
+  xRecoilAmountOnAiming: 50
+  yRecoilAmountOnAiming: 0.5
+  damagePerBullet: 2
+  applyDamageReductionBasedOnDistance: 0
+  minimumDistanceToApplyDamageReduction: 40.3
+  damageReductionMultiplier: 1
+  criticalDamageMultiplier: 1.5
+  limitedMagazines: 0
+  totalMagazines: 1
+  showBulletShells: 1
+  bulletHoleImpact:
+    defaultImpact: {fileID: 2462405574108921655, guid: e6d36bb0ebdf6cc4dacdeee8b6e8a0ce, type: 3}
+    bulletHoleImpact:
+    - layerName: Ground
+      bulletHoleImpact: {fileID: 2462405574108921655, guid: e6d36bb0ebdf6cc4dacdeee8b6e8a0ce, type: 3}
+      cachedLayerIndex: 3
+    - layerName: Enemy
+      bulletHoleImpact: {fileID: 2462405574108921655, guid: 8c95f7225cf58144d86befe4ddc08efb, type: 3}
+      cachedLayerIndex: 7
+    - layerName: Grass
+      bulletHoleImpact: {fileID: 2462405574108921655, guid: 96098beba501e3247b9452e9455f6189, type: 3}
+      cachedLayerIndex: 10
+    - layerName: Metal
+      bulletHoleImpact: {fileID: 2462405574108921655, guid: e6d36bb0ebdf6cc4dacdeee8b6e8a0ce, type: 3}
+      cachedLayerIndex: 11
+    - layerName: Mud
+      bulletHoleImpact: {fileID: 2462405574108921655, guid: 4445bafd3b5e24c4eb41ba27f6a44af4, type: 3}
+      cachedLayerIndex: 12
+    - layerName: Wood
+      bulletHoleImpact: {fileID: 2462405574108921655, guid: 49ec6833820c5774ea4015ac770e6801, type: 3}
+      cachedLayerIndex: 13
+  muzzleVFX: {fileID: 1336949550903370, guid: 679d294f11bff5d49b2fc3da2db6c3b7, type: 3}
+  bulletGraphics: {fileID: 8223321369896048100, guid: 7398cf6333f343048878df03af22c20a, type: 3}
+  useProceduralShot: 0
+  proceduralShotPattern: {fileID: 0}
+  audioSFX:
+    shooting:
+    - {fileID: 8300000, guid: 9cccbc0c49ea02e44ac68422bc2714e8, type: 3}
+    holster: {fileID: 8300000, guid: 6a6bf3bfedd8c184db7f1ebe0c4cc980, type: 3}
+    unholster: {fileID: 8300000, guid: d4a4b9d733759fd4e9447d7ad55f0ed7, type: 3}
+    reload: {fileID: 8300000, guid: 379ac0d7119ad4842b7cd122cfd11307, type: 3}
+    emptyMagReload: {fileID: 8300000, guid: 54f694adad0bc9d4994e6ed4bfb86ceb, type: 3}
+    emptyMagShoot: {fileID: 8300000, guid: 5959d65463fbfe342a9219287eb7315f, type: 3}
+  pitchVariationFiringSFX: 0.15
+  grapplesFromTip: 0
+  camShakeAmount: 0.07
+  camShakeAimMultiplier: 0.8
+  camShakeCrouchMultiplier: 0.8
+  applyFOVEffectOnShooting: 1
+  FOVValueToSubtract: 2
+  AimingFOVValueToSubtract: 1
+  amountOfShootAnimations: 0
+  bulletTrail: {fileID: 1436881700163988445, guid: 72fbb691dea891c45a6caa10b437b857, type: 3}
+  damagePerHit: 12
+  attackRate: 1.36
+  hitDelay: 0
+  hitDelays: []
+  attackRange: 1.91
+  dontShowMagazine: 0
+  locomotionTransitions:
+    overrideTransitions: 0
+    idleToWalkSpeed: 2
+    walkToIdleSpeed: 2
+    walkToRunSpeed: 2
+    runToWalkSpeed: 2
+  currentPreset: {fileID: 0}
+  presetName: PistolPreset

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 78bac7e9072a77240b2f29c564aef43a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/ScriptableObjects/AttachmentsIdentifiers/OldScope.asset
+  uploadId: 937790

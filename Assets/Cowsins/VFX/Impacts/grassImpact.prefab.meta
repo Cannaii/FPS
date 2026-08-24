@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 34d4d141820004f42859ed965f90dc8d
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/VFX/Impacts/grassImpact.prefab
+  uploadId: 937790

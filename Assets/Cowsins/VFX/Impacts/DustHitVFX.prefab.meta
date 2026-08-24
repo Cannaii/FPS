@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 0e7085524eba6354eaa3c685ade12e8c
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/VFX/Impacts/DustHitVFX.prefab
+  uploadId: 937790

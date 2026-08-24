@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6507c10bad44f2641b147137c92fe70f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/Props/EmergencyLamp/roof_emergencyLamp.controller
+  uploadId: 937790

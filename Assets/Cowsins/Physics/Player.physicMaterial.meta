@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 19331997541a30b459cebc91f1a13e63
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 13400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Physics/Player.physicMaterial
+  uploadId: 937790

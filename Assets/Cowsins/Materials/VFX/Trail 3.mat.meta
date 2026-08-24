@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 20f654e64c9cd944c9abb34e41aee92d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/VFX/Trail 3.mat
+  uploadId: 937790

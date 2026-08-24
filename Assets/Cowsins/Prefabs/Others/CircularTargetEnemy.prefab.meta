@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: b9c8e0d0f0afbb34aa2585436023090f
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Others/CircularTargetEnemy.prefab
+  uploadId: 937790

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 809ba16590bb53a4f82ae81f1d1dbc5a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/DragAndDropExtras/GenericDestructible.prefab
+  uploadId: 937790

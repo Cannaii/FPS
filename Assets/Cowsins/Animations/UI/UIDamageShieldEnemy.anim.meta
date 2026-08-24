@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a8591de577f81cb4f8c127232926280a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/UI/UIDamageShieldEnemy.anim
+  uploadId: 937790

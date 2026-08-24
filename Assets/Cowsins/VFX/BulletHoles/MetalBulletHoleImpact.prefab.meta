@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e6d36bb0ebdf6cc4dacdeee8b6e8a0ce
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/VFX/BulletHoles/MetalBulletHoleImpact.prefab
+  uploadId: 937790

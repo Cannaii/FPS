@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: fce63d88e70b44d4c8eb952a27e382ae
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/UI/DamagePopUp.anim
+  uploadId: 937790

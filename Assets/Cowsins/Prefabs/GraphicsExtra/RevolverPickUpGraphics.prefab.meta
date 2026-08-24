@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8d1761b2a54f6bd41993764e9be34f9d
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/GraphicsExtra/RevolverPickUpGraphics.prefab
+  uploadId: 937790

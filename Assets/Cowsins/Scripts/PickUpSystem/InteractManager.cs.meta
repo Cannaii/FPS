@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: c5649658c34b2c54eaf4bd18f7dcc91d
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/PickUpSystem/InteractManager.cs
+  uploadId: 937790

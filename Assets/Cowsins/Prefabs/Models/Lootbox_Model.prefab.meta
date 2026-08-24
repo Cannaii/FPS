@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 36b645d293f6b9b43b00505e8b2a9635
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Models/Lootbox_Model.prefab
+  uploadId: 937790

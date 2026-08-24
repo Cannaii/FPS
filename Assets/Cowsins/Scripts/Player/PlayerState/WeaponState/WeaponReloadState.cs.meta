@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 43993e4d9aef1dd4cbd77e8ed29cdb19
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {fileID: 2800000, guid: 4648bb2bec0f9b442813a794338d90aa, type: 3}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/Player/PlayerState/WeaponState/WeaponReloadState.cs
+  uploadId: 937790

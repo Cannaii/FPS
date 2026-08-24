@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 4548cbc3bcf005f499456b785b79480e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/Weapons/Melee/GunsEffects.controller
+  uploadId: 937790

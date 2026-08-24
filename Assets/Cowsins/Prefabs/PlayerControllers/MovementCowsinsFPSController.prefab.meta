@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8472a9cdac198684a9b2426ac2dd66c3
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/PlayerControllers/MovementCowsinsFPSController.prefab
+  uploadId: 937790

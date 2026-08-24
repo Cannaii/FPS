@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7e72299f1a3b62c4291553375d91d63c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2655988077585873504
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/CowsinsPresets/Weapons/ShotgunPreset.preset
+  uploadId: 937790

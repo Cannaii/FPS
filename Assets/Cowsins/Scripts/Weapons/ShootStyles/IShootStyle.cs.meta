@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: f117d76d34d7dea4d9ff200432672807
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {fileID: 2800000, guid: 90f76f80b0d2fd34d849d136a413d31a, type: 3}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/Weapons/ShootStyles/IShootStyle.cs
+  uploadId: 937790

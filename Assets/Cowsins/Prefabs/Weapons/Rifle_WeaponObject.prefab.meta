@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5ca5d64a3d7b321408787460766590cd
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Weapons/Rifle_WeaponObject.prefab
+  uploadId: 937790

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: cb72ced08f9f6914f99c14a5906a87ed
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {fileID: 2800000, guid: a56e11d69f295a041aa9eca6d079f930, type: 3}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/Behaviours/Weapon Behaviours/WeaponInventorySystem.cs
+  uploadId: 937790

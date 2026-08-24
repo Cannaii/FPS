@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: cfced49828f091a4d9b14c2f2496b8da
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2655988077585873504
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/CowsinsPresets/HorizontalCrosshair.preset
+  uploadId: 937790

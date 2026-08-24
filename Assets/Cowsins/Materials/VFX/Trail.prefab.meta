@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 72fbb691dea891c45a6caa10b437b857
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/VFX/Trail.prefab
+  uploadId: 937790

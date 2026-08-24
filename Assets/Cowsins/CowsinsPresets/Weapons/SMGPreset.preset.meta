@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: aaaa7a81895b55a429fa69b1632ac6eb
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2655988077585873504
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/CowsinsPresets/Weapons/SMGPreset.preset
+  uploadId: 937790

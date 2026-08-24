@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 510dfc58c89aeb54682ad4f838ba1c15
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/Weapons/Rifle/RifleMag.mat
+  uploadId: 937790

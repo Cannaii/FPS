@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 58f39a7a1ebd520478206b9e8b5ff4e6
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {fileID: 2800000, guid: 85be87bef6175f24680a1ffdd48cace1, type: 3}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/Editor/Unity6WindowEditor.cs
+  uploadId: 937790

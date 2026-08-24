@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 58a258ad70019c14fa932814f5d6d243
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/Props/TurretAnimatorController.controller
+  uploadId: 937790

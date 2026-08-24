@@ -1,0 +1,146 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d01ed731769af95429c32ba164942b3e, type: 3}
+  m_Name: Katana
+  m_EditorClassIdentifier: 
+  _name: Katana
+  description: 
+  icon: {fileID: 21300000, guid: a98b28d133ca3494bb1232bc91acefdf, type: 3}
+  pickUpGraphics: {fileID: 7200103117172117980, guid: 34dc0068ee925c44bbaa6249b87c70db, type: 3}
+  maxStack: 1
+  itemSize: {x: 3, y: 1}
+  irregularItemIcon: {fileID: 21300000, guid: 56beb5210760fb645a2bbd2b497dcc4d, type: 3}
+  applyWeight: 1
+  weightMultiplier: 1
+  weaponObject: {fileID: 4366474878721369578, guid: 42abd6e325359634480b665a0f19e9b6, type: 3}
+  shootStyle: 2
+  shootMethod: 1
+  holdProgressSpeed: 0
+  reloadStyle: 0
+  allowCancelReload: 0
+  bulletTypeIdentifier: {fileID: 0}
+  projectile: {fileID: 0}
+  projectileUsesGravity: 0
+  shootDelay: 0
+  bulletDuration: 0.1
+  speed: 40
+  explosionOnHit: 0
+  hurtsPlayer: 0
+  explosionRadius: 0
+  explosionForce: 0
+  explosionVFX: {fileID: 0}
+  continuousFire: 0
+  fireRate: 0.3
+  reloadTime: 1.2
+  emptyReloadTime: 1
+  coolSpeed: 0
+  cooledPercentageAfterOverheat: 0
+  infiniteBullets: 0
+  magazineSize: 17
+  bulletsPerFire: 1
+  ammoCostPerFire: 0
+  bulletRange: 100
+  timeBetweenShots: 0
+  penetrationAmount: 1.39
+  penetrationDamageReduction: 0.579
+  allowAim: 0
+  ignoreAimPoint: 0
+  aimDistance: 0
+  aimingRotation: {x: 0, y: 0, z: 0}
+  aimingSpeed: 20
+  aimingFOV: 45
+  allowAimingIfReloading: 0
+  movementSpeedWhileAiming: 0
+  setMovementSpeedWhileAiming: 0
+  crosshairResize: 40
+  crosshairParts:
+    topPart: 0
+    downPart: 0
+    leftPart: 1
+    rightPart: 1
+    center: 0
+    topLeftBracket: 0
+    topRightBracket: 0
+    bottomLeftBracket: 0
+    bottomRightBracket: 0
+  applyBulletSpread: 1
+  spreadAmount: 0.02
+  aimSpreadAmount: 0
+  applyRecoil: 0
+  recoilX:
+    serializedVersion: 2
+    m_Curve: []
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  recoilY:
+    serializedVersion: 2
+    m_Curve: []
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  xRecoilAmount: 0
+  yRecoilAmount: 0
+  recoilRelaxSpeed: 0
+  applyDifferentRecoilOnAiming: 0
+  xRecoilAmountOnAiming: 0
+  yRecoilAmountOnAiming: 0
+  damagePerBullet: 2
+  applyDamageReductionBasedOnDistance: 0
+  minimumDistanceToApplyDamageReduction: 0
+  damageReductionMultiplier: 0
+  criticalDamageMultiplier: 1
+  limitedMagazines: 0
+  totalMagazines: 2
+  showBulletShells: 1
+  bulletHoleImpact:
+    defaultImpact: {fileID: 2462405574108921655, guid: 77a50181c3428fb44958a13259f148cc, type: 3}
+    bulletHoleImpact: []
+  muzzleVFX: {fileID: 1902492544533172939, guid: 49e43c4a31eeeb64badc54659688e1c4, type: 3}
+  bulletGraphics: {fileID: 0}
+  useProceduralShot: 0
+  proceduralShotPattern: {fileID: 0}
+  audioSFX:
+    shooting:
+    - {fileID: 8300000, guid: e996a527a4e727e48a73fb2abdaad31a, type: 3}
+    holster: {fileID: 8300000, guid: cdb75b77d57aa28489f28708909cf71b, type: 3}
+    unholster: {fileID: 8300000, guid: e433732217f5a9944a24887aa41cfe99, type: 3}
+    reload: {fileID: 8300000, guid: 5959d65463fbfe342a9219287eb7315f, type: 3}
+    emptyMagReload: {fileID: 8300000, guid: bd56520de0451944eb2bec300c6a43c3, type: 3}
+    emptyMagShoot: {fileID: 8300000, guid: bd56520de0451944eb2bec300c6a43c3, type: 3}
+  pitchVariationFiringSFX: 0.15
+  grapplesFromTip: 0
+  camShakeAmount: 0.1
+  camShakeAimMultiplier: 0
+  camShakeCrouchMultiplier: 0
+  applyFOVEffectOnShooting: 0
+  FOVValueToSubtract: 0
+  AimingFOVValueToSubtract: 0
+  amountOfShootAnimations: 3
+  bulletTrail: {fileID: 0}
+  damagePerHit: 20
+  attackRate: 0.7
+  hitDelay: 0
+  hitDelays:
+  - 0.07
+  - 0.3
+  - 0.25
+  attackRange: 2
+  dontShowMagazine: 0
+  locomotionTransitions:
+    overrideTransitions: 0
+    idleToWalkSpeed: 2
+    walkToIdleSpeed: 2
+    walkToRunSpeed: 2
+    runToWalkSpeed: 2
+  currentPreset: {fileID: 2655988077585873504, guid: 3a7cd1713623be04a830335a5dbbde78, type: 2}
+  presetName: MeleePreset

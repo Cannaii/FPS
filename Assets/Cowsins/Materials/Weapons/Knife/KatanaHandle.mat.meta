@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: ecd6daa92a82a40428e191e1cd5acdaf
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/Weapons/Knife/KatanaHandle.mat
+  uploadId: 937790

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: b85c5cc16ca602a49b466090cbb30bca
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/GraphicsExtra/OldWeapons/RiflePickUp.prefab
+  uploadId: 937790

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 60c38950727564c4ea1320e96c21e88e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/Weapons/NewWeapons/RifleAnimatorController.controller
+  uploadId: 937790

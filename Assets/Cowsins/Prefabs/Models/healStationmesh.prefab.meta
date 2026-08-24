@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7d360325a9bf0eb419f4f14eb6f844f4
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Models/healStationmesh.prefab
+  uploadId: 937790

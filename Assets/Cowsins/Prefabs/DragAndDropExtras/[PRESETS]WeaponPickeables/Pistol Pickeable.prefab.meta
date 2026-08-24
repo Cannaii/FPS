@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: e996cba7e26958941959a9058c0a8811
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/DragAndDropExtras/[PRESETS]WeaponPickeables/Pistol
+    Pickeable.prefab
+  uploadId: 937790

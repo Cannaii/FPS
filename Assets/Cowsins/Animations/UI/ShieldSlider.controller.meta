@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: cb377323b097f5343a2d3746950450fc
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/UI/ShieldSlider.controller
+  uploadId: 937790

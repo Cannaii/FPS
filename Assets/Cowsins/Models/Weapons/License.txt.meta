@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 38bac2e1b75c8c24abc9d84df24a6f0e
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Models/Weapons/License.txt
+  uploadId: 937790

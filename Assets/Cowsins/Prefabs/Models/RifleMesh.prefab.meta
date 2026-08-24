@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 598a57f8695daac4ca4e3046e4812549
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Models/RifleMesh.prefab
+  uploadId: 937790

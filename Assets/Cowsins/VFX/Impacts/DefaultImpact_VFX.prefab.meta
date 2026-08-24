@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: bdc88374f61c1a24499f2d8d777a3cdc
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/VFX/Impacts/DefaultImpact_VFX.prefab
+  uploadId: 937790

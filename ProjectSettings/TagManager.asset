@@ -3,7 +3,13 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - Enemy
+  - Critical
+  - FirePoint
+  - Weapons
+  - Ramp
+  - BodyShot
   layers:
   - Default
   - TransparentFX
@@ -13,20 +19,20 @@ TagManager:
   - UI
   - 
   - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
+  - Ground
+  - Weapons
+  - Enemy
+  - Object
+  - Interactable
+  - Grass
+  - Metal
+  - Mud
+  - Wood
+  - UITop
+  - PostProcessing
+  - Effects
+  - Player
+  - Ladder
   - 
   - 
   - 

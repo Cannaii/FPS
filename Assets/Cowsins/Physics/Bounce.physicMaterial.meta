@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3d2e86a39957d604aac1f9b044eb9dfe
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 13400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Physics/Bounce.physicMaterial
+  uploadId: 937790

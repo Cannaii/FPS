@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5e4d560583f961f4c8e2cb20c91abfff
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/Weapons/General/Weapon_Detail.mat
+  uploadId: 937790

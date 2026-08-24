@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 0e05b8f4c454a2241b09550b96f00e3d
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/GraphicsExtra/OldWeapons/FamasPickUp.prefab
+  uploadId: 937790

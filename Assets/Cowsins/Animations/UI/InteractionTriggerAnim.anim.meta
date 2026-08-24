@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d5bb466ed61e31246abc100fa20a5d54
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/UI/InteractionTriggerAnim.anim
+  uploadId: 937790

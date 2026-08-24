@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 866bf6803807eff4cad16e0ebed2e8f8
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Weapons/Shotgun_WeaponObject.prefab
+  uploadId: 937790

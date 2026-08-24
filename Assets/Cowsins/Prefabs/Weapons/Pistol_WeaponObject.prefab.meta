@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f19ba59a96cc01c4aad28a7bb59dc612
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Weapons/Pistol_WeaponObject.prefab
+  uploadId: 937790

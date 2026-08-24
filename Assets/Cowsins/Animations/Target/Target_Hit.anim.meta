@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: e666004f91bfba44989f4c162d8c12cc
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/Target/Target_Hit.anim
+  uploadId: 937790

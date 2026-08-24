@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5ae55c7f5793d414b9510fee152d342e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Materials/Others/AmmoBox/AmmoBox-Color.mat
+  uploadId: 937790

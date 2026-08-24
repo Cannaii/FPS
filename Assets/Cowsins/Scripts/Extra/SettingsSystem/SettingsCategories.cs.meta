@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 46e9bc77c1f11f440997ac97a05c6a8a
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Scripts/Extra/SettingsSystem/SettingsCategories.cs
+  uploadId: 937790

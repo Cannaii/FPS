@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6107873cf6c780c4eaa543e7f57b2da4
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Animations/UI/DashUIElement.anim
+  uploadId: 937790

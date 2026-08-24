@@ -1,0 +1,197 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d01ed731769af95429c32ba164942b3e, type: 3}
+  m_Name: RocketLauncher
+  m_EditorClassIdentifier: 
+  _name: Rocket Launcher
+  description: 
+  icon: {fileID: 21300000, guid: db9dd1ce0b703cb428044d1d34eadf3e, type: 3}
+  pickUpGraphics: {fileID: 2092819957812016947, guid: 8a7fc9801d722d2438c5a61436ca30a1, type: 3}
+  maxStack: 1
+  itemSize: {x: 3, y: 1}
+  irregularItemIcon: {fileID: 21300000, guid: 6d7eabb4912bbd148808823d1bf33de2, type: 3}
+  applyWeight: 1
+  weightMultiplier: 0.8
+  weaponObject: {fileID: 4366474878721369578, guid: 746a44ab2ff89b540aef7873f223835d, type: 3}
+  shootStyle: 1
+  shootMethod: 1
+  holdProgressSpeed: 454
+  reloadStyle: 0
+  allowCancelReload: 0
+  bulletTypeIdentifier: {fileID: 0}
+  projectile: {fileID: 7132911041123686403, guid: 9771f073acaf99348baed193b81f5eb3, type: 3}
+  projectileUsesGravity: 0
+  shootDelay: 0
+  bulletDuration: 8
+  speed: 40
+  explosionOnHit: 1
+  hurtsPlayer: 0
+  explosionRadius: 10
+  explosionForce: 5
+  explosionVFX: {fileID: 5018994898019192216, guid: ab977a440365d1c4092c15552e5ff157, type: 3}
+  continuousFire: 0
+  fireRate: 0.35
+  reloadTime: 4.4
+  emptyReloadTime: 4.4
+  coolSpeed: 0.3
+  cooledPercentageAfterOverheat: 0.6
+  infiniteBullets: 0
+  magazineSize: 1
+  bulletsPerFire: 1
+  ammoCostPerFire: 1
+  bulletRange: 100
+  timeBetweenShots: 0
+  penetrationAmount: 8.81
+  penetrationDamageReduction: 0.579
+  allowAim: 1
+  ignoreAimPoint: 0
+  aimDistance: 0.2
+  aimingRotation: {x: -2, y: 0, z: -6}
+  aimingSpeed: 6
+  aimingFOV: 45
+  allowAimingIfReloading: 0
+  movementSpeedWhileAiming: 6
+  setMovementSpeedWhileAiming: 1
+  crosshairResize: 40
+  crosshairParts:
+    topPart: 1
+    downPart: 1
+    leftPart: 1
+    rightPart: 1
+    center: 0
+    topLeftBracket: 0
+    topRightBracket: 0
+    bottomLeftBracket: 0
+    bottomRightBracket: 0
+  applyBulletSpread: 1
+  spreadAmount: 0
+  aimSpreadAmount: 0.01
+  applyRecoil: 0
+  recoilX:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0.12671255
+      outSlope: 0.12671255
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 0.11722936
+      value: 0.014854431
+      inSlope: 0.08717621
+      outSlope: 0.08717621
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.096715815
+    - serializedVersion: 3
+      time: 0.31043607
+      value: -0.013479859
+      inSlope: 0.07768841
+      outSlope: 0.07768841
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.18840523
+      outWeight: 0.093630046
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0.01954838
+      outSlope: 0.01954838
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  recoilY:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  xRecoilAmount: 80
+  yRecoilAmount: 10
+  recoilRelaxSpeed: 1
+  applyDifferentRecoilOnAiming: 1
+  xRecoilAmountOnAiming: 40
+  yRecoilAmountOnAiming: 2
+  damagePerBullet: 20
+  applyDamageReductionBasedOnDistance: 0
+  minimumDistanceToApplyDamageReduction: 40.3
+  damageReductionMultiplier: 1
+  criticalDamageMultiplier: 1
+  limitedMagazines: 0
+  totalMagazines: 1
+  showBulletShells: 0
+  bulletHoleImpact:
+    defaultImpact: {fileID: 2462405574108921655, guid: e6d36bb0ebdf6cc4dacdeee8b6e8a0ce, type: 3}
+    bulletHoleImpact: []
+  muzzleVFX: {fileID: 1336949550903370, guid: 93a506c1d0836d24a898a865f7823b4a, type: 3}
+  bulletGraphics: {fileID: 8223321369896048100, guid: 7398cf6333f343048878df03af22c20a, type: 3}
+  useProceduralShot: 0
+  proceduralShotPattern: {fileID: 0}
+  audioSFX:
+    shooting:
+    - {fileID: 8300000, guid: 31fe3c9004e2e0343a96a4f962909f5e, type: 3}
+    holster: {fileID: 8300000, guid: 1b69810418431bc4a806d588ee8db9c0, type: 3}
+    unholster: {fileID: 8300000, guid: f76410521cce7434c8cb8c1a981d069e, type: 3}
+    reload: {fileID: 8300000, guid: 1f0d11e2f60ab0942af5c83cefe099f2, type: 3}
+    emptyMagReload: {fileID: 8300000, guid: 1f0d11e2f60ab0942af5c83cefe099f2, type: 3}
+    emptyMagShoot: {fileID: 8300000, guid: 5959d65463fbfe342a9219287eb7315f, type: 3}
+  pitchVariationFiringSFX: 0.15
+  grapplesFromTip: 0
+  camShakeAmount: 0.15
+  camShakeAimMultiplier: 0.8
+  camShakeCrouchMultiplier: 0.8
+  applyFOVEffectOnShooting: 1
+  FOVValueToSubtract: 4
+  AimingFOVValueToSubtract: 2
+  amountOfShootAnimations: 0
+  bulletTrail: {fileID: 1436881700163988445, guid: 72fbb691dea891c45a6caa10b437b857, type: 3}
+  damagePerHit: 12
+  attackRate: 1.36
+  hitDelay: 0
+  hitDelays: []
+  attackRange: 1.91
+  dontShowMagazine: 0
+  locomotionTransitions:
+    overrideTransitions: 1
+    idleToWalkSpeed: 2
+    walkToIdleSpeed: 2
+    walkToRunSpeed: 3
+    runToWalkSpeed: 3
+  currentPreset: {fileID: 2655988077585873504, guid: 9cc82a2fd628f0e47ba4c4466b711832, type: 2}
+  presetName: ProjectileWeaponPreset

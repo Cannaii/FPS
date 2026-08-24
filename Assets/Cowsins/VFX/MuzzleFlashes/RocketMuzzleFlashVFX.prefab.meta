@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 93a506c1d0836d24a898a865f7823b4a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/VFX/MuzzleFlashes/RocketMuzzleFlashVFX.prefab
+  uploadId: 937790

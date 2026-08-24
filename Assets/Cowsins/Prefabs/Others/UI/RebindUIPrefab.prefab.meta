@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f25dcd618d3acd64795bf8bb32edb6c9
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Others/UI/RebindUIPrefab.prefab
+  uploadId: 937790

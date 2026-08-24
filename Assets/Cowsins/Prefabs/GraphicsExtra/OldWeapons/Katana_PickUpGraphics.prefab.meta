@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 34dc0068ee925c44bbaa6249b87c70db
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/GraphicsExtra/OldWeapons/Katana_PickUpGraphics.prefab
+  uploadId: 937790

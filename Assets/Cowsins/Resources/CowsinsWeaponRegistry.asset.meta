@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 4251ecc3c2c58324b80f5f6664e36f0f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Resources/CowsinsWeaponRegistry.asset
+  uploadId: 937790

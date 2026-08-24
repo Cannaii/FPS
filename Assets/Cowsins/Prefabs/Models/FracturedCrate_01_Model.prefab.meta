@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 18cfc6243e6027e45802f92783e6f66a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/Models/FracturedCrate_01_Model.prefab
+  uploadId: 937790

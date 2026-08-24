@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c15c600c4c9fa7644bf513ff0cabc9ca
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/Prefabs/GraphicsExtra/Attachments/ExtendedPistolMagazine_GraphicsPickUp.prefab
+  uploadId: 937790

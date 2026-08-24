@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 101d537c269e3384d937e0a538fe37ca
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 218594
+  packageName: FPS Engine
+  packageVersion: 1.5.10
+  assetPath: Assets/Cowsins/VFX/Impacts/metalImpact.prefab
+  uploadId: 937790
