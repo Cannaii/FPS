@@ -17,6 +17,22 @@ namespace AFPS.Presentation.Characters
         private Transform simulationTransform;
 
         /// <summary>
+        /// 校正偏移衰减到一半所需的时间，单位为秒。
+        /// 数值越小，画面越快靠近校正后的模拟位置。
+        /// </summary>
+        [SerializeField]
+        [Min(0f)]
+        private float correctionHalfLife = 0.08f;
+
+        /// <summary>
+        /// 允许使用平滑追赶的最大校正距离，单位为米。
+        /// 超过该距离时直接跳到校正位置。
+        /// </summary>
+        [SerializeField]
+        [Min(0f)]
+        private float maxSmoothCorrectionDistance = 1f;
+
+        /// <summary>
         /// 获取当前显示对象在世界坐标中的位置。
         /// 该值仅用于创建初始模拟状态。
         /// </summary>
@@ -32,6 +48,11 @@ namespace AFPS.Presentation.Characters
         /// 表示 PlayerView 是否已经收到过有效的模拟状态。
         /// </summary>
         private bool hasState;
+
+        /// <summary>
+        /// 管理只作用于画面的校正偏移。
+        /// </summary>
+        private readonly VisualCorrectionSmoother correctionSmoother = new VisualCorrectionSmoother();
 
         /// <summary>
         /// 在组件初始化时补全显示对象引用。
@@ -56,6 +77,30 @@ namespace AFPS.Presentation.Characters
         }
 
         /// <summary>
+        /// 接受校正后的模拟状态，同时保留校正前的画面位置并逐渐追赶新状态。
+        /// </summary>
+        public void ApplyCorrection(in PlayerState state, float tickAlpha, float tickDeltaTime)
+        {
+            Vector3 currentVisualPosition = simulationTransform.position;
+            latestState = state;
+            hasState = true;
+
+            Vector3 correctedTargetPosition = CalculateExtrapolatedPosition(tickAlpha, tickDeltaTime);
+            correctionSmoother.Capture(currentVisualPosition, correctedTargetPosition, maxSmoothCorrectionDistance);
+        }
+
+        /// <summary>
+        /// 立即应用状态并清除所有视觉偏移，用于无法重放历史时的硬校正。
+        /// </summary>
+        public void SnapToState(in PlayerState state)
+        {
+            latestState = state;
+            hasState = true;
+            correctionSmoother.Clear();
+            simulationTransform.position = state.Position;
+        }
+
+        /// <summary>
         /// 根据最近的模拟状态和当前 Tick 进度计算本地玩家的显示位置。
         /// 当前采用速度外推，使画面能够在两个固定 Tick 之间继续移动。
         /// 
@@ -66,24 +111,22 @@ namespace AFPS.Presentation.Characters
         /// <param name="tickDeltaTime">
         /// 单个模拟 Tick 的固定时长，单位为秒。
         /// </param>
-        public void Render(
-            float tickAlpha,
-            float tickDeltaTime)
+        public void Render(float tickAlpha, float tickDeltaTime, float renderDeltaTime)
         {
             if (!hasState)
             {
                 return;
             }
 
-            float elapsedAfterTick =
-                tickAlpha * tickDeltaTime;
+            Vector3 extrapolatedPosition = CalculateExtrapolatedPosition(tickAlpha, tickDeltaTime);
+            Vector3 correctionOffset = correctionSmoother.Update(renderDeltaTime, correctionHalfLife);
+            simulationTransform.position = extrapolatedPosition + correctionOffset;
+        }
 
-            Vector3 extrapolatedPosition =
-                latestState.Position +
-                latestState.Velocity * elapsedAfterTick;
-
-            simulationTransform.position =
-                extrapolatedPosition;
+        private Vector3 CalculateExtrapolatedPosition(float tickAlpha, float tickDeltaTime)
+        {
+            float elapsedAfterTick = tickAlpha * tickDeltaTime;
+            return latestState.Position + latestState.Velocity * elapsedAfterTick;
         }
     }
 }

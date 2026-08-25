@@ -464,6 +464,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   simulationTransform: {fileID: 1401334082}
+  correctionHalfLife: 0.08
+  maxSmoothCorrectionDistance: 1
 --- !u!114 &1402812803
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -496,6 +498,19 @@ MonoBehaviour:
   groundAcceleration: 20
   gravity: 20
   jumpSpeed: 8
+  simulatedInputDelayTicks: 3
+  simulatedStateDelayTicks: 3
+  simulatedServerSpeedScale: 1
+  positionErrorThreshold: 0.001
+  velocityErrorThreshold: 0.001
+  lastAcknowledgedInputTick: 0
+  latestPositionError: 0
+  latestVelocityError: 0
+  latestGroundedMismatch: 0
+  missingPredictionHistoryCount: 0
+  correctionCount: 0
+  hardCorrectionCount: 0
+  lastReplayedTickCount: 0
 --- !u!114 &1402812805
 MonoBehaviour:
   m_ObjectHideFlags: 0

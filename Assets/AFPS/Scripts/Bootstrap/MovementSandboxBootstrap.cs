@@ -1,9 +1,12 @@
+using AFPS.Core.Collections;
 using AFPS.Core.Tick;
 using AFPS.Input;
+using AFPS.NetCode.Messages;
+using AFPS.NetCode.Prediction;
+using AFPS.NetCode.Simulation;
 using AFPS.Presentation.Characters;
 using AFPS.Simulation.Characters;
 using UnityEngine;
-using AFPS.Core.Collections;
 
 namespace AFPS.Bootstrap
 {
@@ -47,19 +50,54 @@ namespace AFPS.Bootstrap
 
         /// <summary>
         /// 玩家受到的重力加速度大小，单位为米每二次方秒。
-        /// 当前水平移动阶段暂时不会使用该值。
+        /// 运行时模拟将该正数作为向下的加速度使用。
         /// </summary>
         [SerializeField]
         [Min(0f)]
         private float gravity = 20f;
 
         /// <summary>
-        /// 玩家跳跃时获得的初始向上速度，单位为米每秒。
-        /// 当前水平移动阶段暂时不会使用该值。
+        /// 玩家成功跳跃时获得的初始向上速度，单位为米每秒。
         /// </summary>
         [SerializeField]
         [Min(0f)]
         private float jumpSpeed = 8f;
+
+        /// <summary>
+        /// 客户端输入到达模拟服务器前等待的 Tick 数。
+        /// </summary>
+        [SerializeField]
+        [Min(0)]
+        private int simulatedInputDelayTicks = 3;
+
+        /// <summary>
+        /// 服务器权威状态返回客户端前等待的 Tick 数。
+        /// </summary>
+        [SerializeField]
+        [Min(0)]
+        private int simulatedStateDelayTicks = 3;
+
+        /// <summary>
+        /// 模拟服务器最大地面速度相对客户端配置的倍率。
+        /// 保持 1 表示配置一致；调成其他值可故意制造预测误差。
+        /// </summary>
+        [SerializeField]
+        [Min(0.01f)]
+        private float simulatedServerSpeedScale = 1f;
+
+        /// <summary>
+        /// 允许忽略的位置误差阈值，单位为米。
+        /// </summary>
+        [SerializeField]
+        [Min(0f)]
+        private float positionErrorThreshold = 0.001f;
+
+        /// <summary>
+        /// 允许忽略的速度误差阈值，单位为米每秒。
+        /// </summary>
+        [SerializeField]
+        [Min(0f)]
+        private float velocityErrorThreshold = 0.001f;
 
         /// <summary>
         /// 当前客户端持有的最新玩家模拟状态。
@@ -72,6 +110,11 @@ namespace AFPS.Bootstrap
         /// 客户端和服务器以后必须使用一致的配置。
         /// </summary>
         private PlayerSimulationConfig simulationConfig;
+
+        /// <summary>
+        /// 在当前进程内维护独立权威状态和固定网络延迟的模拟服务器。
+        /// </summary>
+        private SimulatedAuthoritativeServer simulatedServer;
 
         /// <summary>
         /// 表示移动实验是否已经完成初始化。
@@ -97,6 +140,54 @@ namespace AFPS.Bootstrap
         private TickBuffer<PlayerState> stateHistory;
 
         /// <summary>
+        /// 最近一次收到服务器确认的客户端输入 Tick，仅用于运行时观察。
+        /// </summary>
+        [SerializeField]
+        private uint lastAcknowledgedInputTick;
+
+        /// <summary>
+        /// 最近一次同 Tick 比较得到的位置误差，单位为米。
+        /// </summary>
+        [SerializeField]
+        private float latestPositionError;
+
+        /// <summary>
+        /// 最近一次同 Tick 比较得到的速度误差，单位为米每秒。
+        /// </summary>
+        [SerializeField]
+        private float latestVelocityError;
+
+        /// <summary>
+        /// 最近一次同 Tick 比较是否发现落地状态不一致。
+        /// </summary>
+        [SerializeField]
+        private bool latestGroundedMismatch;
+
+        /// <summary>
+        /// 因预测状态或输入历史缺失而无法完成重放的累计次数。
+        /// </summary>
+        [SerializeField]
+        private int missingPredictionHistoryCount;
+
+        /// <summary>
+        /// 预测误差超过阈值并成功完成回滚重放的累计次数。
+        /// </summary>
+        [SerializeField]
+        private int correctionCount;
+
+        /// <summary>
+        /// 历史缺失后直接采用服务器状态的累计次数。
+        /// </summary>
+        [SerializeField]
+        private int hardCorrectionCount;
+
+        /// <summary>
+        /// 最近一次成功校正时重新模拟的 Tick 数量。
+        /// </summary>
+        [SerializeField]
+        private int lastReplayedTickCount;
+
+        /// <summary>
         /// 组件启动时创建初始状态和运行时模拟配置。
         /// 使用 Start 可以确保 PlayerView 已经完成 Awake 初始化。
         /// </summary>
@@ -114,6 +205,9 @@ namespace AFPS.Bootstrap
                 return;
             }
 
+            inputHistory = new TickBuffer<PlayerInputCommand>(PredictionBufferCapacity);
+            stateHistory = new TickBuffer<PlayerState>(PredictionBufferCapacity);
+
             simulationConfig = new PlayerSimulationConfig(
                 maxGroundSpeed,
                 groundAcceleration,
@@ -127,6 +221,22 @@ namespace AFPS.Bootstrap
                 Velocity = Vector3.zero,
                 IsGrounded = true
             };
+
+            PlayerSimulationConfig serverSimulationConfig = new PlayerSimulationConfig(
+                maxGroundSpeed * simulatedServerSpeedScale,
+                groundAcceleration,
+                gravity,
+                jumpSpeed);
+
+            simulatedServer = new SimulatedAuthoritativeServer(
+                currentState,
+                serverSimulationConfig,
+                tickRunner.TickDeltaTime,
+                simulatedInputDelayTicks,
+                simulatedStateDelayTicks);
+
+            // 保存尚未处理任何输入时的模拟起点。
+            stateHistory.Store(currentState.Tick, currentState);
 
             playerView.ApplyState(currentState);
             initialized = true;
@@ -165,11 +275,10 @@ namespace AFPS.Bootstrap
                 return;
             }
 
-            // 这是基础速度外推方案。
-            // 当速度在 Tick 边界发生明显变化时，可能出现显示位置跳变。
             playerView.Render(
                 tickRunner.TickAlpha,
-                tickRunner.TickDeltaTime);
+                tickRunner.TickDeltaTime,
+                Time.unscaledDeltaTime);
         }
 
         /// <summary>
@@ -187,8 +296,11 @@ namespace AFPS.Bootstrap
                 return;
             }
 
-            PlayerInputCommand command =
-                inputCollector.ConsumeCommand(tick);
+            PlayerInputCommand command = inputCollector.ConsumeCommand(tick);
+
+            // 保存当前 Tick 的输入，供服务器校正时重新模拟。
+            inputHistory.Store(tick, command);
+            simulatedServer.SendInput(tick, command);
 
             currentState = PlayerSimulation.Simulate(
                 currentState,
@@ -196,7 +308,76 @@ namespace AFPS.Bootstrap
                 simulationConfig,
                 tickDeltaTime);
 
+            // 保存完成当前 Tick 后得到的本地预测状态。
+            stateHistory.Store(tick, currentState);
+
             playerView.ApplyState(currentState);
+
+            simulatedServer.Advance(tick);
+
+            while (simulatedServer.TryReceiveState(tick, out AuthoritativePlayerState authoritativeState))
+            {
+                if (!ReconcileAuthoritativeState(authoritativeState))
+                {
+                    break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 使用服务器权威状态校正客户端预测。
+        /// 历史完整时回滚并重放；历史缺失时执行硬校正。
+        /// </summary>
+        /// <returns>是否可以继续处理同一 Tick 内到达的其他服务器状态。</returns>
+        private bool ReconcileAuthoritativeState(in AuthoritativePlayerState authoritativeState)
+        {
+            lastAcknowledgedInputTick = authoritativeState.LastProcessedInputTick;
+
+            ReconciliationResult result = ClientPredictionReconciler.Reconcile(
+                authoritativeState,
+                currentState.Tick,
+                currentState,
+                inputHistory,
+                stateHistory,
+                simulationConfig,
+                tickRunner.TickDeltaTime,
+                positionErrorThreshold,
+                velocityErrorThreshold);
+
+            latestPositionError = result.Error.Position;
+            latestVelocityError = result.Error.Velocity;
+            latestGroundedMismatch = result.Error.GroundedMismatch;
+            lastReplayedTickCount = result.ReplayedTickCount;
+
+            if (result.Status == ReconciliationStatus.NoCorrection)
+            {
+                return true;
+            }
+
+            if (result.Status == ReconciliationStatus.Corrected)
+            {
+                currentState = result.State;
+                correctionCount++;
+                playerView.ApplyCorrection(
+                    currentState,
+                    tickRunner.TickAlpha,
+                    tickRunner.TickDeltaTime);
+                return true;
+            }
+
+            missingPredictionHistoryCount++;
+            hardCorrectionCount++;
+            currentState = authoritativeState.State;
+            inputHistory.Clear();
+            stateHistory.Clear();
+            stateHistory.Store(currentState.Tick, currentState);
+            playerView.SnapToState(currentState);
+
+            Debug.LogWarning(
+                $"Tick {lastAcknowledgedInputTick} 的预测历史不完整，已执行硬校正并清空旧历史。",
+                this);
+
+            return false;
         }
     }
 }

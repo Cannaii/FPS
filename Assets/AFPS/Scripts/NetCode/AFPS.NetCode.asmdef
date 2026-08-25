@@ -1,0 +1,17 @@
+{
+    "name": "AFPS.NetCode",
+    "rootNamespace": "AFPS.NetCode",
+    "references": [
+        "AFPS.Core",
+        "AFPS.Simulation"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

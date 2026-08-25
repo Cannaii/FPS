@@ -1,0 +1,18 @@
+{
+    "name": "AFPS.Transport.Unity",
+    "rootNamespace": "AFPS.Transport.Unity",
+    "references": [
+        "AFPS.NetCode",
+        "Unity.Collections",
+        "Unity.Networking.Transport"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -37,8 +37,7 @@ namespace AFPS.Input
             moveY = UnityEngine.Input.GetAxisRaw("Vertical");
 
             // 使用 |= 保留已经采集到但尚未被 Tick 消费的跳跃事件。
-            jumpPressedSinceLastTick |=
-                UnityEngine.Input.GetKeyDown(KeyCode.Space);
+            jumpPressedSinceLastTick |= UnityEngine.Input.GetKeyDown(KeyCode.Space);
         }
 
         /// <summary>

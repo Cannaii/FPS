@@ -5,7 +5,10 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "AFPS.Simulation",
-        "AFPS.Core"
+        "AFPS.Core",
+        "AFPS.NetCode",
+        "AFPS.Presentation",
+        "AFPS.Transport.Unity"
     ],
     "includePlatforms": [
         "Editor"
