@@ -296,7 +296,7 @@ namespace AFPS.Bootstrap
                 return;
             }
 
-            PlayerInputCommand command = inputCollector.ConsumeCommand(tick);
+            PlayerInputCommand command = InputCommandBatchCodec.Canonicalize(inputCollector.ConsumeCommand(tick));
 
             // 保存当前 Tick 的输入，供服务器校正时重新模拟。
             inputHistory.Store(tick, command);
