@@ -124,6 +124,32 @@ namespace AFPS.Tests.EditMode
             Assert.That(afterWrap.Tick, Is.EqualTo(0));
         }
 
+        [Test]
+        public void Receiver_AdvancesPastMissingCommandAndRejectsItsLateArrival()
+        {
+            ServerInputCommandReceiver receiver = new ServerInputCommandReceiver(10, 8);
+            Assert.That(receiver.TryAdvancePastMissingCommand(out uint missingTick), Is.True);
+            Assert.That(missingTick, Is.EqualTo(10));
+            Assert.That(receiver.NextExpectedTick, Is.EqualTo(11));
+
+            Assert.That(receiver.TryReceivePacket(new ArraySegment<byte>(CreatePacket(1, Command(10))), out InputBatchReceiveResult result), Is.True);
+            Assert.That(result.AcceptedCommandCount, Is.EqualTo(0));
+            Assert.That(result.DuplicateCommandCount, Is.EqualTo(1));
+            Assert.That(receiver.TryDequeueNext(out _), Is.False);
+        }
+
+        [Test]
+        public void Receiver_DoesNotAdvancePastCommandThatAlreadyArrived()
+        {
+            ServerInputCommandReceiver receiver = new ServerInputCommandReceiver(10, 8);
+            Assert.That(receiver.TryReceivePacket(new ArraySegment<byte>(CreatePacket(1, Command(10))), out _), Is.True);
+
+            Assert.That(receiver.TryAdvancePastMissingCommand(out _), Is.False);
+            Assert.That(receiver.NextExpectedTick, Is.EqualTo(10));
+            Assert.That(receiver.TryDequeueNext(out PlayerInputCommand command), Is.True);
+            Assert.That(command.Tick, Is.EqualTo(10));
+        }
+
         private static PlayerInputCommand Command(uint tick) => new PlayerInputCommand { Tick = tick, MoveY = 1f };
 
         private static byte[] CreatePacket(uint sequence, params PlayerInputCommand[] commands)

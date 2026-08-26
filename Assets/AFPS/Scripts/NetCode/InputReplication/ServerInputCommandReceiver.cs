@@ -92,5 +92,23 @@ namespace AFPS.NetCode.InputReplication
             NextExpectedTick = unchecked(NextExpectedTick + 1);
             return true;
         }
+
+        /// <summary>
+        /// 通知接收窗口：权威模拟已经为当前缺失输入 Tick 使用了替代命令。
+        /// 当前 Tick 确实缺失时返回 true、输出被跳过的 Tick 并推进；已经收到输入时拒绝跳过。
+        /// 被替代 Tick 的迟到命令之后会被视为重复数据。
+        /// </summary>
+        public bool TryAdvancePastMissingCommand(out uint missingTick)
+        {
+            if (receiveWindow.TryGet(NextExpectedTick, out _))
+            {
+                missingTick = default;
+                return false;
+            }
+
+            missingTick = NextExpectedTick;
+            NextExpectedTick = unchecked(NextExpectedTick + 1);
+            return true;
+        }
     }
 }
