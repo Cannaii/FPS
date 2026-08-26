@@ -1,6 +1,7 @@
 using System;
 using AFPS.NetCode.Runtime;
 using AFPS.NetCode.Transport;
+using AFPS.NetCode.Transport.Simulation;
 using AFPS.Transport.Unity;
 using UnityEngine;
 
@@ -53,6 +54,61 @@ namespace AFPS.Bootstrap
         [SerializeField]
         [Min(256)]
         private int receiveBufferCapacity = 2048;
+
+        /// <summary>
+        /// 是否在不可靠发送通道外包裹网络劣化模拟器。
+        /// </summary>
+        [Header("Network Impairment Simulation")]
+        [SerializeField]
+        private bool enableNetworkImpairment;
+
+        /// <summary>
+        /// 模拟的单向固定延迟，单位为毫秒。
+        /// </summary>
+        [SerializeField]
+        [Min(0f)]
+        private float simulatedLatencyMilliseconds;
+
+        /// <summary>
+        /// 模拟延迟在正负范围内变化的最大抖动，单位为毫秒。
+        /// </summary>
+        [SerializeField]
+        [Min(0f)]
+        private float simulatedJitterMilliseconds;
+
+        /// <summary>
+        /// 模拟不可靠数据包被网络丢弃的百分比。
+        /// </summary>
+        [SerializeField]
+        [Range(0f, 100f)]
+        private float simulatedPacketLossPercent;
+
+        /// <summary>
+        /// 模拟相邻不可靠数据包发生到达顺序交换的百分比。
+        /// </summary>
+        [SerializeField]
+        [Range(0f, 100f)]
+        private float simulatedReorderPercent;
+
+        /// <summary>
+        /// 发生乱序时为前一数据包增加的额外延迟，单位为毫秒。
+        /// </summary>
+        [SerializeField]
+        [Min(0f)]
+        private float simulatedReorderExtraDelayMilliseconds = 20f;
+
+        /// <summary>
+        /// 网络劣化随机序列的基础种子；Host 两侧会从该值派生不同种子。
+        /// </summary>
+        [SerializeField]
+        private uint networkSimulationSeed = 12345;
+
+        /// <summary>
+        /// 每个传输实例最多允许等待释放的模拟数据包数量。
+        /// </summary>
+        [SerializeField]
+        [Min(1)]
+        private int maxSimulatedQueuedPackets = 1024;
 
         private byte[] serverReceiveBuffer;
         private byte[] clientReceiveBuffer;
@@ -129,7 +185,15 @@ namespace AFPS.Bootstrap
                 return false;
             }
 
-            GameNetworkRuntime runtime = new GameNetworkRuntime(() => new UnityGameTransport());
+            if (!TryCreateImpairmentConfig(networkSimulationSeed, out NetworkImpairmentConfig baseImpairmentConfig, out string impairmentError))
+            {
+                Debug.LogError(impairmentError, this);
+                enabled = false;
+                return false;
+            }
+
+            uint transportSeedOffset = 0;
+            GameNetworkRuntime runtime = new GameNetworkRuntime(() => CreateTransport(baseImpairmentConfig, transportSeedOffset++));
             if (!runtime.TryStart(options, out string startError))
             {
                 runtime.Dispose();
@@ -168,6 +232,41 @@ namespace AFPS.Bootstrap
 
                 ArraySegment<byte> payload = transportEvent.Type == TransportEventType.Data ? new ArraySegment<byte>(receiveBuffer, 0, transportEvent.PayloadLength) : default;
                 TransportEventReceived?.Invoke(side, transportEvent, payload);
+            }
+        }
+
+        private IGameTransport CreateTransport(in NetworkImpairmentConfig baseConfig, uint seedOffset)
+        {
+            IGameTransport transport = new UnityGameTransport();
+            if (!enableNetworkImpairment)
+            {
+                return transport;
+            }
+
+            NetworkImpairmentConfig instanceConfig = new NetworkImpairmentConfig(baseConfig.BaseLatencySeconds, baseConfig.JitterSeconds, baseConfig.PacketLossProbability, baseConfig.ReorderProbability, baseConfig.ReorderExtraDelaySeconds, unchecked(baseConfig.RandomSeed + seedOffset), baseConfig.MaxQueuedPackets);
+            return new NetworkImpairmentTransport(transport, instanceConfig, () => Time.realtimeSinceStartupAsDouble);
+        }
+
+        private bool TryCreateImpairmentConfig(uint seed, out NetworkImpairmentConfig config, out string error)
+        {
+            if (!enableNetworkImpairment)
+            {
+                config = default;
+                error = null;
+                return true;
+            }
+
+            try
+            {
+                config = new NetworkImpairmentConfig(simulatedLatencyMilliseconds / 1000d, simulatedJitterMilliseconds / 1000d, simulatedPacketLossPercent / 100d, simulatedReorderPercent / 100d, simulatedReorderExtraDelayMilliseconds / 1000d, seed, maxSimulatedQueuedPackets);
+                error = null;
+                return true;
+            }
+            catch (ArgumentOutOfRangeException exception)
+            {
+                config = default;
+                error = $"网络劣化模拟参数无效：{exception.Message}";
+                return false;
             }
         }
     }

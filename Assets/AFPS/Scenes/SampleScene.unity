@@ -132,6 +132,7 @@ GameObject:
   m_Component:
   - component: {fileID: 17462842}
   - component: {fileID: 17462841}
+  - component: {fileID: 17462843}
   m_Layer: 0
   m_Name: NetworkBootstrap
   m_TagString: Untagged
@@ -157,6 +158,14 @@ MonoBehaviour:
   maxConnections: 32
   useCommandLineOverrides: 1
   receiveBufferCapacity: 2048
+  enableNetworkImpairment: 0
+  simulatedLatencyMilliseconds: 0
+  simulatedJitterMilliseconds: 0
+  simulatedPacketLossPercent: 0
+  simulatedReorderPercent: 0
+  simulatedReorderExtraDelayMilliseconds: 20
+  networkSimulationSeed: 12345
+  maxSimulatedQueuedPackets: 1024
 --- !u!4 &17462842
 Transform:
   m_ObjectHideFlags: 0
@@ -172,6 +181,34 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &17462843
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 17462840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96fbe1cb74de0244aabfa045b41938d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  networkBootstrap: {fileID: 17462841}
+  tickRunner: {fileID: 1570054876}
+  inputCollector: {fileID: 1402812805}
+  playerView: {fileID: 1402812802}
+  maxGroundSpeed: 6
+  groundAcceleration: 20
+  gravity: 20
+  jumpSpeed: 8
+  predictionHistoryCapacity: 256
+  inputRedundancyCount: 3
+  serverInputWindowCapacity: 64
+  maxMissingInputWaitTicks: 2
+  maxRepeatedMovementTicks: 2
+  positionErrorThreshold: 0.002
+  velocityErrorThreshold: 0.02
+  serverSpawnPosition: {x: 0, y: 0, z: 0}
 --- !u!1 &705507993
 GameObject:
   m_ObjectHideFlags: 0
@@ -536,7 +573,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1402812797}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7c53f73b7d410274fae710c7a806d6d7, type: 3}
   m_Name: 
