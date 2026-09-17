@@ -2,7 +2,8 @@
     "name": "AFPS.Input",
     "rootNamespace": "",
     "references": [
-        "GUID:ada213b6b3ed9ca46b3b145beabaec7d"
+        "GUID:ada213b6b3ed9ca46b3b145beabaec7d",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

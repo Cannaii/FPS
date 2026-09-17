@@ -32,9 +32,12 @@ namespace AFPS.NetCode.Prediction
 
             float positionError = Vector3.Distance(predictedState.Position, authoritativeState.State.Position);
             float velocityError = Vector3.Distance(predictedState.Velocity, authoritativeState.State.Velocity);
+            float yawError = Mathf.Abs(Mathf.DeltaAngle(predictedState.Yaw, authoritativeState.State.Yaw));
+            float pitchError = Mathf.Abs(predictedState.Pitch - authoritativeState.State.Pitch);
+            float lookAngleError = Mathf.Max(yawError, pitchError);
             bool groundedMismatch = predictedState.IsGrounded != authoritativeState.State.IsGrounded;
 
-            return new PredictionError(predictedState.Tick, positionError, velocityError, groundedMismatch);
+            return new PredictionError(predictedState.Tick, positionError, velocityError, lookAngleError, groundedMismatch);
         }
     }
 }

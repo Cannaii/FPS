@@ -38,6 +38,19 @@ namespace AFPS.Presentation.Characters
         /// </summary>
         public Vector3 InitialPosition => simulationTransform.position;
 
+        /// <summary>场景中本地玩家根节点的初始水平朝向，单位为度。</summary>
+        public float InitialYaw => simulationTransform.eulerAngles.y;
+
+        /// <summary>本地第一人称相机和其他表现组件跟随的模拟根节点。</summary>
+        public Transform SimulationTransform => simulationTransform;
+
+        /// <summary>Returns the most recent predicted state used by local presentation systems.</summary>
+        public bool TryGetLatestState(out PlayerState state)
+        {
+            state = latestState;
+            return hasState;
+        }
+
         /// <summary>
         /// 最近一次完成的玩家模拟状态。
         /// 渲染时会根据该状态计算显示位置。
@@ -97,7 +110,7 @@ namespace AFPS.Presentation.Characters
             latestState = state;
             hasState = true;
             correctionSmoother.Clear();
-            simulationTransform.position = state.Position;
+            simulationTransform.SetPositionAndRotation(state.Position, Quaternion.Euler(0f, state.Yaw, 0f));
         }
 
         /// <summary>
@@ -121,6 +134,7 @@ namespace AFPS.Presentation.Characters
             Vector3 extrapolatedPosition = CalculateExtrapolatedPosition(tickAlpha, tickDeltaTime);
             Vector3 correctionOffset = correctionSmoother.Update(renderDeltaTime, correctionHalfLife);
             simulationTransform.position = extrapolatedPosition + correctionOffset;
+            simulationTransform.rotation = Quaternion.Euler(0f, latestState.Yaw, 0f);
         }
 
         private Vector3 CalculateExtrapolatedPosition(float tickAlpha, float tickDeltaTime)

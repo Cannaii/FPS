@@ -15,9 +15,9 @@ namespace AFPS.Tests.EditMode
         {
             PlayerInputCommand[] source =
             {
-                new PlayerInputCommand { Tick = 100, MoveX = 1f, MoveY = -1f, JumpPressed = true },
-                new PlayerInputCommand { Tick = 101, MoveX = 0.25f, MoveY = -0.5f, JumpPressed = false },
-                new PlayerInputCommand { Tick = 102, MoveX = 0f, MoveY = 0.75f, JumpPressed = true }
+                new PlayerInputCommand { Tick = 100, MoveX = 1f, MoveY = -1f, LookYaw = 45.12f, LookPitch = -20.5f, JumpPressed = true },
+                new PlayerInputCommand { Tick = 101, MoveX = 0.25f, MoveY = -0.5f, LookYaw = 359.99f, LookPitch = 30.25f, JumpPressed = false },
+                new PlayerInputCommand { Tick = 102, MoveX = 0f, MoveY = 0.75f, LookYaw = 90f, LookPitch = 0f, JumpPressed = true }
             };
 
             InputCommandBatch sourceBatch = new InputCommandBatch(new ArraySegment<PlayerInputCommand>(source));
@@ -38,6 +38,8 @@ namespace AFPS.Tests.EditMode
                 Assert.That(actual.Tick, Is.EqualTo(source[i].Tick));
                 Assert.That(actual.MoveX, Is.EqualTo(source[i].MoveX).Within(AxisQuantizationTolerance));
                 Assert.That(actual.MoveY, Is.EqualTo(source[i].MoveY).Within(AxisQuantizationTolerance));
+                Assert.That(actual.LookYaw, Is.EqualTo(source[i].LookYaw).Within(InputCommandBatchCodec.LookAngleResolution));
+                Assert.That(actual.LookPitch, Is.EqualTo(source[i].LookPitch).Within(InputCommandBatchCodec.LookAngleResolution));
                 Assert.That(actual.JumpPressed, Is.EqualTo(source[i].JumpPressed));
             }
         }
@@ -65,6 +67,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(packet[17], Is.EqualTo(127));
             Assert.That(packet[18], Is.EqualTo(129));
             Assert.That(packet[19], Is.EqualTo(1));
+            Assert.That(packet.Length, Is.EqualTo(PacketHeader.Size + InputCommandBatchCodec.PayloadHeaderSize + InputCommandBatchCodec.BytesPerCommand));
         }
 
         [Test]
@@ -115,7 +118,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void Canonicalize_MatchesValueReceivedByServer()
         {
-            PlayerInputCommand source = new PlayerInputCommand { Tick = 50, MoveX = 0.1234f, MoveY = -0.6789f, JumpPressed = true };
+            PlayerInputCommand source = new PlayerInputCommand { Tick = 50, MoveX = 0.1234f, MoveY = -0.6789f, LookYaw = 123.456f, LookPitch = -42.424f, JumpPressed = true };
             PlayerInputCommand canonical = InputCommandBatchCodec.Canonicalize(source);
             PlayerInputCommand[] sourceArray = { source };
             byte[] packet = new byte[InputCommandBatchCodec.GetPacketSize(1)];
@@ -125,6 +128,8 @@ namespace AFPS.Tests.EditMode
             Assert.That(InputCommandBatchCodec.TryDeserialize(new ArraySegment<byte>(packet), decoded, 0, out _, out _), Is.True);
             Assert.That(decoded[0].MoveX, Is.EqualTo(canonical.MoveX));
             Assert.That(decoded[0].MoveY, Is.EqualTo(canonical.MoveY));
+            Assert.That(decoded[0].LookYaw, Is.EqualTo(canonical.LookYaw));
+            Assert.That(decoded[0].LookPitch, Is.EqualTo(canonical.LookPitch));
             Assert.That(decoded[0].JumpPressed, Is.EqualTo(canonical.JumpPressed));
         }
     }

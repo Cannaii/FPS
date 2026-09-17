@@ -40,10 +40,15 @@ namespace AFPS.Simulation.Characters
         {
             var nextState = previousState;
             nextState.Tick = input.Tick;
+            nextState.Yaw = NormalizeYaw(input.LookYaw);
+            nextState.Pitch = Mathf.Clamp(input.LookPitch, -89.9f, 89.9f);
             var moveInput = new Vector2(input.MoveX, input.MoveY);
             moveInput = Vector2.ClampMagnitude(moveInput, 1f);
 
-            var targetHorizontalVelocity = new Vector3(moveInput.x * config.MaxGroundSpeed, 0f , moveInput.y * config.MaxGroundSpeed);
+            float yawRadians = nextState.Yaw * Mathf.Deg2Rad;
+            Vector3 right = new Vector3(Mathf.Cos(yawRadians), 0f, -Mathf.Sin(yawRadians));
+            Vector3 forward = new Vector3(Mathf.Sin(yawRadians), 0f, Mathf.Cos(yawRadians));
+            var targetHorizontalVelocity = (right * moveInput.x + forward * moveInput.y) * config.MaxGroundSpeed;
             var currentHorizontalVelocity = new Vector3(previousState.Velocity.x, 0f, previousState.Velocity.z);
 
             // 计算当前 Tick 内允许改变的最大速度。
@@ -78,6 +83,17 @@ namespace AFPS.Simulation.Characters
             KinematicCharacterMotor.Move(previousState.Position, nextState.Velocity, tickDeltaTime, config.Collision, collisionWorld, out nextState.Position, out nextState.Velocity, out nextState.IsGrounded);
 
             return nextState;
+        }
+
+        private static float NormalizeYaw(float yaw)
+        {
+            if (float.IsNaN(yaw) || float.IsInfinity(yaw))
+            {
+                return 0f;
+            }
+
+            yaw %= 360f;
+            return yaw < 0f ? yaw + 360f : yaw;
         }
 
     }

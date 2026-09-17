@@ -43,6 +43,8 @@ namespace AFPS.Tests.EditMode
             TransportConnectionId clientConnection = new TransportConnectionId(20);
             manager.HandleConnected(NetworkTransportSide.Server, serverConnection);
             manager.HandleConnected(NetworkTransportSide.Client, clientConnection);
+            serverTransport.SentPackets.Clear();
+            serverTransport.SentConnectionIds.Clear();
 
             PlayerInputCommand command = new PlayerInputCommand { Tick = 1, MoveY = 1f };
             Assert.That(manager.TryPredictAndSend(command, out PlayerState predictedState, out InputBatchSendResult inputSend), Is.True);
@@ -55,6 +57,49 @@ namespace AFPS.Tests.EditMode
             Assert.That(manager.TryHandleData(NetworkTransportSide.Client, clientConnection, serverTransport.SentPackets[0], out ReconciliationResult reconciliation), Is.True);
             Assert.That(reconciliation.Status, Is.EqualTo(ReconciliationStatus.NoCorrection));
             Assert.That(manager.ClientSession.CurrentState.Tick, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TwoServerPlayers_ReceiveIdentityRemoteSnapshotsAndDespawn()
+        {
+            FakeTransport serverTransport = new FakeTransport(TransportRole.Server);
+            NetworkMovementSessionManager manager = CreateManager(serverTransport, null);
+            TransportConnectionId firstConnection = new TransportConnectionId(10);
+            TransportConnectionId secondConnection = new TransportConnectionId(20);
+
+            Assert.That(manager.HandleConnected(NetworkTransportSide.Server, firstConnection), Is.True);
+            Assert.That(manager.HandleConnected(NetworkTransportSide.Server, secondConnection), Is.True);
+            Assert.That(PlayerSessionAssignmentCodec.TryDeserialize(serverTransport.SentPackets[0], out PlayerSessionAssignment firstAssignment), Is.True);
+            Assert.That(PlayerSessionAssignmentCodec.TryDeserialize(serverTransport.SentPackets[1], out PlayerSessionAssignment secondAssignment), Is.True);
+            Assert.That(firstAssignment.EntityId, Is.Not.EqualTo(secondAssignment.EntityId));
+            serverTransport.SentPackets.Clear();
+            serverTransport.SentConnectionIds.Clear();
+
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Server, firstConnection, CreateInputPacket(1, 0f), out _), Is.True);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Server, secondConnection, CreateInputPacket(1, 90f), out _), Is.True);
+            Assert.That(manager.AdvanceServerSessions(100), Is.EqualTo(2));
+
+            int remoteSnapshotCount = 0;
+            for (int i = 0; i < serverTransport.SentPackets.Count; i++)
+            {
+                if (!RemotePlayerSnapshotCodec.TryDeserialize(serverTransport.SentPackets[i], out _, out AFPS.NetCode.SnapshotInterpolation.RemotePlayerSnapshot snapshot))
+                {
+                    continue;
+                }
+
+                remoteSnapshotCount++;
+                TransportConnectionId expectedTarget = snapshot.EntityId == firstAssignment.EntityId ? secondConnection : firstConnection;
+                Assert.That(serverTransport.SentConnectionIds[i], Is.EqualTo(expectedTarget));
+            }
+
+            Assert.That(remoteSnapshotCount, Is.EqualTo(2));
+            serverTransport.SentPackets.Clear();
+            serverTransport.SentConnectionIds.Clear();
+            Assert.That(manager.HandleDisconnected(NetworkTransportSide.Server, firstConnection), Is.True);
+            Assert.That(serverTransport.SentPackets, Has.Count.EqualTo(1));
+            Assert.That(PlayerDespawnCodec.TryDeserialize(serverTransport.SentPackets[0], out uint despawnedEntity), Is.True);
+            Assert.That(despawnedEntity, Is.EqualTo(firstAssignment.EntityId));
+            Assert.That(serverTransport.SentConnectionIds[0], Is.EqualTo(secondConnection));
         }
 
         [Test]
@@ -81,9 +126,18 @@ namespace AFPS.Tests.EditMode
             return new NetworkMovementSessionManager(serverTransport, clientTransport, initialState, initialState, config, 0.02f, 64, 3, 16, 2, 2, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold);
         }
 
+        private static ArraySegment<byte> CreateInputPacket(uint tick, float yaw)
+        {
+            PlayerInputCommand[] commands = { new PlayerInputCommand { Tick = tick, MoveY = 1f, LookYaw = yaw } };
+            byte[] packet = new byte[InputCommandBatchCodec.GetPacketSize(1)];
+            Assert.That(InputCommandBatchCodec.TrySerialize(new InputCommandBatch(new ArraySegment<PlayerInputCommand>(commands)), tick, new ArraySegment<byte>(packet), out _), Is.True);
+            return new ArraySegment<byte>(packet);
+        }
+
         private sealed class FakeTransport : IGameTransport
         {
             public readonly List<ArraySegment<byte>> SentPackets = new List<ArraySegment<byte>>();
+            public readonly List<TransportConnectionId> SentConnectionIds = new List<TransportConnectionId>();
             public bool IsRunning => true;
             public TransportRole Role { get; }
 
@@ -102,6 +156,7 @@ namespace AFPS.Tests.EditMode
                 byte[] copy = new byte[payload.Count];
                 Array.Copy(payload.Array, payload.Offset, copy, 0, payload.Count);
                 SentPackets.Add(new ArraySegment<byte>(copy));
+                SentConnectionIds.Add(connectionId);
                 return TransportSendResult.Success;
             }
 

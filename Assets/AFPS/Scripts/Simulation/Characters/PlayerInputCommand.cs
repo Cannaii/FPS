@@ -25,6 +25,18 @@ namespace AFPS.Simulation.Characters
         public float MoveY;
 
         /// <summary>
+        /// 玩家在本 Tick 希望采用的水平观察角，单位为度。
+        /// 该值由客户端输入层产生，经过网络量化后同时供客户端预测和服务器权威模拟使用。
+        /// </summary>
+        public float LookYaw;
+
+        /// <summary>
+        /// 玩家在本 Tick 希望采用的垂直观察角，单位为度，向上为负、向下为正。
+        /// 该值会被限制在第一人称相机允许的俯仰范围内。
+        /// </summary>
+        public float LookPitch;
+
+        /// <summary>
         /// 玩家是否在当前 Tick 按下了跳跃键。
         /// 该字段表示一次跳跃输入事件，不表示玩家当前是否处于跳跃状态。
         /// </summary>

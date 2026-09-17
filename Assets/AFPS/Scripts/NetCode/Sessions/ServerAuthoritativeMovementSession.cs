@@ -132,6 +132,8 @@ namespace AFPS.NetCode.Sessions
                 Tick = substitutedTick,
                 MoveX = repeatContinuousInput ? lastReceivedInput.MoveX : 0f,
                 MoveY = repeatContinuousInput ? lastReceivedInput.MoveY : 0f,
+                LookYaw = hasLastReceivedInput ? lastReceivedInput.LookYaw : CurrentState.Yaw,
+                LookPitch = hasLastReceivedInput ? lastReceivedInput.LookPitch : CurrentState.Pitch,
                 JumpPressed = false
             };
             consecutiveSubstitutedInputTicks++;

@@ -9,6 +9,9 @@ namespace AFPS.NetCode.Protocol
         InputCommandBatch = 1,
         AuthoritativePlayerState = 2,
         TimeSyncRequest = 3,
-        TimeSyncResponse = 4
+        TimeSyncResponse = 4,
+        PlayerSessionAssignment = 5,
+        RemotePlayerSnapshot = 6,
+        PlayerDespawn = 7
     }
 }

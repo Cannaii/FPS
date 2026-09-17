@@ -21,9 +21,12 @@ namespace AFPS.NetCode.Messages
         public const int PayloadHeaderSize = 5;
 
         /// <summary>
-        /// 每条输入占用三个字节：MoveX、MoveY 和按键位掩码。
+        /// 每条输入占用七个字节：移动轴、按键位掩码、Yaw 和 Pitch。
         /// </summary>
-        public const int BytesPerCommand = 3;
+        public const int BytesPerCommand = 7;
+
+        /// <summary>网络观察角的量化精度，单位为度。</summary>
+        public const float LookAngleResolution = 0.01f;
 
         private const byte JumpPressedMask = 1 << 0;
 
@@ -36,6 +39,8 @@ namespace AFPS.NetCode.Messages
         {
             command.MoveX = DequantizeAxis(QuantizeAxis(command.MoveX));
             command.MoveY = DequantizeAxis(QuantizeAxis(command.MoveY));
+            command.LookYaw = DequantizeYaw(QuantizeYaw(command.LookYaw));
+            command.LookPitch = DequantizePitch(QuantizePitch(command.LookPitch));
             return command;
         }
 
@@ -65,7 +70,7 @@ namespace AFPS.NetCode.Messages
             {
                 PlayerInputCommand command = batch.Commands.Array[batch.Commands.Offset + i];
                 byte buttons = command.JumpPressed ? JumpPressedMask : (byte)0;
-                if (!writer.TryWriteSByte(QuantizeAxis(command.MoveX)) || !writer.TryWriteSByte(QuantizeAxis(command.MoveY)) || !writer.TryWriteByte(buttons))
+                if (!writer.TryWriteSByte(QuantizeAxis(command.MoveX)) || !writer.TryWriteSByte(QuantizeAxis(command.MoveY)) || !writer.TryWriteByte(buttons) || !writer.TryWriteUInt16(QuantizeYaw(command.LookYaw)) || !writer.TryWriteInt16(QuantizePitch(command.LookPitch)))
                 {
                     return false;
                 }
@@ -99,7 +104,7 @@ namespace AFPS.NetCode.Messages
 
             for (int i = 0; i < commandCount; i++)
             {
-                if (!reader.TryReadSByte(out sbyte moveX) || !reader.TryReadSByte(out sbyte moveY) || !reader.TryReadByte(out byte buttons))
+                if (!reader.TryReadSByte(out sbyte moveX) || !reader.TryReadSByte(out sbyte moveY) || !reader.TryReadByte(out byte buttons) || !reader.TryReadUInt16(out ushort lookYaw) || !reader.TryReadInt16(out short lookPitch))
                 {
                     batch = default;
                     return false;
@@ -116,6 +121,8 @@ namespace AFPS.NetCode.Messages
                     Tick = unchecked(firstTick + (uint)i),
                     MoveX = DequantizeAxis(moveX),
                     MoveY = DequantizeAxis(moveY),
+                    LookYaw = DequantizeYaw(lookYaw),
+                    LookPitch = DequantizePitch(lookPitch),
                     JumpPressed = (buttons & JumpPressedMask) != 0
                 };
             }
@@ -157,5 +164,35 @@ namespace AFPS.NetCode.Messages
         }
 
         private static float DequantizeAxis(sbyte value) => value / 127f;
+
+        private static ushort QuantizeYaw(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return 0;
+            }
+
+            value %= 360f;
+            if (value < 0f)
+            {
+                value += 360f;
+            }
+
+            return (ushort)Math.Round(value / LookAngleResolution);
+        }
+
+        private static short QuantizePitch(float value)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                return 0;
+            }
+
+            return (short)Math.Round(Math.Max(-89.9f, Math.Min(89.9f, value)) / LookAngleResolution);
+        }
+
+        private static float DequantizeYaw(ushort value) => value * LookAngleResolution;
+
+        private static float DequantizePitch(short value) => value * LookAngleResolution;
     }
 }

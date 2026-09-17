@@ -5,9 +5,11 @@ using AFPS.NetCode.Messages;
 using AFPS.NetCode.Prediction;
 using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Runtime;
+using AFPS.NetCode.SnapshotInterpolation;
 using AFPS.NetCode.Transport;
 using AFPS.Simulation.Characters;
 using AFPS.Simulation.Characters.Collision;
+using UnityEngine;
 
 namespace AFPS.NetCode.Sessions
 {
@@ -18,6 +20,8 @@ namespace AFPS.NetCode.Sessions
     public sealed class NetworkMovementSessionManager
     {
         private readonly Dictionary<TransportConnectionId, ServerAuthoritativeMovementSession> serverSessions = new Dictionary<TransportConnectionId, ServerAuthoritativeMovementSession>();
+        private readonly Dictionary<TransportConnectionId, uint> serverEntityIds = new Dictionary<TransportConnectionId, uint>();
+        private readonly Dictionary<uint, uint> snapshotSequences = new Dictionary<uint, uint>();
         private readonly IGameTransport serverTransport;
         private readonly IGameTransport clientTransport;
         private readonly PlayerState serverInitialState;
@@ -32,7 +36,13 @@ namespace AFPS.NetCode.Sessions
         private readonly float positionErrorThreshold;
         private readonly float velocityErrorThreshold;
         private readonly ICharacterCollisionWorld collisionWorld;
+        private readonly float serverSpawnSpacing;
+        private readonly byte[] assignmentBuffer = new byte[PlayerSessionAssignmentCodec.PacketSize];
+        private readonly byte[] despawnBuffer = new byte[PlayerDespawnCodec.PacketSize];
+        private readonly byte[] snapshotBuffer = new byte[RemotePlayerSnapshotCodec.PacketSize];
         private TransportConnectionId clientConnectionId;
+        private uint nextEntityId = 1;
+        private uint lifecycleSequence = 1;
 
         /// <summary>
         /// 当前服务器侧维护的已连接玩家权威会话数量。
@@ -44,7 +54,10 @@ namespace AFPS.NetCode.Sessions
         /// </summary>
         public ClientPredictedMovementSession ClientSession { get; private set; }
 
-        public NetworkMovementSessionManager(IGameTransport serverTransport, IGameTransport clientTransport, in PlayerState serverInitialState, in PlayerState clientInitialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int predictionHistoryCapacity, int inputRedundancyCount, int serverInputWindowCapacity, int maxMissingInputWaitTicks, int maxRepeatedMovementTicks, float positionErrorThreshold, float velocityErrorThreshold, ICharacterCollisionWorld collisionWorld = null)
+        /// <summary>客户端连接期间保存的远端玩家快照集合；纯服务器进程中为 null。</summary>
+        public RemotePlayerReplicaSet RemotePlayers { get; private set; }
+
+        public NetworkMovementSessionManager(IGameTransport serverTransport, IGameTransport clientTransport, in PlayerState serverInitialState, in PlayerState clientInitialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int predictionHistoryCapacity, int inputRedundancyCount, int serverInputWindowCapacity, int maxMissingInputWaitTicks, int maxRepeatedMovementTicks, float positionErrorThreshold, float velocityErrorThreshold, ICharacterCollisionWorld collisionWorld = null, float serverSpawnSpacing = 2.5f, int remoteSnapshotCapacity = 32, double remoteInterpolationDelayTicks = 2.0, double remoteMaxExtrapolationTicks = 2.0, float remoteTeleportDistance = 5f)
         {
             if (serverTransport == null && clientTransport == null)
             {
@@ -105,6 +118,11 @@ namespace AFPS.NetCode.Sessions
             this.positionErrorThreshold = positionErrorThreshold;
             this.velocityErrorThreshold = velocityErrorThreshold;
             this.collisionWorld = collisionWorld ?? FlatGroundCollisionWorld.Instance;
+            this.serverSpawnSpacing = Mathf.Max(0f, serverSpawnSpacing);
+            if (clientTransport != null)
+            {
+                RemotePlayers = new RemotePlayerReplicaSet(remoteSnapshotCapacity, tickDeltaTime, remoteInterpolationDelayTicks, remoteMaxExtrapolationTicks, remoteTeleportDistance);
+            }
         }
 
         /// <summary>
@@ -124,7 +142,12 @@ namespace AFPS.NetCode.Sessions
                     return false;
                 }
 
-                serverSessions.Add(connectionId, new ServerAuthoritativeMovementSession(serverTransport, connectionId, serverInitialState, simulationConfig, tickDeltaTime, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks, collisionWorld));
+                uint entityId = AllocateEntityId();
+                PlayerState spawnedState = serverInitialState;
+                spawnedState.Position += Vector3.right * (entityId - 1) * serverSpawnSpacing;
+                serverSessions.Add(connectionId, new ServerAuthoritativeMovementSession(serverTransport, connectionId, spawnedState, simulationConfig, tickDeltaTime, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks, collisionWorld));
+                serverEntityIds.Add(connectionId, entityId);
+                SendAssignment(connectionId, entityId);
                 return true;
             }
 
@@ -135,6 +158,7 @@ namespace AFPS.NetCode.Sessions
 
             clientConnectionId = connectionId;
             ClientSession = new ClientPredictedMovementSession(clientTransport, connectionId, clientInitialState, simulationConfig, tickDeltaTime, predictionHistoryCapacity, inputRedundancyCount, positionErrorThreshold, velocityErrorThreshold, collisionWorld);
+            RemotePlayers?.Clear();
             return true;
         }
 
@@ -145,7 +169,15 @@ namespace AFPS.NetCode.Sessions
         {
             if (side == NetworkTransportSide.Server)
             {
-                return serverSessions.Remove(connectionId);
+                if (!serverSessions.Remove(connectionId) || !serverEntityIds.TryGetValue(connectionId, out uint entityId))
+                {
+                    return false;
+                }
+
+                serverEntityIds.Remove(connectionId);
+                snapshotSequences.Remove(entityId);
+                BroadcastDespawn(entityId);
+                return true;
             }
 
             if (side != NetworkTransportSide.Client || ClientSession == null || connectionId != clientConnectionId)
@@ -155,6 +187,7 @@ namespace AFPS.NetCode.Sessions
 
             clientConnectionId = default;
             ClientSession = null;
+            RemotePlayers?.Clear();
             return true;
         }
 
@@ -174,7 +207,24 @@ namespace AFPS.NetCode.Sessions
                 return header.MessageType == NetworkMessageType.InputCommandBatch && serverSessions.TryGetValue(connectionId, out ServerAuthoritativeMovementSession serverSession) && serverSession.TryReceiveInputPacket(packet, out _);
             }
 
-            return side == NetworkTransportSide.Client && connectionId == clientConnectionId && header.MessageType == NetworkMessageType.AuthoritativePlayerState && ClientSession != null && ClientSession.TryReceiveAuthoritativePacket(packet, out _, out reconciliationResult);
+            if (side != NetworkTransportSide.Client || connectionId != clientConnectionId)
+            {
+                return false;
+            }
+
+            switch (header.MessageType)
+            {
+                case NetworkMessageType.AuthoritativePlayerState:
+                    return ClientSession != null && ClientSession.TryReceiveAuthoritativePacket(packet, out _, out reconciliationResult);
+                case NetworkMessageType.PlayerSessionAssignment:
+                    return RemotePlayers != null && RemotePlayers.TryApplyAssignment(packet);
+                case NetworkMessageType.RemotePlayerSnapshot:
+                    return RemotePlayers != null && RemotePlayers.TryInsertSnapshot(packet, out _);
+                case NetworkMessageType.PlayerDespawn:
+                    return RemotePlayers != null && RemotePlayers.TryApplyDespawn(packet, out _);
+                default:
+                    return false;
+            }
         }
 
         /// <summary>
@@ -199,11 +249,12 @@ namespace AFPS.NetCode.Sessions
         public int AdvanceServerSessions(uint serverWorldTick)
         {
             int advancedCount = 0;
-            foreach (ServerAuthoritativeMovementSession session in serverSessions.Values)
+            foreach (KeyValuePair<TransportConnectionId, ServerAuthoritativeMovementSession> pair in serverSessions)
             {
-                if (session.TryAdvance(serverWorldTick, out _, out _))
+                if (pair.Value.TryAdvance(serverWorldTick, out _, out _))
                 {
                     advancedCount++;
+                    BroadcastRemoteSnapshot(pair.Key, serverEntityIds[pair.Key], serverWorldTick, pair.Value.CurrentState);
                 }
             }
 
@@ -211,5 +262,61 @@ namespace AFPS.NetCode.Sessions
         }
 
         public bool TryGetServerSession(TransportConnectionId connectionId, out ServerAuthoritativeMovementSession session) => serverSessions.TryGetValue(connectionId, out session);
+
+        public bool TryGetServerEntityId(TransportConnectionId connectionId, out uint entityId) => serverEntityIds.TryGetValue(connectionId, out entityId);
+
+        private uint AllocateEntityId()
+        {
+            uint entityId = nextEntityId;
+            nextEntityId = unchecked(nextEntityId + 1);
+            if (nextEntityId == 0)
+            {
+                nextEntityId = 1;
+            }
+
+            return entityId;
+        }
+
+        private void SendAssignment(TransportConnectionId connectionId, uint entityId)
+        {
+            uint sequence = lifecycleSequence++;
+            if (PlayerSessionAssignmentCodec.TrySerialize(new PlayerSessionAssignment(entityId), sequence, new ArraySegment<byte>(assignmentBuffer), out int packetBytes))
+            {
+                serverTransport.Send(connectionId, TransportDelivery.ReliableSequenced, new ArraySegment<byte>(assignmentBuffer, 0, packetBytes));
+            }
+        }
+
+        private void BroadcastRemoteSnapshot(TransportConnectionId ownerConnectionId, uint entityId, uint serverWorldTick, in PlayerState state)
+        {
+            uint sequence = snapshotSequences.TryGetValue(entityId, out uint lastSequence) ? unchecked(lastSequence + 1) : 1;
+            RemotePlayerSnapshot snapshot = new RemotePlayerSnapshot(entityId, serverWorldTick, state.Position, Quaternion.Euler(state.Pitch, state.Yaw, 0f), state.Velocity);
+            if (!RemotePlayerSnapshotCodec.TrySerialize(snapshot, sequence, new ArraySegment<byte>(snapshotBuffer), out int packetBytes))
+            {
+                return;
+            }
+
+            snapshotSequences[entityId] = sequence;
+            foreach (TransportConnectionId targetConnectionId in serverSessions.Keys)
+            {
+                if (targetConnectionId != ownerConnectionId)
+                {
+                    serverTransport.Send(targetConnectionId, TransportDelivery.Unreliable, new ArraySegment<byte>(snapshotBuffer, 0, packetBytes));
+                }
+            }
+        }
+
+        private void BroadcastDespawn(uint entityId)
+        {
+            uint sequence = lifecycleSequence++;
+            if (!PlayerDespawnCodec.TrySerialize(entityId, sequence, new ArraySegment<byte>(despawnBuffer), out int packetBytes))
+            {
+                return;
+            }
+
+            foreach (TransportConnectionId targetConnectionId in serverSessions.Keys)
+            {
+                serverTransport.Send(targetConnectionId, TransportDelivery.ReliableSequenced, new ArraySegment<byte>(despawnBuffer, 0, packetBytes));
+            }
+        }
     }
 }

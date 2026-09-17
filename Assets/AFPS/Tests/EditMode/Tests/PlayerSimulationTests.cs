@@ -136,6 +136,21 @@ namespace AFPS.Tests.EditMode
                 0.0001f);
         }
 
+        [Test]
+        public void Simulate_ForwardInputUsesAuthoritativeYaw()
+        {
+            PlayerState initialState = new PlayerState { IsGrounded = true };
+            PlayerInputCommand input = new PlayerInputCommand { Tick = 1, MoveY = 1f, LookYaw = 90f, LookPitch = -20f };
+            PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
+
+            PlayerState result = PlayerSimulation.Simulate(initialState, input, config, 0.02f);
+
+            Assert.That(result.Velocity.x, Is.EqualTo(0.4f).Within(0.0001f));
+            Assert.That(result.Velocity.z, Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(result.Yaw, Is.EqualTo(90f));
+            Assert.That(result.Pitch, Is.EqualTo(-20f));
+        }
+
         /// <summary>
         /// 验证从相同初始状态出发，使用相同配置和相同输入序列进行两次模拟，
         /// 最终会得到一致的 Tick、位置和速度。

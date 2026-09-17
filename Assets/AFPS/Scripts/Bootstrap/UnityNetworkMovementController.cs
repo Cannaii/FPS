@@ -4,10 +4,13 @@ using AFPS.Bootstrap.Physics;
 using AFPS.Input;
 using AFPS.NetCode.Messages;
 using AFPS.NetCode.Prediction;
+using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Runtime;
 using AFPS.NetCode.Sessions;
 using AFPS.NetCode.Transport;
 using AFPS.Presentation.Characters;
+using AFPS.Presentation.Camera;
+using AFPS.Presentation.Weapons;
 using AFPS.Simulation.Characters;
 using AFPS.Simulation.Characters.Collision;
 using UnityEngine;
@@ -25,6 +28,10 @@ namespace AFPS.Bootstrap
         [SerializeField] private SimulationTickRunner tickRunner;
         [SerializeField] private LocalPlayerInputCollector inputCollector;
         [SerializeField] private PlayerView playerView;
+        [SerializeField] private FirstPersonCameraRig firstPersonCameraRig;
+        [SerializeField] private FirstPersonWeaponView firstPersonWeaponView;
+        [SerializeField] private RemotePlayerWorldView remotePlayerWorldView;
+        [SerializeField] private bool hideLocalBodyInFirstPerson = true;
         [SerializeField, Min(0f)] private float maxGroundSpeed = 6f;
         [SerializeField, Min(0f)] private float groundAcceleration = 20f;
         [SerializeField, Min(0f)] private float gravity = 20f;
@@ -37,6 +44,12 @@ namespace AFPS.Bootstrap
         [SerializeField, Min(0f)] private float positionErrorThreshold = 0.002f;
         [SerializeField, Min(0f)] private float velocityErrorThreshold = 0.02f;
         [SerializeField] private Vector3 serverSpawnPosition = Vector3.zero;
+        [SerializeField, Min(0f)] private float serverSpawnSpacing = 2.5f;
+        [Header("Remote Player Replication")]
+        [SerializeField, Min(2)] private int remoteSnapshotCapacity = 32;
+        [SerializeField, Min(0f)] private float remoteInterpolationDelayTicks = 2f;
+        [SerializeField, Min(0f)] private float remoteMaxExtrapolationTicks = 2f;
+        [SerializeField, Min(0.01f)] private float remoteTeleportDistance = 5f;
         [Header("Predictable Character Collision")]
         [SerializeField] private LayerMask collisionLayers = ~0;
         [SerializeField] private bool collideWithTriggers;
@@ -51,6 +64,9 @@ namespace AFPS.Bootstrap
 
         private NetworkMovementSessionManager sessionManager;
         private bool initialized;
+        private uint observedRemoteSnapshotVersion;
+        private uint latestRemoteServerTick;
+        private double latestRemoteSnapshotReceiveTime;
 
         /// <summary>
         /// 当前连接事件所创建的会话管理器，供运行时诊断读取。
@@ -88,7 +104,7 @@ namespace AFPS.Bootstrap
 
             PlayerSimulationConfig config = new PlayerSimulationConfig(maxGroundSpeed, groundAcceleration, gravity, jumpSpeed, collisionConfig);
             PlayerState serverInitialState = new PlayerState { Tick = 0, Position = serverSpawnPosition, Velocity = Vector3.zero, IsGrounded = true };
-            PlayerState clientInitialState = new PlayerState { Tick = 0, Position = hasLocalClient ? playerView.InitialPosition : serverSpawnPosition, Velocity = Vector3.zero, IsGrounded = true };
+            PlayerState clientInitialState = new PlayerState { Tick = 0, Position = hasLocalClient ? playerView.InitialPosition : serverSpawnPosition, Velocity = Vector3.zero, Yaw = hasLocalClient ? playerView.InitialYaw : 0f, IsGrounded = true };
             QueryTriggerInteraction triggerInteraction = collideWithTriggers ? QueryTriggerInteraction.Collide : QueryTriggerInteraction.Ignore;
             ICharacterCollisionWorld collisionWorld = new UnityPhysicsCharacterCollisionWorld(gameObject.scene.GetPhysicsScene(), collisionLayers.value, triggerInteraction);
 
@@ -107,7 +123,7 @@ namespace AFPS.Bootstrap
 
             try
             {
-                sessionManager = new NetworkMovementSessionManager(networkBootstrap.Runtime.ServerTransport, networkBootstrap.Runtime.ClientTransport, serverInitialState, clientInitialState, config, tickRunner.TickDeltaTime, predictionHistoryCapacity, inputRedundancyCount, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks, positionErrorThreshold, velocityErrorThreshold, collisionWorld);
+                sessionManager = new NetworkMovementSessionManager(networkBootstrap.Runtime.ServerTransport, networkBootstrap.Runtime.ClientTransport, serverInitialState, clientInitialState, config, tickRunner.TickDeltaTime, predictionHistoryCapacity, inputRedundancyCount, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks, positionErrorThreshold, velocityErrorThreshold, collisionWorld, serverSpawnSpacing, remoteSnapshotCapacity, remoteInterpolationDelayTicks, remoteMaxExtrapolationTicks, remoteTeleportDistance);
             }
             catch (ArgumentException exception)
             {
@@ -118,6 +134,45 @@ namespace AFPS.Bootstrap
 
             networkBootstrap.TransportEventReceived += HandleTransportEvent;
             tickRunner.TickOccurred += HandleTickOccurred;
+            if (hasLocalClient)
+            {
+                inputCollector.SetLookAngles(clientInitialState.Yaw, clientInitialState.Pitch);
+                if (firstPersonCameraRig == null && UnityEngine.Camera.main != null)
+                {
+                    firstPersonCameraRig = UnityEngine.Camera.main.GetComponent<FirstPersonCameraRig>();
+                    if (firstPersonCameraRig == null)
+                    {
+                        firstPersonCameraRig = UnityEngine.Camera.main.gameObject.AddComponent<FirstPersonCameraRig>();
+                    }
+
+                    firstPersonCameraRig.Configure(playerView.SimulationTransform, UnityEngine.Camera.main.transform);
+                }
+
+                if (hideLocalBodyInFirstPerson && firstPersonCameraRig != null)
+                {
+                    Renderer[] localRenderers = playerView.SimulationTransform.GetComponentsInChildren<Renderer>(true);
+                    for (int i = 0; i < localRenderers.Length; i++)
+                    {
+                        localRenderers[i].enabled = false;
+                    }
+                }
+
+                if (firstPersonWeaponView == null && UnityEngine.Camera.main != null)
+                {
+                    firstPersonWeaponView = UnityEngine.Camera.main.GetComponentInChildren<FirstPersonWeaponView>(true);
+                }
+
+                if (remotePlayerWorldView == null)
+                {
+                    remotePlayerWorldView = GetComponent<RemotePlayerWorldView>();
+                }
+
+                if (remotePlayerWorldView == null)
+                {
+                    remotePlayerWorldView = gameObject.AddComponent<RemotePlayerWorldView>();
+                }
+            }
+
             initialized = true;
         }
 
@@ -139,6 +194,17 @@ namespace AFPS.Bootstrap
             if (initialized && playerView != null && sessionManager.ClientSession != null)
             {
                 playerView.Render(tickRunner.TickAlpha, tickRunner.TickDeltaTime, Time.unscaledDeltaTime);
+                if (firstPersonCameraRig != null)
+                {
+                    firstPersonCameraRig.Render(inputCollector.LookYaw, inputCollector.LookPitch);
+                }
+
+                if (firstPersonWeaponView != null && playerView.TryGetLatestState(out PlayerState localState))
+                {
+                    firstPersonWeaponView.Render(localState, Time.unscaledDeltaTime);
+                }
+
+                RenderRemotePlayers();
             }
         }
 
@@ -172,6 +238,7 @@ namespace AFPS.Bootstrap
                     if (side == NetworkTransportSide.Client && playerView != null)
                     {
                         playerView.SnapToState(sessionManager.ClientSession.CurrentState);
+                        inputCollector.SetLookAngles(sessionManager.ClientSession.CurrentState.Yaw, sessionManager.ClientSession.CurrentState.Pitch);
                     }
                     break;
                 case TransportEventType.Disconnected:
@@ -185,7 +252,7 @@ namespace AFPS.Bootstrap
 
         private void HandleData(NetworkTransportSide side, TransportConnectionId connectionId, ArraySegment<byte> payload)
         {
-            if (!sessionManager.TryHandleData(side, connectionId, payload, out ReconciliationResult reconciliation) || side != NetworkTransportSide.Client)
+            if (!sessionManager.TryHandleData(side, connectionId, payload, out ReconciliationResult reconciliation) || side != NetworkTransportSide.Client || !PacketHeaderCodec.TryRead(payload, out PacketHeader header) || header.MessageType != NetworkMessageType.AuthoritativePlayerState)
             {
                 return;
             }
@@ -203,6 +270,30 @@ namespace AFPS.Bootstrap
             {
                 playerView.ApplyState(state);
             }
+        }
+
+        private void RenderRemotePlayers()
+        {
+            if (remotePlayerWorldView == null || sessionManager.RemotePlayers == null)
+            {
+                return;
+            }
+
+            if (observedRemoteSnapshotVersion != sessionManager.RemotePlayers.SnapshotVersion)
+            {
+                observedRemoteSnapshotVersion = sessionManager.RemotePlayers.SnapshotVersion;
+                latestRemoteServerTick = sessionManager.RemotePlayers.LatestServerTick;
+                latestRemoteSnapshotReceiveTime = Time.realtimeSinceStartupAsDouble;
+            }
+
+            if (observedRemoteSnapshotVersion == 0)
+            {
+                remotePlayerWorldView.Render(sessionManager.RemotePlayers, 0d);
+                return;
+            }
+
+            double elapsedTicks = (Time.realtimeSinceStartupAsDouble - latestRemoteSnapshotReceiveTime) / tickRunner.TickDeltaTime;
+            remotePlayerWorldView.Render(sessionManager.RemotePlayers, latestRemoteServerTick + elapsedTicks);
         }
     }
 }

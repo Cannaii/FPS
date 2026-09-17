@@ -47,6 +47,7 @@ namespace AFPS.Tests.EditMode
                 Tick = 20,
                 Position = Vector3.zero,
                 Velocity = Vector3.zero,
+                Yaw = 359f,
                 IsGrounded = true
             };
 
@@ -55,6 +56,7 @@ namespace AFPS.Tests.EditMode
                 Tick = 20,
                 Position = new Vector3(0.3f, 0f, 0.4f),
                 Velocity = new Vector3(0f, 0f, 2f),
+                Yaw = 1f,
                 IsGrounded = false
             };
 
@@ -63,6 +65,7 @@ namespace AFPS.Tests.EditMode
 
             Assert.AreEqual(0.5f, result.Position, 0.0001f);
             Assert.AreEqual(2f, result.Velocity, 0.0001f);
+            Assert.AreEqual(2f, result.LookAngle, 0.0001f);
             Assert.IsTrue(result.GroundedMismatch);
             Assert.IsTrue(result.Exceeds(0.01f, 0.01f));
         }

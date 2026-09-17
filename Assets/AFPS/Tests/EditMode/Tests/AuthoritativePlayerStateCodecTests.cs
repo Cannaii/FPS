@@ -18,13 +18,15 @@ namespace AFPS.Tests.EditMode
                 Tick = 120,
                 Position = new Vector3(12.3454f, -0.0006f, 2048.7654f),
                 Velocity = new Vector3(6.234f, -8.765f, 0.004f),
+                Yaw = 271.234f,
+                Pitch = -35.678f,
                 IsGrounded = true
             };
             AuthoritativePlayerState source = new AuthoritativePlayerState(500, 120, sourceState);
             byte[] packet = new byte[AuthoritativePlayerStateCodec.PacketSize];
 
             Assert.That(AuthoritativePlayerStateCodec.TrySerialize(source, 77, new ArraySegment<byte>(packet), out int bytesWritten), Is.True);
-            Assert.That(bytesWritten, Is.EqualTo(39));
+            Assert.That(bytesWritten, Is.EqualTo(AuthoritativePlayerStateCodec.PacketSize));
             Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(packet), out PacketHeader header, out AuthoritativePlayerState decoded), Is.True);
             Assert.That(header.MessageType, Is.EqualTo(NetworkMessageType.AuthoritativePlayerState));
             Assert.That(header.Sequence, Is.EqualTo(77));
@@ -34,6 +36,8 @@ namespace AFPS.Tests.EditMode
             Assert.That(decoded.State.IsGrounded, Is.True);
             Assert.That(Vector3.Distance(decoded.State.Position, sourceState.Position), Is.LessThanOrEqualTo(AuthoritativePlayerStateCodec.MaximumPositionQuantizationError));
             Assert.That(Vector3.Distance(decoded.State.Velocity, sourceState.Velocity), Is.LessThanOrEqualTo(AuthoritativePlayerStateCodec.MaximumVelocityQuantizationError));
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(decoded.State.Yaw, sourceState.Yaw)), Is.LessThanOrEqualTo(AuthoritativePlayerStateCodec.LookAngleResolution));
+            Assert.That(decoded.State.Pitch, Is.EqualTo(sourceState.Pitch).Within(AuthoritativePlayerStateCodec.LookAngleResolution));
         }
 
         [Test]

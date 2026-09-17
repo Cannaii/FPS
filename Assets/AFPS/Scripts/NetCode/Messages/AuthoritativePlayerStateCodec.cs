@@ -14,7 +14,7 @@ namespace AFPS.NetCode.Messages
         /// <summary>
         /// 权威状态负载的固定字节数。
         /// </summary>
-        public const int PayloadSize = 27;
+        public const int PayloadSize = 31;
 
         /// <summary>
         /// 包头和权威状态负载合计的固定字节数。
@@ -30,6 +30,9 @@ namespace AFPS.NetCode.Messages
         /// 速度整数最小单位为每秒一厘米。
         /// </summary>
         public const float VelocityResolution = 0.01f;
+
+        /// <summary>Yaw 和 Pitch 的整数最小单位为百分之一度。</summary>
+        public const float LookAngleResolution = 0.01f;
 
         /// <summary>
         /// 三个位置分量共同量化后可能产生的最大空间距离误差，单位为米。
@@ -56,7 +59,7 @@ namespace AFPS.NetCode.Messages
         public static bool TrySerialize(in AuthoritativePlayerState authoritativeState, uint sequence, ArraySegment<byte> destination, out int bytesWritten)
         {
             bytesWritten = 0;
-            if (destination.Count < PacketSize || authoritativeState.State.Tick != authoritativeState.LastProcessedInputTick)
+            if (destination.Count < PacketSize || authoritativeState.State.Tick != authoritativeState.LastProcessedInputTick || !IsFinite(authoritativeState.State.Yaw) || !IsFinite(authoritativeState.State.Pitch))
             {
                 return false;
             }
@@ -72,6 +75,9 @@ namespace AFPS.NetCode.Messages
                 return false;
             }
 
+            ushort yaw = QuantizeYaw(state.Yaw);
+            short pitch = QuantizePitch(state.Pitch);
+
             PacketHeader header = new PacketHeader(NetworkMessageType.AuthoritativePlayerState, PayloadSize, sequence);
             if (!PacketHeaderCodec.TryWrite(header, destination))
             {
@@ -81,7 +87,7 @@ namespace AFPS.NetCode.Messages
             ArraySegment<byte> payloadDestination = new ArraySegment<byte>(destination.Array, destination.Offset + PacketHeader.Size, PayloadSize);
             PacketBufferWriter writer = new PacketBufferWriter(payloadDestination);
             byte flags = state.IsGrounded ? GroundedMask : (byte)0;
-            bool success = writer.TryWriteUInt32(authoritativeState.ServerTick) && writer.TryWriteUInt32(authoritativeState.LastProcessedInputTick) && writer.TryWriteInt32(positionX) && writer.TryWriteInt32(positionY) && writer.TryWriteInt32(positionZ) && writer.TryWriteInt16(velocityX) && writer.TryWriteInt16(velocityY) && writer.TryWriteInt16(velocityZ) && writer.TryWriteByte(flags);
+            bool success = writer.TryWriteUInt32(authoritativeState.ServerTick) && writer.TryWriteUInt32(authoritativeState.LastProcessedInputTick) && writer.TryWriteInt32(positionX) && writer.TryWriteInt32(positionY) && writer.TryWriteInt32(positionZ) && writer.TryWriteInt16(velocityX) && writer.TryWriteInt16(velocityY) && writer.TryWriteInt16(velocityZ) && writer.TryWriteUInt16(yaw) && writer.TryWriteInt16(pitch) && writer.TryWriteByte(flags);
             if (!success)
             {
                 return false;
@@ -102,7 +108,7 @@ namespace AFPS.NetCode.Messages
 
             ArraySegment<byte> payload = new ArraySegment<byte>(packet.Array, packet.Offset + PacketHeader.Size, PayloadSize);
             PacketBufferReader reader = new PacketBufferReader(payload);
-            if (!reader.TryReadUInt32(out uint serverTick) || !reader.TryReadUInt32(out uint lastProcessedInputTick) || !reader.TryReadInt32(out int positionX) || !reader.TryReadInt32(out int positionY) || !reader.TryReadInt32(out int positionZ) || !reader.TryReadInt16(out short velocityX) || !reader.TryReadInt16(out short velocityY) || !reader.TryReadInt16(out short velocityZ) || !reader.TryReadByte(out byte flags))
+            if (!reader.TryReadUInt32(out uint serverTick) || !reader.TryReadUInt32(out uint lastProcessedInputTick) || !reader.TryReadInt32(out int positionX) || !reader.TryReadInt32(out int positionY) || !reader.TryReadInt32(out int positionZ) || !reader.TryReadInt16(out short velocityX) || !reader.TryReadInt16(out short velocityY) || !reader.TryReadInt16(out short velocityZ) || !reader.TryReadUInt16(out ushort yaw) || !reader.TryReadInt16(out short pitch) || !reader.TryReadByte(out byte flags))
             {
                 return false;
             }
@@ -117,6 +123,8 @@ namespace AFPS.NetCode.Messages
                 Tick = lastProcessedInputTick,
                 Position = new Vector3(DequantizePosition(positionX), DequantizePosition(positionY), DequantizePosition(positionZ)),
                 Velocity = new Vector3(DequantizeVelocity(velocityX), DequantizeVelocity(velocityY), DequantizeVelocity(velocityZ)),
+                Yaw = yaw * LookAngleResolution,
+                Pitch = pitch * LookAngleResolution,
                 IsGrounded = (flags & GroundedMask) != 0
             };
             authoritativeState = new AuthoritativePlayerState(serverTick, lastProcessedInputTick, state);
@@ -166,5 +174,31 @@ namespace AFPS.NetCode.Messages
         private static float DequantizeVelocity(short value) => value * VelocityResolution;
 
         private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+
+        private static ushort QuantizeYaw(float value)
+        {
+            if (!IsFinite(value))
+            {
+                return 0;
+            }
+
+            value %= 360f;
+            if (value < 0f)
+            {
+                value += 360f;
+            }
+
+            return (ushort)Math.Round(value / LookAngleResolution);
+        }
+
+        private static short QuantizePitch(float value)
+        {
+            if (!IsFinite(value))
+            {
+                return 0;
+            }
+
+            return (short)Math.Round(Math.Max(-89.9f, Math.Min(89.9f, value)) / LookAngleResolution);
+        }
     }
 }
