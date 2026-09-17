@@ -1,5 +1,6 @@
 using System;
 using AFPS.Core.Tick;
+using AFPS.Bootstrap.Physics;
 using AFPS.Input;
 using AFPS.NetCode.Messages;
 using AFPS.NetCode.Prediction;
@@ -8,7 +9,9 @@ using AFPS.NetCode.Sessions;
 using AFPS.NetCode.Transport;
 using AFPS.Presentation.Characters;
 using AFPS.Simulation.Characters;
+using AFPS.Simulation.Characters.Collision;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace AFPS.Bootstrap
 {
@@ -34,6 +37,17 @@ namespace AFPS.Bootstrap
         [SerializeField, Min(0f)] private float positionErrorThreshold = 0.002f;
         [SerializeField, Min(0f)] private float velocityErrorThreshold = 0.02f;
         [SerializeField] private Vector3 serverSpawnPosition = Vector3.zero;
+        [Header("Predictable Character Collision")]
+        [SerializeField] private LayerMask collisionLayers = ~0;
+        [SerializeField] private bool collideWithTriggers;
+        [SerializeField, Min(0.01f)] private float capsuleRadius = 0.5f;
+        [SerializeField, Min(0.02f)] private float capsuleHeight = 2f;
+        [SerializeField, Min(0f)] private float collisionSkinWidth = 0.01f;
+        [SerializeField, Min(0f)] private float groundProbeDistance = 0.1f;
+        [SerializeField, Min(0f)] private float stepHeight = 0.3f;
+        [SerializeField, Range(1f, 89f)] private float maxSlopeAngle = 50f;
+        [SerializeField, Min(1)] private int maxSlideIterations = 4;
+        [SerializeField] private Collider localPlayerCollider;
 
         private NetworkMovementSessionManager sessionManager;
         private bool initialized;
@@ -60,13 +74,40 @@ namespace AFPS.Bootstrap
                 return;
             }
 
-            PlayerSimulationConfig config = new PlayerSimulationConfig(maxGroundSpeed, groundAcceleration, gravity, jumpSpeed);
+            CharacterCollisionConfig collisionConfig;
+            try
+            {
+                collisionConfig = new CharacterCollisionConfig(capsuleRadius, capsuleHeight, collisionSkinWidth, groundProbeDistance, stepHeight, maxSlopeAngle, maxSlideIterations);
+            }
+            catch (ArgumentException exception)
+            {
+                Debug.LogError($"角色碰撞配置无效：{exception.Message}", this);
+                enabled = false;
+                return;
+            }
+
+            PlayerSimulationConfig config = new PlayerSimulationConfig(maxGroundSpeed, groundAcceleration, gravity, jumpSpeed, collisionConfig);
             PlayerState serverInitialState = new PlayerState { Tick = 0, Position = serverSpawnPosition, Velocity = Vector3.zero, IsGrounded = true };
             PlayerState clientInitialState = new PlayerState { Tick = 0, Position = hasLocalClient ? playerView.InitialPosition : serverSpawnPosition, Velocity = Vector3.zero, IsGrounded = true };
+            QueryTriggerInteraction triggerInteraction = collideWithTriggers ? QueryTriggerInteraction.Collide : QueryTriggerInteraction.Ignore;
+            ICharacterCollisionWorld collisionWorld = new UnityPhysicsCharacterCollisionWorld(gameObject.scene.GetPhysicsScene(), collisionLayers.value, triggerInteraction);
+
+            if (hasLocalClient)
+            {
+                if (localPlayerCollider == null)
+                {
+                    localPlayerCollider = playerView.GetComponent<Collider>();
+                }
+
+                if (localPlayerCollider != null)
+                {
+                    localPlayerCollider.enabled = false;
+                }
+            }
 
             try
             {
-                sessionManager = new NetworkMovementSessionManager(networkBootstrap.Runtime.ServerTransport, networkBootstrap.Runtime.ClientTransport, serverInitialState, clientInitialState, config, tickRunner.TickDeltaTime, predictionHistoryCapacity, inputRedundancyCount, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks, positionErrorThreshold, velocityErrorThreshold);
+                sessionManager = new NetworkMovementSessionManager(networkBootstrap.Runtime.ServerTransport, networkBootstrap.Runtime.ClientTransport, serverInitialState, clientInitialState, config, tickRunner.TickDeltaTime, predictionHistoryCapacity, inputRedundancyCount, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks, positionErrorThreshold, velocityErrorThreshold, collisionWorld);
             }
             catch (ArgumentException exception)
             {

@@ -5,6 +5,7 @@ using AFPS.NetCode.Protocol;
 using AFPS.NetCode.StateReplication;
 using AFPS.NetCode.Transport;
 using AFPS.Simulation.Characters;
+using AFPS.Simulation.Characters.Collision;
 
 namespace AFPS.NetCode.Sessions
 {
@@ -20,6 +21,7 @@ namespace AFPS.NetCode.Sessions
         private readonly float tickDeltaTime;
         private readonly int maxMissingInputWaitTicks;
         private readonly int maxRepeatedMovementTicks;
+        private readonly ICharacterCollisionWorld collisionWorld;
         private bool hasAdvancedServerTick;
         private bool hasLastReceivedInput;
         private uint lastServerTick;
@@ -52,7 +54,7 @@ namespace AFPS.NetCode.Sessions
         /// </summary>
         public int ConsecutiveSubstitutedInputTicks => consecutiveSubstitutedInputTicks;
 
-        public ServerAuthoritativeMovementSession(IGameTransport transport, TransportConnectionId clientConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int inputWindowCapacity, int maxMissingInputWaitTicks = 2, int maxRepeatedMovementTicks = 2)
+        public ServerAuthoritativeMovementSession(IGameTransport transport, TransportConnectionId clientConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int inputWindowCapacity, int maxMissingInputWaitTicks = 2, int maxRepeatedMovementTicks = 2, ICharacterCollisionWorld collisionWorld = null)
         {
             if (tickDeltaTime <= 0f || float.IsNaN(tickDeltaTime) || float.IsInfinity(tickDeltaTime))
             {
@@ -73,6 +75,7 @@ namespace AFPS.NetCode.Sessions
             this.tickDeltaTime = tickDeltaTime;
             this.maxMissingInputWaitTicks = maxMissingInputWaitTicks;
             this.maxRepeatedMovementTicks = maxRepeatedMovementTicks;
+            this.collisionWorld = collisionWorld ?? FlatGroundCollisionWorld.Instance;
             CurrentState = initialState;
             inputReceiver = new ServerInputCommandReceiver(unchecked(initialState.Tick + 1), inputWindowCapacity);
             stateSender = new ServerAuthoritativeStateSender(transport, clientConnectionId);
@@ -139,7 +142,7 @@ namespace AFPS.NetCode.Sessions
         private bool SimulateAndSend(uint serverWorldTick, in PlayerInputCommand command, out AuthoritativePlayerState authoritativeState, out AuthoritativeStateSendResult sendResult)
         {
             LastAppliedInput = command;
-            CurrentState = PlayerSimulation.Simulate(CurrentState, command, simulationConfig, tickDeltaTime);
+            CurrentState = PlayerSimulation.Simulate(CurrentState, command, simulationConfig, tickDeltaTime, collisionWorld);
             authoritativeState = new AuthoritativePlayerState(serverWorldTick, command.Tick, CurrentState);
             stateSender.TrySend(authoritativeState, out sendResult);
             return true;

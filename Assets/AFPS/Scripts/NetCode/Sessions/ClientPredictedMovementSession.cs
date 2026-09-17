@@ -7,6 +7,7 @@ using AFPS.NetCode.Protocol;
 using AFPS.NetCode.StateReplication;
 using AFPS.NetCode.Transport;
 using AFPS.Simulation.Characters;
+using AFPS.Simulation.Characters.Collision;
 
 namespace AFPS.NetCode.Sessions
 {
@@ -24,13 +25,14 @@ namespace AFPS.NetCode.Sessions
         private readonly float tickDeltaTime;
         private readonly float positionErrorThreshold;
         private readonly float velocityErrorThreshold;
+        private readonly ICharacterCollisionWorld collisionWorld;
 
         /// <summary>
         /// 客户端执行完最新本地输入后持有的预测状态。
         /// </summary>
         public PlayerState CurrentState { get; private set; }
 
-        public ClientPredictedMovementSession(IGameTransport transport, TransportConnectionId serverConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int historyCapacity, int inputRedundancyCount, float positionErrorThreshold, float velocityErrorThreshold)
+        public ClientPredictedMovementSession(IGameTransport transport, TransportConnectionId serverConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int historyCapacity, int inputRedundancyCount, float positionErrorThreshold, float velocityErrorThreshold, ICharacterCollisionWorld collisionWorld = null)
         {
             if (tickDeltaTime <= 0f || float.IsNaN(tickDeltaTime) || float.IsInfinity(tickDeltaTime))
             {
@@ -56,6 +58,7 @@ namespace AFPS.NetCode.Sessions
             this.tickDeltaTime = tickDeltaTime;
             this.positionErrorThreshold = positionErrorThreshold;
             this.velocityErrorThreshold = velocityErrorThreshold;
+            this.collisionWorld = collisionWorld ?? FlatGroundCollisionWorld.Instance;
             CurrentState = initialState;
             inputHistory = new TickBuffer<PlayerInputCommand>(historyCapacity);
             stateHistory = new TickBuffer<PlayerState>(historyCapacity);
@@ -77,7 +80,7 @@ namespace AFPS.NetCode.Sessions
 
             command = InputCommandBatchCodec.Canonicalize(command);
             inputHistory.Store(command.Tick, command);
-            CurrentState = PlayerSimulation.Simulate(CurrentState, command, simulationConfig, tickDeltaTime);
+            CurrentState = PlayerSimulation.Simulate(CurrentState, command, simulationConfig, tickDeltaTime, collisionWorld);
             stateHistory.Store(command.Tick, CurrentState);
             inputSender.TrySendLatest(command.Tick, out sendResult);
             return CurrentState;
@@ -99,7 +102,7 @@ namespace AFPS.NetCode.Sessions
                 throw new InvalidOperationException("服务器确认的客户端输入 Tick 不能晚于客户端当前预测 Tick。");
             }
 
-            reconciliationResult = ClientPredictionReconciler.Reconcile(authoritativeState, CurrentState.Tick, CurrentState, inputHistory, stateHistory, simulationConfig, tickDeltaTime, positionErrorThreshold, velocityErrorThreshold);
+            reconciliationResult = ClientPredictionReconciler.Reconcile(authoritativeState, CurrentState.Tick, CurrentState, inputHistory, stateHistory, simulationConfig, tickDeltaTime, positionErrorThreshold, velocityErrorThreshold, collisionWorld);
             if (reconciliationResult.RequiresHardCorrection)
             {
                 CurrentState = authoritativeState.State;

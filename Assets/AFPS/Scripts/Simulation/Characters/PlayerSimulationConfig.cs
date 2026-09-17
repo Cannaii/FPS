@@ -1,6 +1,8 @@
 
 namespace AFPS.Simulation.Characters
 {
+    using Collision;
+
     /// <summary>
     /// 保存速度、加速度等参数
     /// </summary>
@@ -29,6 +31,11 @@ namespace AFPS.Simulation.Characters
         public readonly float JumpSpeed;
 
         /// <summary>
+        /// 角色胶囊、斜坡、台阶和碰撞迭代参数；客户端与服务器必须完全一致。
+        /// </summary>
+        public readonly CharacterCollisionConfig Collision;
+
+        /// <summary>
         /// 创建一组玩家移动模拟参数。
         /// 客户端预测与服务器权威模拟必须使用一致的参数。
         /// </summary>
@@ -36,12 +43,14 @@ namespace AFPS.Simulation.Characters
             float maxGroundSpeed,
             float groundAcceleration,
             float gravity,
-            float jumpSpeed)
+            float jumpSpeed,
+            CharacterCollisionConfig? collision = null)
         {
             MaxGroundSpeed = maxGroundSpeed;
             GroundAcceleration = groundAcceleration;
             Gravity = gravity;
             JumpSpeed = jumpSpeed;
+            Collision = collision ?? CharacterCollisionConfig.Default;
         }
     }
 }

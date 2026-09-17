@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using AFPS.NetCode.Messages;
 using AFPS.Simulation.Characters;
+using AFPS.Simulation.Characters.Collision;
 
 namespace AFPS.NetCode.Simulation
 {
@@ -47,6 +48,7 @@ namespace AFPS.NetCode.Simulation
         private readonly float tickDeltaTime;
         private readonly uint inputDelayTicks;
         private readonly uint stateDelayTicks;
+        private readonly ICharacterCollisionWorld collisionWorld;
         private PlayerState currentState;
 
         /// <summary>
@@ -72,7 +74,8 @@ namespace AFPS.NetCode.Simulation
             in PlayerSimulationConfig config,
             float tickDeltaTime,
             int inputDelayTicks,
-            int stateDelayTicks)
+            int stateDelayTicks,
+            ICharacterCollisionWorld collisionWorld = null)
         {
             if (tickDeltaTime <= 0f || float.IsNaN(tickDeltaTime) || float.IsInfinity(tickDeltaTime))
             {
@@ -94,6 +97,7 @@ namespace AFPS.NetCode.Simulation
             this.tickDeltaTime = tickDeltaTime;
             this.inputDelayTicks = (uint)inputDelayTicks;
             this.stateDelayTicks = (uint)stateDelayTicks;
+            this.collisionWorld = collisionWorld ?? FlatGroundCollisionWorld.Instance;
         }
 
         /// <summary>
@@ -119,7 +123,7 @@ namespace AFPS.NetCode.Simulation
             while (pendingInputs.Count > 0 && IsDue(pendingInputs.Peek().DeliveryTick, networkTick))
             {
                 ScheduledInput scheduledInput = pendingInputs.Dequeue();
-                currentState = PlayerSimulation.Simulate(currentState, scheduledInput.Command, simulationConfig, tickDeltaTime);
+                currentState = PlayerSimulation.Simulate(currentState, scheduledInput.Command, simulationConfig, tickDeltaTime, collisionWorld);
 
                 AuthoritativePlayerState authoritativeState = new AuthoritativePlayerState(
                     ServerWorldTick,

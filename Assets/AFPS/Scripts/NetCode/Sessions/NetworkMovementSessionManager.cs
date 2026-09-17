@@ -7,6 +7,7 @@ using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Runtime;
 using AFPS.NetCode.Transport;
 using AFPS.Simulation.Characters;
+using AFPS.Simulation.Characters.Collision;
 
 namespace AFPS.NetCode.Sessions
 {
@@ -30,6 +31,7 @@ namespace AFPS.NetCode.Sessions
         private readonly int maxRepeatedMovementTicks;
         private readonly float positionErrorThreshold;
         private readonly float velocityErrorThreshold;
+        private readonly ICharacterCollisionWorld collisionWorld;
         private TransportConnectionId clientConnectionId;
 
         /// <summary>
@@ -42,7 +44,7 @@ namespace AFPS.NetCode.Sessions
         /// </summary>
         public ClientPredictedMovementSession ClientSession { get; private set; }
 
-        public NetworkMovementSessionManager(IGameTransport serverTransport, IGameTransport clientTransport, in PlayerState serverInitialState, in PlayerState clientInitialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int predictionHistoryCapacity, int inputRedundancyCount, int serverInputWindowCapacity, int maxMissingInputWaitTicks, int maxRepeatedMovementTicks, float positionErrorThreshold, float velocityErrorThreshold)
+        public NetworkMovementSessionManager(IGameTransport serverTransport, IGameTransport clientTransport, in PlayerState serverInitialState, in PlayerState clientInitialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int predictionHistoryCapacity, int inputRedundancyCount, int serverInputWindowCapacity, int maxMissingInputWaitTicks, int maxRepeatedMovementTicks, float positionErrorThreshold, float velocityErrorThreshold, ICharacterCollisionWorld collisionWorld = null)
         {
             if (serverTransport == null && clientTransport == null)
             {
@@ -102,6 +104,7 @@ namespace AFPS.NetCode.Sessions
             this.maxRepeatedMovementTicks = maxRepeatedMovementTicks;
             this.positionErrorThreshold = positionErrorThreshold;
             this.velocityErrorThreshold = velocityErrorThreshold;
+            this.collisionWorld = collisionWorld ?? FlatGroundCollisionWorld.Instance;
         }
 
         /// <summary>
@@ -121,7 +124,7 @@ namespace AFPS.NetCode.Sessions
                     return false;
                 }
 
-                serverSessions.Add(connectionId, new ServerAuthoritativeMovementSession(serverTransport, connectionId, serverInitialState, simulationConfig, tickDeltaTime, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks));
+                serverSessions.Add(connectionId, new ServerAuthoritativeMovementSession(serverTransport, connectionId, serverInitialState, simulationConfig, tickDeltaTime, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks, collisionWorld));
                 return true;
             }
 
@@ -131,7 +134,7 @@ namespace AFPS.NetCode.Sessions
             }
 
             clientConnectionId = connectionId;
-            ClientSession = new ClientPredictedMovementSession(clientTransport, connectionId, clientInitialState, simulationConfig, tickDeltaTime, predictionHistoryCapacity, inputRedundancyCount, positionErrorThreshold, velocityErrorThreshold);
+            ClientSession = new ClientPredictedMovementSession(clientTransport, connectionId, clientInitialState, simulationConfig, tickDeltaTime, predictionHistoryCapacity, inputRedundancyCount, positionErrorThreshold, velocityErrorThreshold, collisionWorld);
             return true;
         }
 

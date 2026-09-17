@@ -2,6 +2,7 @@ using System;
 using AFPS.Core.Collections;
 using AFPS.NetCode.Messages;
 using AFPS.Simulation.Characters;
+using AFPS.Simulation.Characters.Collision;
 
 namespace AFPS.NetCode.Prediction
 {
@@ -22,7 +23,8 @@ namespace AFPS.NetCode.Prediction
             in PlayerSimulationConfig config,
             float tickDeltaTime,
             float positionErrorThreshold,
-            float velocityErrorThreshold)
+            float velocityErrorThreshold,
+            ICharacterCollisionWorld collisionWorld = null)
         {
             ValidateArguments(
                 authoritativeState,
@@ -75,7 +77,7 @@ namespace AFPS.NetCode.Prediction
             {
                 uint replayTick = unchecked(acknowledgedTick + (uint)offset);
                 inputHistory.TryGet(replayTick, out PlayerInputCommand input);
-                replayState = PlayerSimulation.Simulate(replayState, input, config, tickDeltaTime);
+                replayState = PlayerSimulation.Simulate(replayState, input, config, tickDeltaTime, collisionWorld ?? FlatGroundCollisionWorld.Instance);
                 stateHistory.Store(replayTick, replayState);
             }
 

@@ -1,5 +1,6 @@
 
 using UnityEngine;
+using AFPS.Simulation.Characters.Collision;
 
 namespace AFPS.Simulation.Characters
 {
@@ -23,6 +24,19 @@ namespace AFPS.Simulation.Characters
             in PlayerInputCommand input,
             in PlayerSimulationConfig config,
             float tickDeltaTime)
+        {
+            return Simulate(previousState, input, config, tickDeltaTime, FlatGroundCollisionWorld.Instance);
+        }
+
+        /// <summary>
+        /// 使用调用方提供的碰撞场景执行可预测角色模拟。
+        /// </summary>
+        public static PlayerState Simulate(
+            in PlayerState previousState,
+            in PlayerInputCommand input,
+            in PlayerSimulationConfig config,
+            float tickDeltaTime,
+            ICharacterCollisionWorld collisionWorld)
         {
             var nextState = previousState;
             nextState.Tick = input.Tick;
@@ -60,18 +74,8 @@ namespace AFPS.Simulation.Characters
             // 写入新的水平速度和经过跳跃、重力计算后的垂直速度。
             nextState.Velocity = new Vector3(newHorizontalVelocity.x, verticalVelocity, newHorizontalVelocity.z);
 
-            // 使用包含水平和垂直分量的速度更新玩家位置。
-            // 当前使用半隐式欧拉积分：先更新速度，再更新位置。
-            nextState.Position = previousState.Position + nextState.Velocity * tickDeltaTime;
-
-            // 当前实验暂时将世界坐标 Y = 0 视为无限平地。
-            // 将来接入碰撞系统后，这部分会替换为实际地面检测。
-            if (nextState.Position.y <= 0f)
-            {
-                nextState.Position = new Vector3(nextState.Position.x, 0f, nextState.Position.z);
-                nextState.Velocity = new Vector3(nextState.Velocity.x, 0f, nextState.Velocity.z);
-                nextState.IsGrounded = true;
-            }
+            // 胶囊扫掠使用半隐式欧拉得到的速度计算本 Tick 位移，再解析地面、墙壁、斜坡、台阶和天花板接触。
+            KinematicCharacterMotor.Move(previousState.Position, nextState.Velocity, tickDeltaTime, config.Collision, collisionWorld, out nextState.Position, out nextState.Velocity, out nextState.IsGrounded);
 
             return nextState;
         }
