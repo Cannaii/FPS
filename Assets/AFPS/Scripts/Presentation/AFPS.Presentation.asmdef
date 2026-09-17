@@ -2,7 +2,8 @@
     "name": "AFPS.Presentation",
     "rootNamespace": "AFPS.Presentation",
     "references": [
-        "AFPS.Simulation"
+        "AFPS.Simulation",
+        "AFPS.NetCode"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
