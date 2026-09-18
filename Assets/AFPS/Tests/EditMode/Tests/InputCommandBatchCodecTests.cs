@@ -15,7 +15,7 @@ namespace AFPS.Tests.EditMode
         {
             PlayerInputCommand[] source =
             {
-                new PlayerInputCommand { Tick = 100, MoveX = 1f, MoveY = -1f, LookYaw = 45.12f, LookPitch = -20.5f, JumpPressed = true },
+                new PlayerInputCommand { Tick = 100, MoveX = 1f, MoveY = -1f, LookYaw = 45.12f, LookPitch = -20.5f, JumpPressed = true, FirePressed = true, ShotSequence = 77 },
                 new PlayerInputCommand { Tick = 101, MoveX = 0.25f, MoveY = -0.5f, LookYaw = 359.99f, LookPitch = 30.25f, JumpPressed = false },
                 new PlayerInputCommand { Tick = 102, MoveX = 0f, MoveY = 0.75f, LookYaw = 90f, LookPitch = 0f, JumpPressed = true }
             };
@@ -41,6 +41,8 @@ namespace AFPS.Tests.EditMode
                 Assert.That(actual.LookYaw, Is.EqualTo(source[i].LookYaw).Within(InputCommandBatchCodec.LookAngleResolution));
                 Assert.That(actual.LookPitch, Is.EqualTo(source[i].LookPitch).Within(InputCommandBatchCodec.LookAngleResolution));
                 Assert.That(actual.JumpPressed, Is.EqualTo(source[i].JumpPressed));
+                Assert.That(actual.FirePressed, Is.EqualTo(source[i].FirePressed));
+                Assert.That(actual.ShotSequence, Is.EqualTo(source[i].ShotSequence));
             }
         }
 
@@ -131,6 +133,17 @@ namespace AFPS.Tests.EditMode
             Assert.That(decoded[0].LookYaw, Is.EqualTo(canonical.LookYaw));
             Assert.That(decoded[0].LookPitch, Is.EqualTo(canonical.LookPitch));
             Assert.That(decoded[0].JumpPressed, Is.EqualTo(canonical.JumpPressed));
+        }
+
+        [Test]
+        public void Deserialize_RejectsShotSequenceWithoutFireButton()
+        {
+            PlayerInputCommand[] source = { new PlayerInputCommand { Tick = 1, FirePressed = true, ShotSequence = 9 } };
+            byte[] packet = new byte[InputCommandBatchCodec.GetPacketSize(1)];
+            Assert.That(InputCommandBatchCodec.TrySerialize(new InputCommandBatch(new ArraySegment<PlayerInputCommand>(source)), 1, new ArraySegment<byte>(packet), out _), Is.True);
+
+            packet[PacketHeader.Size + InputCommandBatchCodec.PayloadHeaderSize + 2] = 0;
+            Assert.That(InputCommandBatchCodec.TryDeserialize(new ArraySegment<byte>(packet), new PlayerInputCommand[1], 0, out _, out _), Is.False);
         }
     }
 }
