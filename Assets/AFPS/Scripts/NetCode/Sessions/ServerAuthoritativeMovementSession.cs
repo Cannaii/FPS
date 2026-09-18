@@ -4,8 +4,10 @@ using AFPS.NetCode.Messages;
 using AFPS.NetCode.Protocol;
 using AFPS.NetCode.StateReplication;
 using AFPS.NetCode.Transport;
+using AFPS.NetCode.Weapons;
 using AFPS.Simulation.Characters;
 using AFPS.Simulation.Characters.Collision;
+using AFPS.Simulation.Weapons;
 
 namespace AFPS.NetCode.Sessions
 {
@@ -22,6 +24,8 @@ namespace AFPS.NetCode.Sessions
         private readonly int maxMissingInputWaitTicks;
         private readonly int maxRepeatedMovementTicks;
         private readonly ICharacterCollisionWorld collisionWorld;
+        private readonly uint entityId;
+        private readonly ServerWeaponFireController weaponFireController;
         private bool hasAdvancedServerTick;
         private bool hasLastReceivedInput;
         private uint lastServerTick;
@@ -54,7 +58,10 @@ namespace AFPS.NetCode.Sessions
         /// </summary>
         public int ConsecutiveSubstitutedInputTicks => consecutiveSubstitutedInputTicks;
 
-        public ServerAuthoritativeMovementSession(IGameTransport transport, TransportConnectionId clientConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int inputWindowCapacity, int maxMissingInputWaitTicks = 2, int maxRepeatedMovementTicks = 2, ICharacterCollisionWorld collisionWorld = null)
+        /// <summary>最近一次权威模拟 Tick 的射击验证结果；无武器或未请求射击时不接受。</summary>
+        public WeaponFireResult LastWeaponFireResult { get; private set; }
+
+        public ServerAuthoritativeMovementSession(IGameTransport transport, TransportConnectionId clientConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int inputWindowCapacity, int maxMissingInputWaitTicks = 2, int maxRepeatedMovementTicks = 2, ICharacterCollisionWorld collisionWorld = null, uint entityId = 0, WeaponSimulationConfig? weaponConfig = null)
         {
             if (tickDeltaTime <= 0f || float.IsNaN(tickDeltaTime) || float.IsInfinity(tickDeltaTime))
             {
@@ -76,6 +83,11 @@ namespace AFPS.NetCode.Sessions
             this.maxMissingInputWaitTicks = maxMissingInputWaitTicks;
             this.maxRepeatedMovementTicks = maxRepeatedMovementTicks;
             this.collisionWorld = collisionWorld ?? FlatGroundCollisionWorld.Instance;
+            this.entityId = entityId;
+            if (weaponConfig.HasValue)
+            {
+                weaponFireController = new ServerWeaponFireController(weaponConfig.Value);
+            }
             CurrentState = initialState;
             inputReceiver = new ServerInputCommandReceiver(unchecked(initialState.Tick + 1), inputWindowCapacity);
             stateSender = new ServerAuthoritativeStateSender(transport, clientConnectionId);
@@ -134,7 +146,9 @@ namespace AFPS.NetCode.Sessions
                 MoveY = repeatContinuousInput ? lastReceivedInput.MoveY : 0f,
                 LookYaw = hasLastReceivedInput ? lastReceivedInput.LookYaw : CurrentState.Yaw,
                 LookPitch = hasLastReceivedInput ? lastReceivedInput.LookPitch : CurrentState.Pitch,
-                JumpPressed = false
+                JumpPressed = false,
+                FirePressed = false,
+                ShotSequence = 0
             };
             consecutiveSubstitutedInputTicks++;
             LastAdvanceStatus = repeatContinuousInput ? ServerInputAdvanceStatus.RepeatedContinuousInput : ServerInputAdvanceStatus.NeutralFallback;
@@ -145,6 +159,7 @@ namespace AFPS.NetCode.Sessions
         {
             LastAppliedInput = command;
             CurrentState = PlayerSimulation.Simulate(CurrentState, command, simulationConfig, tickDeltaTime, collisionWorld);
+            LastWeaponFireResult = weaponFireController != null ? weaponFireController.Process(serverWorldTick, entityId, command, CurrentState) : default;
             authoritativeState = new AuthoritativePlayerState(serverWorldTick, command.Tick, CurrentState);
             stateSender.TrySend(authoritativeState, out sendResult);
             return true;

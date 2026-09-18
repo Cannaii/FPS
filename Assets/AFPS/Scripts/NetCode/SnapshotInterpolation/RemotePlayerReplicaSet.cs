@@ -88,7 +88,18 @@ namespace AFPS.NetCode.SnapshotInterpolation
                 return false;
             }
 
-            if (lastSequences.TryGetValue(decoded.EntityId, out uint lastSequence) && !SequenceMath.IsNewer(header.Sequence, lastSequence))
+            return TryInsertSnapshot(decoded, header.Sequence, out snapshot);
+        }
+
+        public bool TryInsertSnapshot(in RemotePlayerSnapshot decoded, uint sequence, out RemotePlayerSnapshot snapshot)
+        {
+            snapshot = default;
+            if (decoded.EntityId == 0 || decoded.EntityId == LocalEntityId)
+            {
+                return false;
+            }
+
+            if (lastSequences.TryGetValue(decoded.EntityId, out uint lastSequence) && !SequenceMath.IsNewer(sequence, lastSequence))
             {
                 return false;
             }
@@ -105,7 +116,7 @@ namespace AFPS.NetCode.SnapshotInterpolation
                 return false;
             }
 
-            lastSequences[decoded.EntityId] = header.Sequence;
+            lastSequences[decoded.EntityId] = sequence;
             if (!hasLatestServerTick || decoded.ServerTick == LatestServerTick || SequenceMath.IsNewer(decoded.ServerTick, LatestServerTick))
             {
                 LatestServerTick = decoded.ServerTick;

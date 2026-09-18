@@ -174,6 +174,11 @@ namespace AFPS.Bootstrap
             }
 
             initialized = true;
+            if (hasLocalClient && NetworkSmokeTestDriver.IsRequested)
+            {
+                NetworkSmokeTestDriver smokeTest = gameObject.AddComponent<NetworkSmokeTestDriver>();
+                smokeTest.Configure(networkBootstrap, this, inputCollector);
+            }
         }
 
         private void OnDestroy()
@@ -220,6 +225,15 @@ namespace AFPS.Bootstrap
             {
                 uint inputTick = unchecked(clientSession.CurrentState.Tick + 1);
                 PlayerInputCommand command = inputCollector.ConsumeCommand(inputTick);
+                if (command.FirePressed)
+                {
+                    command.ShotServerTick = sessionManager.RemotePlayers != null && sessionManager.RemotePlayers.LatestServerTick != 0 ? sessionManager.RemotePlayers.LatestServerTick : serverWorldTick;
+                    if (firstPersonWeaponView != null)
+                    {
+                        firstPersonWeaponView.PlayPredictedShot();
+                    }
+                }
+
                 if (sessionManager.TryPredictAndSend(command, out PlayerState predictedState, out _))
                 {
                     playerView.ApplyState(predictedState);

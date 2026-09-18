@@ -21,14 +21,16 @@ namespace AFPS.NetCode.Messages
         public const int PayloadHeaderSize = 5;
 
         /// <summary>
-        /// 每条输入占用七个字节：移动轴、按键位掩码、Yaw 和 Pitch。
+        /// 每条输入占用十五个字节：移动轴、按键位掩码、Yaw、Pitch、射击序号和估计服务器射击 Tick。
         /// </summary>
-        public const int BytesPerCommand = 7;
+        public const int BytesPerCommand = 15;
 
         /// <summary>网络观察角的量化精度，单位为度。</summary>
         public const float LookAngleResolution = 0.01f;
 
         private const byte JumpPressedMask = 1 << 0;
+        private const byte FirePressedMask = 1 << 1;
+        private const byte KnownButtonsMask = JumpPressedMask | FirePressedMask;
 
         public static int GetPacketSize(int commandCount) => PacketHeader.Size + PayloadHeaderSize + commandCount * BytesPerCommand;
 
@@ -69,8 +71,18 @@ namespace AFPS.NetCode.Messages
             for (int i = 0; i < batch.CommandCount; i++)
             {
                 PlayerInputCommand command = batch.Commands.Array[batch.Commands.Offset + i];
-                byte buttons = command.JumpPressed ? JumpPressedMask : (byte)0;
-                if (!writer.TryWriteSByte(QuantizeAxis(command.MoveX)) || !writer.TryWriteSByte(QuantizeAxis(command.MoveY)) || !writer.TryWriteByte(buttons) || !writer.TryWriteUInt16(QuantizeYaw(command.LookYaw)) || !writer.TryWriteInt16(QuantizePitch(command.LookPitch)))
+                byte buttons = 0;
+                if (command.JumpPressed)
+                {
+                    buttons |= JumpPressedMask;
+                }
+
+                if (command.FirePressed)
+                {
+                    buttons |= FirePressedMask;
+                }
+
+                if (!writer.TryWriteSByte(QuantizeAxis(command.MoveX)) || !writer.TryWriteSByte(QuantizeAxis(command.MoveY)) || !writer.TryWriteByte(buttons) || !writer.TryWriteUInt16(QuantizeYaw(command.LookYaw)) || !writer.TryWriteInt16(QuantizePitch(command.LookPitch)) || !writer.TryWriteUInt32(command.FirePressed ? command.ShotSequence : 0u) || !writer.TryWriteUInt32(command.FirePressed ? command.ShotServerTick : 0u))
                 {
                     return false;
                 }
@@ -104,13 +116,14 @@ namespace AFPS.NetCode.Messages
 
             for (int i = 0; i < commandCount; i++)
             {
-                if (!reader.TryReadSByte(out sbyte moveX) || !reader.TryReadSByte(out sbyte moveY) || !reader.TryReadByte(out byte buttons) || !reader.TryReadUInt16(out ushort lookYaw) || !reader.TryReadInt16(out short lookPitch))
+                if (!reader.TryReadSByte(out sbyte moveX) || !reader.TryReadSByte(out sbyte moveY) || !reader.TryReadByte(out byte buttons) || !reader.TryReadUInt16(out ushort lookYaw) || !reader.TryReadInt16(out short lookPitch) || !reader.TryReadUInt32(out uint shotSequence) || !reader.TryReadUInt32(out uint shotServerTick))
                 {
                     batch = default;
                     return false;
                 }
 
-                if ((buttons & ~JumpPressedMask) != 0)
+                bool firePressed = (buttons & FirePressedMask) != 0;
+                if ((buttons & ~KnownButtonsMask) != 0 || (firePressed && shotSequence == 0) || (!firePressed && shotSequence != 0))
                 {
                     batch = default;
                     return false;
@@ -123,7 +136,10 @@ namespace AFPS.NetCode.Messages
                     MoveY = DequantizeAxis(moveY),
                     LookYaw = DequantizeYaw(lookYaw),
                     LookPitch = DequantizePitch(lookPitch),
-                    JumpPressed = (buttons & JumpPressedMask) != 0
+                    JumpPressed = (buttons & JumpPressedMask) != 0,
+                    FirePressed = firePressed,
+                    ShotSequence = shotSequence,
+                    ShotServerTick = shotServerTick
                 };
             }
 
@@ -142,6 +158,12 @@ namespace AFPS.NetCode.Messages
             {
                 uint expectedTick = unchecked(batch.FirstTick + (uint)i);
                 if (batch.Commands.Array[batch.Commands.Offset + i].Tick != expectedTick)
+                {
+                    return false;
+                }
+
+                PlayerInputCommand command = batch.Commands.Array[batch.Commands.Offset + i];
+                if (command.FirePressed != (command.ShotSequence != 0) || (!command.FirePressed && command.ShotServerTick != 0))
                 {
                     return false;
                 }

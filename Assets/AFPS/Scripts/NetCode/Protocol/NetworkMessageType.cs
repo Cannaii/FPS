@@ -12,6 +12,8 @@ namespace AFPS.NetCode.Protocol
         TimeSyncResponse = 4,
         PlayerSessionAssignment = 5,
         RemotePlayerSnapshot = 6,
-        PlayerDespawn = 7
+        PlayerDespawn = 7,
+        AuthoritativeShotResult = 8,
+        RemotePlayerSnapshotDelta = 9
     }
 }

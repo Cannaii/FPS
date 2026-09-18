@@ -27,6 +27,11 @@ namespace AFPS.Input
         /// <summary>尚未被模拟 Tick 消费的跳跃按下事件。</summary>
         private bool jumpPressedSinceLastTick;
 
+        private bool firePressedSinceLastTick;
+        private uint nextShotSequence = 1;
+
+        private bool automationEnabled;
+
         /// <summary>本地玩家当前未量化的水平观察角，供相机立即显示。</summary>
         public float LookYaw { get; private set; }
 
@@ -49,6 +54,11 @@ namespace AFPS.Input
 
         private void Update()
         {
+            if (automationEnabled)
+            {
+                return;
+            }
+
             Vector2 keyboardMove = ReadKeyboardMove();
             Vector2 gamepadMove = Gamepad.current != null ? ApplyDeadZone(Gamepad.current.leftStick.ReadValue()) : Vector2.zero;
             Vector2 movement = gamepadMove.sqrMagnitude > keyboardMove.sqrMagnitude ? gamepadMove : keyboardMove;
@@ -74,6 +84,10 @@ namespace AFPS.Input
             bool keyboardJump = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
             bool gamepadJump = Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame;
             jumpPressedSinceLastTick |= keyboardJump || gamepadJump;
+
+            bool mouseFire = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+            bool gamepadFire = Gamepad.current != null && Gamepad.current.rightTrigger.wasPressedThisFrame;
+            firePressedSinceLastTick |= mouseFire || gamepadFire;
         }
 
         /// <summary>
@@ -86,10 +100,36 @@ namespace AFPS.Input
         }
 
         /// <summary>
+        /// Supplies deterministic input for standalone smoke tests. Normal device polling is
+        /// suspended until <see cref="ClearAutomationInput"/> is called.
+        /// </summary>
+        public void SetAutomationInput(float horizontal, float vertical, float yaw, float pitch, bool jumpPressed, bool firePressed = false)
+        {
+            automationEnabled = true;
+            Vector2 movement = Vector2.ClampMagnitude(new Vector2(horizontal, vertical), 1f);
+            moveX = movement.x;
+            moveY = movement.y;
+            LookYaw = NormalizeYaw(yaw);
+            LookPitch = Mathf.Clamp(pitch, -maximumPitch, maximumPitch);
+            jumpPressedSinceLastTick |= jumpPressed;
+            firePressedSinceLastTick |= firePressed;
+        }
+
+        public void ClearAutomationInput()
+        {
+            automationEnabled = false;
+            moveX = 0f;
+            moveY = 0f;
+            jumpPressedSinceLastTick = false;
+            firePressedSinceLastTick = false;
+        }
+
+        /// <summary>
         /// 为指定模拟 Tick 创建输入命令；跳跃事件被读取后立即清除。
         /// </summary>
         public PlayerInputCommand ConsumeCommand(uint tick)
         {
+            bool firePressed = firePressedSinceLastTick;
             PlayerInputCommand command = new PlayerInputCommand
             {
                 Tick = tick,
@@ -97,11 +137,25 @@ namespace AFPS.Input
                 MoveY = moveY,
                 LookYaw = LookYaw,
                 LookPitch = LookPitch,
-                JumpPressed = jumpPressedSinceLastTick
+                JumpPressed = jumpPressedSinceLastTick,
+                FirePressed = firePressed,
+                ShotSequence = firePressed ? AllocateShotSequence() : 0u
             };
 
             jumpPressedSinceLastTick = false;
+            firePressedSinceLastTick = false;
             return command;
+        }
+
+        private uint AllocateShotSequence()
+        {
+            uint sequence = nextShotSequence++;
+            if (nextShotSequence == 0)
+            {
+                nextShotSequence = 1;
+            }
+
+            return sequence;
         }
 
         private static Vector2 ReadKeyboardMove()
