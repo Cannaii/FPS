@@ -499,16 +499,16 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: bc4e089b6f902b243ba0dd26034fc706, type: 2}
-  - {fileID: 2100000, guid: 97f886a8930b9fd4fa95b41730423c2c, type: 2}
-  - {fileID: 2100000, guid: bc4e089b6f902b243ba0dd26034fc706, type: 2}
-  - {fileID: 2100000, guid: f03e57b527248b341848b5910fc2d180, type: 2}
-  - {fileID: 2100000, guid: 5e4d560583f961f4c8e2cb20c91abfff, type: 2}
-  - {fileID: 2100000, guid: 2f48dacc66b68ba4c938964578eee1a1, type: 2}
-  - {fileID: 2100000, guid: 38d955387510ab344becc9531e8bd8f9, type: 2}
+  - {fileID: 2100000, guid: 69de979d5a46cff4fb823927f6ceec01, type: 2}
+  - {fileID: 2100000, guid: b12a6fa7372b66a479ad477284573f69, type: 2}
+  - {fileID: 2100000, guid: 69de979d5a46cff4fb823927f6ceec01, type: 2}
+  - {fileID: 2100000, guid: b8e842de6e40fa145b75f3445e9d64eb, type: 2}
+  - {fileID: 2100000, guid: d098347d3de0532488387ea67939c17a, type: 2}
+  - {fileID: 2100000, guid: 5facc60d28047e94aad4ef253c01a961, type: 2}
+  - {fileID: 2100000, guid: fdf90199fade94b4d9b4c5fa1f2eaef7, type: 2}
   - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
-  - {fileID: 2100000, guid: 2f48dacc66b68ba4c938964578eee1a1, type: 2}
-  - {fileID: 2100000, guid: 728c6633dbfd2dc41820e021318c5d5d, type: 2}
+  - {fileID: 2100000, guid: 5facc60d28047e94aad4ef253c01a961, type: 2}
+  - {fileID: 2100000, guid: d4395cbdb1e841d49a53173c33b20ead, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -533,7 +533,7 @@ SkinnedMeshRenderer:
   m_Quality: 0
   m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
-  m_Mesh: {fileID: -3714880803914648012, guid: 130b996994a89584a96837bdf8caba23, type: 3}
+  m_Mesh: {fileID: -3714880803914648012, guid: a79a3bdf981bc4c40a528fc0404729c1, type: 3}
   m_Bones:
   - {fileID: 2007797489144173622}
   - {fileID: 2483670012556102004}
@@ -2179,8 +2179,8 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: f73e7d7eae1cb074cb4f1ad84299a1c8, type: 2}
-  - {fileID: 2100000, guid: 5cc50381da731f44fb7812563ebb8cb8, type: 2}
+  - {fileID: 2100000, guid: 804f2c0ee0dcfb74face3b3fcc28d35e, type: 2}
+  - {fileID: 2100000, guid: 359520f8b21e6bb44a4f9939ebe66355, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2205,7 +2205,7 @@ SkinnedMeshRenderer:
   m_Quality: 0
   m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
-  m_Mesh: {fileID: 2916572797995769989, guid: 130b996994a89584a96837bdf8caba23, type: 3}
+  m_Mesh: {fileID: 2916572797995769989, guid: a79a3bdf981bc4c40a528fc0404729c1, type: 3}
   m_Bones:
   - {fileID: 2007797489144173622}
   - {fileID: 2483670012556102004}

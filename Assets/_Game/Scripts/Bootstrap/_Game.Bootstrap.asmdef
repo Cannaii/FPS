@@ -1,0 +1,21 @@
+{
+    "name": "_Game.Bootstrap",
+    "rootNamespace": "AFPS.Bootstrap",
+    "references": [
+        "AFPS.Core",
+        "AFPS.Simulation",
+        "AFPS.Input",
+        "AFPS.NetCode",
+        "AFPS.Presentation",
+        "AFPS.Transport.Unity"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
