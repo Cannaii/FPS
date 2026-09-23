@@ -7,7 +7,10 @@
         "AFPS.Input",
         "AFPS.NetCode",
         "AFPS.Presentation",
-        "AFPS.Transport.Unity"
+        "AFPS.Transport.Unity",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

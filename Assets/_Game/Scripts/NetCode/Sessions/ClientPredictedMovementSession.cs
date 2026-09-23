@@ -99,10 +99,16 @@ namespace AFPS.NetCode.Sessions
 
             if (SequenceMath.IsNewer(authoritativeState.LastProcessedInputTick, CurrentState.Tick))
             {
-                throw new InvalidOperationException("服务器确认的客户端输入 Tick 不能晚于客户端当前预测 Tick。");
+                // A client can fall behind while the server keeps advancing neutral fallback
+                // input (for example while joining a host that was already running). There is
+                // no local history to replay in that case, so rebase on the trusted server state.
+                reconciliationResult = new ReconciliationResult(ReconciliationStatus.MissingPredictionHistory, authoritativeState.State, default, 0);
+            }
+            else
+            {
+                reconciliationResult = ClientPredictionReconciler.Reconcile(authoritativeState, CurrentState.Tick, CurrentState, inputHistory, stateHistory, simulationConfig, tickDeltaTime, positionErrorThreshold, velocityErrorThreshold, collisionWorld);
             }
 
-            reconciliationResult = ClientPredictionReconciler.Reconcile(authoritativeState, CurrentState.Tick, CurrentState, inputHistory, stateHistory, simulationConfig, tickDeltaTime, positionErrorThreshold, velocityErrorThreshold, collisionWorld);
             if (reconciliationResult.RequiresHardCorrection)
             {
                 CurrentState = authoritativeState.State;

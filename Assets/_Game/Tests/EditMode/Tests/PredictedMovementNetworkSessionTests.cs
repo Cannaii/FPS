@@ -103,6 +103,29 @@ namespace AFPS.Tests.EditMode
         }
 
         [Test]
+        public void ClientBehindServer_RebasesAndContinuesPrediction()
+        {
+            FakeTransport transport = new FakeTransport();
+            PlayerState initialState = new PlayerState { Tick = 0, IsGrounded = true };
+            PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
+            ClientPredictedMovementSession session = new ClientPredictedMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 64, 3, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold);
+            PlayerState serverState = new PlayerState { Tick = 25, Position = new Vector3(3f, 0f, 4f), IsGrounded = true };
+            AuthoritativePlayerState authoritativeState = new AuthoritativePlayerState(100, 25, serverState);
+            byte[] packet = new byte[AuthoritativePlayerStateCodec.PacketSize];
+            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(authoritativeState, 1, new ArraySegment<byte>(packet), out _), Is.True);
+
+            Assert.That(session.TryReceiveAuthoritativePacket(new ArraySegment<byte>(packet), out AuthoritativeStateReceiveResult receiveResult, out ReconciliationResult reconciliation), Is.True);
+            Assert.That(receiveResult.Status, Is.EqualTo(AuthoritativeStateReceiveStatus.Accepted));
+            Assert.That(reconciliation.Status, Is.EqualTo(ReconciliationStatus.MissingPredictionHistory));
+            Assert.That(reconciliation.RequiresHardCorrection, Is.True);
+            Assert.That(session.CurrentState.Tick, Is.EqualTo(25));
+            Assert.That(Vector3.Distance(session.CurrentState.Position, serverState.Position), Is.LessThanOrEqualTo(AuthoritativePlayerStateCodec.MaximumPositionQuantizationError));
+
+            Assert.DoesNotThrow(() => session.PredictAndSend(new PlayerInputCommand { Tick = 26 }, out _));
+            Assert.That(session.CurrentState.Tick, Is.EqualTo(26));
+        }
+
+        [Test]
         public void ServerSession_WaitsThenUsesBoundedFallbackAndRecoversOnRealInput()
         {
             FakeTransport transport = new FakeTransport();

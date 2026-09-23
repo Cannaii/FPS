@@ -103,6 +103,35 @@ namespace AFPS.Tests.EditMode
         }
 
         [Test]
+        public void ConnectionInput_CreatesHostOptionsWithLoopbackAddress()
+        {
+            Assert.That(NetworkConnectionInput.TryCreateOptions(NetworkLaunchMode.Host, "203.0.113.5", " 7777 ", 16, out NetworkLaunchOptions options, out string error), Is.True, error);
+            Assert.That(options.Mode, Is.EqualTo(NetworkLaunchMode.Host));
+            Assert.That(options.ServerAddress, Is.EqualTo("127.0.0.1"));
+            Assert.That(options.Port, Is.EqualTo(7777));
+            Assert.That(options.MaxConnections, Is.EqualTo(16));
+        }
+
+        [Test]
+        public void ConnectionInput_CreatesClientOptionsFromIpv4Address()
+        {
+            Assert.That(NetworkConnectionInput.TryCreateOptions(NetworkLaunchMode.Client, " 192.168.1.20 ", "9000", 32, out NetworkLaunchOptions options, out string error), Is.True, error);
+            Assert.That(options.Mode, Is.EqualTo(NetworkLaunchMode.Client));
+            Assert.That(options.ServerAddress, Is.EqualTo("192.168.1.20"));
+            Assert.That(options.Port, Is.EqualTo(9000));
+        }
+
+        [TestCase("server.local", "7777")]
+        [TestCase("::1", "7777")]
+        [TestCase("127.0.0.1", "0")]
+        [TestCase("127.0.0.1", "65536")]
+        public void ConnectionInput_RejectsInvalidClientValues(string address, string port)
+        {
+            Assert.That(NetworkConnectionInput.TryCreateOptions(NetworkLaunchMode.Client, address, port, 32, out _, out string error), Is.False);
+            Assert.That(error, Is.Not.Empty);
+        }
+
+        [Test]
         public void Host_WithUnityTransportConnectsServerAndLocalClientThroughLoopback()
         {
             using (var runtime = new GameNetworkRuntime(() => new UnityGameTransport()))

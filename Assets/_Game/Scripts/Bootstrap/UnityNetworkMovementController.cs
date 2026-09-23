@@ -75,10 +75,26 @@ namespace AFPS.Bootstrap
 
         private void Start()
         {
-            if (networkBootstrap == null || tickRunner == null || networkBootstrap.Runtime == null)
+            if (networkBootstrap == null || tickRunner == null)
             {
-                Debug.LogError("UnityNetworkMovementController 缺少网络启动器、TickRunner，或网络启动失败。", this);
+                Debug.LogError("UnityNetworkMovementController 缺少网络启动器或 TickRunner。", this);
                 enabled = false;
+                return;
+            }
+
+            networkBootstrap.NetworkStarted += HandleNetworkStarted;
+            TryInitialize();
+        }
+
+        private void HandleNetworkStarted(NetworkLaunchMode mode)
+        {
+            TryInitialize();
+        }
+
+        private void TryInitialize()
+        {
+            if (initialized || networkBootstrap.Runtime == null)
+            {
                 return;
             }
 
@@ -185,6 +201,7 @@ namespace AFPS.Bootstrap
         {
             if (networkBootstrap != null)
             {
+                networkBootstrap.NetworkStarted -= HandleNetworkStarted;
                 networkBootstrap.TransportEventReceived -= HandleTransportEvent;
             }
 

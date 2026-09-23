@@ -48,6 +48,13 @@ namespace AFPS.Bootstrap
         private bool useCommandLineOverrides = true;
 
         /// <summary>
+        /// Show the in-game LAN menu instead of starting the Inspector mode immediately.
+        /// Explicit -afpsMode command-line startup always bypasses the menu.
+        /// </summary>
+        [SerializeField]
+        private bool showConnectionMenu = true;
+
+        /// <summary>
         /// Server 和 Client 各自复用的单包接收缓冲区容量，单位为字节。
         /// 当前协议包应保持在常规 MTU 内，默认 2048 字节足够容纳完整数据包。
         /// </summary>
@@ -123,14 +130,35 @@ namespace AFPS.Bootstrap
         /// </summary>
         public NetworkLaunchMode ActiveMode => Runtime?.Mode ?? NetworkLaunchMode.None;
 
+        public string DefaultServerAddress => serverAddress;
+
+        public ushort DefaultPort => port > 0 && port <= ushort.MaxValue ? (ushort)port : (ushort)7777;
+
+        public int DefaultMaxConnections => Mathf.Max(1, maxConnections);
+
         /// <summary>
         /// 每次轮询到连接、断开或数据事件时同步触发。
         /// Data 的 payload 引用内部复用缓冲区，只能在当前回调期间读取，不能长期保存。
         /// </summary>
         public event Action<NetworkTransportSide, GameTransportEvent, ArraySegment<byte>> TransportEventReceived;
 
+        /// <summary>Raised after both transports required by the selected mode start successfully.</summary>
+        public event Action<NetworkLaunchMode> NetworkStarted;
+
         private void Awake()
         {
+            if (showConnectionMenu && !HasExplicitLaunchMode(Environment.GetCommandLineArgs()))
+            {
+                NetworkConnectionMenu menu = GetComponent<NetworkConnectionMenu>();
+                if (menu == null)
+                {
+                    menu = gameObject.AddComponent<NetworkConnectionMenu>();
+                }
+
+                menu.Initialize(this);
+                return;
+            }
+
             TryStartNetwork();
         }
 
@@ -157,12 +185,6 @@ namespace AFPS.Bootstrap
         /// </summary>
         public bool TryStartNetwork()
         {
-            if (Runtime != null)
-            {
-                Debug.LogWarning("UnityNetworkBootstrap 已经创建网络运行时。", this);
-                return false;
-            }
-
             if (port <= 0 || port > ushort.MaxValue)
             {
                 Debug.LogError("UDP 端口必须在 1 到 65535 之间。", this);
@@ -185,10 +207,44 @@ namespace AFPS.Bootstrap
                 return false;
             }
 
+            if (!TryStartNetwork(options, out string startError))
+            {
+                Debug.LogError(startError, this);
+                enabled = false;
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Starts networking from an already validated menu or command-line configuration.
+        /// Unlike the Inspector entry point, a validation/start failure leaves this component
+        /// enabled so the menu can display the error.
+        /// </summary>
+        public bool TryStartNetwork(in NetworkLaunchOptions options, out string error)
+        {
+            if (Runtime != null)
+            {
+                error = "Networking has already started.";
+                return false;
+            }
+
+            if (options.Port == 0)
+            {
+                error = "UDP port must be from 1 to 65535.";
+                return false;
+            }
+
+            if (receiveBufferCapacity < 256)
+            {
+                error = "Network receive buffer capacity cannot be less than 256 bytes.";
+                return false;
+            }
+
             if (!TryCreateImpairmentConfig(networkSimulationSeed, out NetworkImpairmentConfig baseImpairmentConfig, out string impairmentError))
             {
-                Debug.LogError(impairmentError, this);
-                enabled = false;
+                error = impairmentError;
                 return false;
             }
 
@@ -197,8 +253,7 @@ namespace AFPS.Bootstrap
             if (!runtime.TryStart(options, out string startError))
             {
                 runtime.Dispose();
-                Debug.LogError(startError, this);
-                enabled = false;
+                error = startError;
                 return false;
             }
 
@@ -211,7 +266,28 @@ namespace AFPS.Bootstrap
             }
 
             Debug.Log($"AFPS 网络已启动：模式={options.Mode}，地址={options.ServerAddress}，端口={options.Port}。", this);
+            NetworkStarted?.Invoke(options.Mode);
+            error = null;
             return true;
+        }
+
+        private static bool HasExplicitLaunchMode(string[] arguments)
+        {
+            if (arguments == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < arguments.Length; i++)
+            {
+                string argument = arguments[i];
+                if (!string.IsNullOrEmpty(argument) && (argument.Equals("-afpsMode", StringComparison.OrdinalIgnoreCase) || argument.StartsWith("-afpsMode=", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void DrainTransportEvents(IGameTransport transport, NetworkTransportSide side, byte[] receiveBuffer)
