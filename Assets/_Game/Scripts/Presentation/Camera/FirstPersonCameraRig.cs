@@ -12,6 +12,9 @@ namespace AFPS.Presentation.Camera
         [SerializeField] private Transform pitchPivot;
         [SerializeField] private Transform followTarget;
         [SerializeField, Min(0f)] private float eyeHeight = 1.6f;
+        [SerializeField, Min(0.001f)] private float nearClipPlane = 0.01f;
+
+        private UnityEngine.Camera targetCamera;
 
         private void Awake()
         {
@@ -24,6 +27,9 @@ namespace AFPS.Presentation.Camera
             {
                 pitchPivot = yawPivot;
             }
+
+            targetCamera = GetComponent<UnityEngine.Camera>();
+            ApplyCameraSettings();
         }
 
         /// <summary>在渲染帧应用本地即时朝向，减少低 Tick 下的镜头输入延迟。</summary>
@@ -51,6 +57,16 @@ namespace AFPS.Presentation.Camera
             followTarget = target;
             yawPivot = cameraTransform != null ? cameraTransform : transform;
             pitchPivot = yawPivot;
+            targetCamera = yawPivot.GetComponent<UnityEngine.Camera>();
+            ApplyCameraSettings();
+        }
+
+        private void ApplyCameraSettings()
+        {
+            if (targetCamera != null)
+            {
+                targetCamera.nearClipPlane = Mathf.Max(0.001f, nearClipPlane);
+            }
         }
     }
 }
