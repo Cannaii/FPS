@@ -1,7 +1,9 @@
 {
     "name": "AFPS.Simulation",
     "rootNamespace": "",
-    "references": [],
+    "references": [
+        "AFPS.Math"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

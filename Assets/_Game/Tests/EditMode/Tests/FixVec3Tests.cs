@@ -6,6 +6,17 @@ namespace AFPS.Tests.EditMode
 {
     public sealed class FixVec3Tests
     {
+        [TestCase(1)]
+        [TestCase(17)]
+        [TestCase(32767)]
+        public void TinyDiagonalNormalization_PreservesDirectionAndUnitLength(int raw)
+        {
+            FixVec3 result = new FixVec3(Fix.FromRaw(raw), Fix.FromRaw(raw), Fix.Zero).Normalized();
+            Assert.That(result.X.Raw, Is.EqualTo(46341));
+            Assert.That(result.Y.Raw, Is.EqualTo(46341));
+            Assert.That(result.Magnitude.Raw, Is.EqualTo(65536));
+        }
+
         private static FixVec3 V(int x, int y, int z) => new FixVec3(Fix.FromInt(x), Fix.FromInt(y), Fix.FromInt(z));
         [Test]
         public void ArithmeticAndProducts_HaveGoldenResults()

@@ -37,6 +37,16 @@ namespace AFPS.Math
         private ulong SquaredRaw() => (ulong)((long)X.Raw * X.Raw) + (ulong)((long)Y.Raw * Y.Raw) + (ulong)((long)Z.Raw * Z.Raw);
         public FixVec3 Normalized()
         {
+            // 极小方向先提升精度；直接 sqrt(1²+1²)=1 会把对角向量错误归一化成 (1,1,0)。
+            long maximum = System.Math.Max(System.Math.Abs((long)X.Raw), System.Math.Max(System.Math.Abs((long)Y.Raw), System.Math.Abs((long)Z.Raw)));
+            if (maximum == 0) return Zero;
+            if (maximum < Fix.Scale)
+            {
+                long x = X.Raw * Fix.Scale / maximum, y = Y.Raw * Fix.Scale / maximum, z = Z.Raw * Fix.Scale / maximum;
+                long scaledMagnitude = (long)FixMath.IntegerSqrt((ulong)(x * x + y * y + z * z));
+                return new FixVec3(Fix.FromRaw((int)(x * Fix.Scale / scaledMagnitude)),
+                    Fix.FromRaw((int)(y * Fix.Scale / scaledMagnitude)), Fix.FromRaw((int)(z * Fix.Scale / scaledMagnitude)));
+            }
             // 长度可能超出 Fix 表示范围，但归一化后的分量仍在 [-1,1]。
             long magnitude = (long)FixMath.IntegerSqrt(SquaredRaw());
             if (magnitude == 0) return Zero;

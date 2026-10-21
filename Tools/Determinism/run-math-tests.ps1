@@ -1,5 +1,6 @@
 param(
-    [Parameter(Mandatory = $true)][string]$UnityEditorPath
+    [Parameter(Mandatory = $true)][string]$UnityEditorPath,
+    [switch]$IncludeWorld
 )
 $ErrorActionPreference = 'Stop'
 $taskProjectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -11,7 +12,11 @@ $taskNUnitPackage = Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Libr
 if ($null -eq $taskNUnitPackage) { throw 'Open the project in Unity first to restore its NUnit package.' }
 $taskNUnit = Join-Path $taskNUnitPackage.FullName 'net35/unity-custom/nunit.framework.dll'
 $taskSources = @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Math') -Filter '*.cs').FullName)
-$taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests') -Filter 'Fix*Tests.cs').FullName)
+$taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests') -Filter 'Fix*Tests.cs' | Where-Object { $_.Name -ne 'FixedWorldTests.cs' }).FullName)
+if ($IncludeWorld) {
+    $taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Simulation/World') -Filter '*.cs').FullName)
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/FixedWorldTests.cs'
+}
 $taskSources += Join-Path $PSScriptRoot 'MathTestRunner.cs'
 $taskCompilerArguments = @('-nologo', '-langversion:9', '-checked+', '-optimize+', '-target:exe', ('-out:' + (Join-Path $taskOutputDirectory 'VerifyMono.exe')))
 $taskCompilerArguments += @('mscorlib.dll', 'System.dll', 'System.Core.dll') | ForEach-Object { '-r:' + (Join-Path $taskMonoReferences $_) }
