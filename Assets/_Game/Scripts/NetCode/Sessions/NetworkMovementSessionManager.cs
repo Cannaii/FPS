@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using AFPS.NetCode.InputReplication;
 using AFPS.NetCode.LagCompensation;
+using AFPS.NetCode.Match;
 using AFPS.NetCode.Messages;
 using AFPS.NetCode.Metrics;
 using AFPS.NetCode.Prediction;
@@ -28,6 +29,9 @@ namespace AFPS.NetCode.Sessions
         private readonly Dictionary<TransportConnectionId, uint> serverEntityIds = new Dictionary<TransportConnectionId, uint>();
         private readonly Dictionary<uint, uint> snapshotSequences = new Dictionary<uint, uint>();
         private readonly Dictionary<uint, float> serverHealth = new Dictionary<uint, float>();
+        private readonly Dictionary<uint, ushort> serverKills = new Dictionary<uint, ushort>();
+        private readonly Dictionary<uint, ushort> serverDeaths = new Dictionary<uint, ushort>();
+        private readonly Dictionary<uint, uint> serverRespawnTicks = new Dictionary<uint, uint>();
         private readonly Dictionary<uint, RewindHitboxHistory> rewindHistories = new Dictionary<uint, RewindHitboxHistory>();
         private readonly Dictionary<TransportConnectionId, Dictionary<uint, RemotePlayerSnapshot>> serverSnapshotBaselines = new Dictionary<TransportConnectionId, Dictionary<uint, RemotePlayerSnapshot>>();
         private readonly Dictionary<TransportConnectionId, HashSet<uint>> serverVisibleEntities = new Dictionary<TransportConnectionId, HashSet<uint>>();
@@ -59,17 +63,32 @@ namespace AFPS.NetCode.Sessions
         private readonly List<SnapshotCandidate> snapshotCandidates = new List<SnapshotCandidate>();
         private readonly HashSet<uint> interestedEntityIds = new HashSet<uint>();
         private readonly List<uint> noLongerVisibleEntityIds = new List<uint>();
+        private readonly List<uint> deathmatchEntityIds = new List<uint>();
         private readonly byte[] assignmentBuffer = new byte[PlayerSessionAssignmentCodec.PacketSize];
         private readonly byte[] despawnBuffer = new byte[PlayerDespawnCodec.PacketSize];
         private readonly byte[] snapshotBuffer = new byte[RemotePlayerSnapshotCodec.PacketSize];
         private readonly byte[] snapshotDeltaBuffer = new byte[RemotePlayerSnapshotDeltaCodec.MaximumPacketSize];
         private readonly byte[] shotResultBuffer = new byte[AuthoritativeShotResultCodec.PacketSize];
+        private readonly byte[] deathmatchStateBuffer = new byte[DeathmatchStateCodec.MaximumPacketSize];
+        private readonly int deathmatchKillLimit;
+        private readonly uint deathmatchDurationTicks;
+        private readonly uint deathmatchRespawnTicks;
+        private readonly uint deathmatchReplicationIntervalTicks;
         private TransportConnectionId clientConnectionId;
         private uint nextEntityId = 1;
         private uint lifecycleSequence = 1;
         private uint shotResultPacketSequence = 1;
         private bool hasReceivedShotResultSequence;
         private uint lastReceivedShotResultSequence;
+        private uint deathmatchPacketSequence = 1;
+        private uint lastDeathmatchReplicationTick;
+        private uint deathmatchStartTick;
+        private uint deathmatchWinnerEntityId;
+        private uint latestServerWorldTick;
+        private bool deathmatchStateDirty = true;
+        private bool hasReceivedDeathmatchSequence;
+        private uint lastReceivedDeathmatchSequence;
+        private DeathmatchPhase deathmatchPhase = DeathmatchPhase.WaitingForPlayers;
 
         /// <summary>
         /// 当前服务器侧维护的已连接玩家权威会话数量。
@@ -88,6 +107,10 @@ namespace AFPS.NetCode.Sessions
 
         public uint ShotResultVersion { get; private set; }
 
+        public DeathmatchState ClientDeathmatchState { get; private set; }
+
+        public uint DeathmatchStateVersion { get; private set; }
+
         public NetworkRuntimeMetrics Metrics { get; } = new NetworkRuntimeMetrics();
 
         private readonly struct SnapshotCandidate
@@ -104,7 +127,7 @@ namespace AFPS.NetCode.Sessions
             }
         }
 
-        public NetworkMovementSessionManager(IGameTransport serverTransport, IGameTransport clientTransport, in PlayerState serverInitialState, in PlayerState clientInitialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int predictionHistoryCapacity, int inputRedundancyCount, int serverInputWindowCapacity, int maxMissingInputWaitTicks, int maxRepeatedMovementTicks, float positionErrorThreshold, float velocityErrorThreshold, ICharacterCollisionWorld collisionWorld = null, float serverSpawnSpacing = 2.5f, int remoteSnapshotCapacity = 32, double remoteInterpolationDelayTicks = 2.0, double remoteMaxExtrapolationTicks = 2.0, float remoteTeleportDistance = 5f, WeaponSimulationConfig? weaponConfig = null, uint maximumRewindTicks = 10, float interestRadius = 150f, int snapshotBudgetPerClientPerTick = 32, uint fullSnapshotIntervalTicks = 10)
+        public NetworkMovementSessionManager(IGameTransport serverTransport, IGameTransport clientTransport, in PlayerState serverInitialState, in PlayerState clientInitialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int predictionHistoryCapacity, int inputRedundancyCount, int serverInputWindowCapacity, int maxMissingInputWaitTicks, int maxRepeatedMovementTicks, float positionErrorThreshold, float velocityErrorThreshold, ICharacterCollisionWorld collisionWorld = null, float serverSpawnSpacing = 2.5f, int remoteSnapshotCapacity = 32, double remoteInterpolationDelayTicks = 2.0, double remoteMaxExtrapolationTicks = 2.0, float remoteTeleportDistance = 5f, WeaponSimulationConfig? weaponConfig = null, uint maximumRewindTicks = 10, float interestRadius = 150f, int snapshotBudgetPerClientPerTick = 32, uint fullSnapshotIntervalTicks = 10, int deathmatchKillLimit = 10, float deathmatchDurationSeconds = 300f, float deathmatchRespawnSeconds = 3f, float deathmatchReplicationIntervalSeconds = 0.25f)
         {
             if (serverTransport == null && clientTransport == null)
             {
@@ -159,6 +182,10 @@ namespace AFPS.NetCode.Sessions
             if (interestRadius <= 0f || float.IsNaN(interestRadius) || float.IsInfinity(interestRadius)) throw new ArgumentOutOfRangeException(nameof(interestRadius));
             if (snapshotBudgetPerClientPerTick <= 0) throw new ArgumentOutOfRangeException(nameof(snapshotBudgetPerClientPerTick));
             if (fullSnapshotIntervalTicks == 0) throw new ArgumentOutOfRangeException(nameof(fullSnapshotIntervalTicks));
+            if (deathmatchKillLimit <= 0) throw new ArgumentOutOfRangeException(nameof(deathmatchKillLimit));
+            if (deathmatchDurationSeconds <= 0f) throw new ArgumentOutOfRangeException(nameof(deathmatchDurationSeconds));
+            if (deathmatchRespawnSeconds < 0f) throw new ArgumentOutOfRangeException(nameof(deathmatchRespawnSeconds));
+            if (deathmatchReplicationIntervalSeconds <= 0f) throw new ArgumentOutOfRangeException(nameof(deathmatchReplicationIntervalSeconds));
 
             this.serverTransport = serverTransport;
             this.clientTransport = clientTransport;
@@ -184,6 +211,10 @@ namespace AFPS.NetCode.Sessions
             interestRadiusSquared = interestRadius * interestRadius;
             this.snapshotBudgetPerClientPerTick = snapshotBudgetPerClientPerTick;
             this.fullSnapshotIntervalTicks = fullSnapshotIntervalTicks;
+            this.deathmatchKillLimit = deathmatchKillLimit;
+            deathmatchDurationTicks = (uint)Mathf.Max(1, Mathf.CeilToInt(deathmatchDurationSeconds / tickDeltaTime));
+            deathmatchRespawnTicks = (uint)Mathf.Max(0, Mathf.CeilToInt(deathmatchRespawnSeconds / tickDeltaTime));
+            deathmatchReplicationIntervalTicks = (uint)Mathf.Max(1, Mathf.CeilToInt(deathmatchReplicationIntervalSeconds / tickDeltaTime));
             if (clientTransport != null)
             {
                 RemotePlayers = new RemotePlayerReplicaSet(remoteSnapshotCapacity, tickDeltaTime, remoteInterpolationDelayTicks, remoteMaxExtrapolationTicks, remoteTeleportDistance);
@@ -213,10 +244,13 @@ namespace AFPS.NetCode.Sessions
                 serverSessions.Add(connectionId, new ServerAuthoritativeMovementSession(serverTransport, connectionId, spawnedState, simulationConfig, tickDeltaTime, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks, collisionWorld, entityId, weaponConfig));
                 serverEntityIds.Add(connectionId, entityId);
                 serverHealth.Add(entityId, 100f);
+                serverKills.Add(entityId, 0);
+                serverDeaths.Add(entityId, 0);
                 rewindHistories.Add(entityId, new RewindHitboxHistory((int)maximumRewindTicks + 2));
                 serverSnapshotBaselines.Add(connectionId, new Dictionary<uint, RemotePlayerSnapshot>());
                 serverVisibleEntities.Add(connectionId, new HashSet<uint>());
                 SendAssignment(connectionId, entityId);
+                deathmatchStateDirty = true;
                 return true;
             }
 
@@ -229,6 +263,9 @@ namespace AFPS.NetCode.Sessions
             ClientSession = new ClientPredictedMovementSession(clientTransport, connectionId, clientInitialState, simulationConfig, tickDeltaTime, predictionHistoryCapacity, inputRedundancyCount, positionErrorThreshold, velocityErrorThreshold, collisionWorld);
             RemotePlayers?.Clear();
             clientSnapshotBaselines.Clear();
+            ClientDeathmatchState = null;
+            DeathmatchStateVersion = 0;
+            hasReceivedDeathmatchSequence = false;
             return true;
         }
 
@@ -246,6 +283,9 @@ namespace AFPS.NetCode.Sessions
 
                 serverEntityIds.Remove(connectionId);
                 serverHealth.Remove(entityId);
+                serverKills.Remove(entityId);
+                serverDeaths.Remove(entityId);
+                serverRespawnTicks.Remove(entityId);
                 rewindHistories.Remove(entityId);
                 serverSnapshotBaselines.Remove(connectionId);
                 serverVisibleEntities.Remove(connectionId);
@@ -259,6 +299,7 @@ namespace AFPS.NetCode.Sessions
                 }
                 snapshotSequences.Remove(entityId);
                 BroadcastDespawn(entityId);
+                deathmatchStateDirty = true;
                 return true;
             }
 
@@ -271,6 +312,9 @@ namespace AFPS.NetCode.Sessions
             ClientSession = null;
             RemotePlayers?.Clear();
             clientSnapshotBaselines.Clear();
+            ClientDeathmatchState = null;
+            DeathmatchStateVersion = 0;
+            hasReceivedDeathmatchSequence = false;
             return true;
         }
 
@@ -325,6 +369,17 @@ namespace AFPS.NetCode.Sessions
                     LastReceivedShotResult = shotResult;
                     ShotResultVersion = unchecked(ShotResultVersion + 1);
                     return true;
+                case NetworkMessageType.DeathmatchState:
+                    if (!DeathmatchStateCodec.TryDeserialize(packet, out PacketHeader matchHeader, out DeathmatchState matchState) || (hasReceivedDeathmatchSequence && !SequenceMath.IsNewer(matchHeader.Sequence, lastReceivedDeathmatchSequence)))
+                    {
+                        return false;
+                    }
+
+                    hasReceivedDeathmatchSequence = true;
+                    lastReceivedDeathmatchSequence = matchHeader.Sequence;
+                    ClientDeathmatchState = matchState;
+                    DeathmatchStateVersion = unchecked(DeathmatchStateVersion + 1);
+                    return true;
                 default:
                     return false;
             }
@@ -352,10 +407,15 @@ namespace AFPS.NetCode.Sessions
         public int AdvanceServerSessions(uint serverWorldTick)
         {
             long tickStarted = Stopwatch.GetTimestamp();
+            latestServerWorldTick = serverWorldTick;
             int advancedCount = 0;
+            UpdateDeathmatchBeforeSimulation(serverWorldTick);
             pendingWeaponFireResults.Clear();
             foreach (KeyValuePair<TransportConnectionId, ServerAuthoritativeMovementSession> pair in serverSessions)
             {
+                uint entityId = serverEntityIds[pair.Key];
+                pair.Value.GameplayEnabled = deathmatchPhase != DeathmatchPhase.Finished && IsServerPlayerAlive(entityId);
+                pair.Value.WeaponEnabled = deathmatchPhase == DeathmatchPhase.Playing && IsServerPlayerAlive(entityId);
                 if (pair.Value.TryAdvance(serverWorldTick, out _, out _))
                 {
                     advancedCount++;
@@ -369,6 +429,7 @@ namespace AFPS.NetCode.Sessions
             ReplicateRemoteSnapshots(serverWorldTick);
             RecordCurrentHitboxes(serverWorldTick);
             ResolveCombatTick(serverWorldTick);
+            ReplicateDeathmatchState(serverWorldTick);
 
             Metrics.LastServerTickMicroseconds = ElapsedMicroseconds(tickStarted);
             if (Metrics.LastServerTickMicroseconds > Metrics.MaximumServerTickMicroseconds) Metrics.MaximumServerTickMicroseconds = Metrics.LastServerTickMicroseconds;
@@ -381,6 +442,20 @@ namespace AFPS.NetCode.Sessions
         public bool TryGetServerEntityId(TransportConnectionId connectionId, out uint entityId) => serverEntityIds.TryGetValue(connectionId, out entityId);
 
         public bool TryGetServerHealth(uint entityId, out float health) => serverHealth.TryGetValue(entityId, out health);
+
+        public bool TryGetServerDeathmatchPlayer(uint entityId, out DeathmatchPlayerState state)
+        {
+            if (!serverHealth.TryGetValue(entityId, out float health))
+            {
+                state = default;
+                return false;
+            }
+
+            state = CreateDeathmatchPlayerState(entityId, latestServerWorldTick);
+            return true;
+        }
+
+        public DeathmatchPhase ServerDeathmatchPhase => deathmatchPhase;
 
         private void ResolveCombatTick(uint serverWorldTick)
         {
@@ -414,8 +489,7 @@ namespace AFPS.NetCode.Sessions
                 if (didHit)
                 {
                     targetEntityId = target.EntityId;
-                    targetHealth = Mathf.Max(0f, serverHealth[targetEntityId] - shot.Damage);
-                    serverHealth[targetEntityId] = targetHealth;
+                    targetHealth = ApplyDamage(shot.EntityId, targetEntityId, shot.Damage, serverWorldTick);
                     for (int targetIndex = 0; targetIndex < combatTargets.Count; targetIndex++)
                     {
                         if (combatTargets[targetIndex].EntityId == targetEntityId)
@@ -434,8 +508,7 @@ namespace AFPS.NetCode.Sessions
             for (int i = 0; i < projectileImpacts.Count; i++)
             {
                 AuthoritativeShotResult impact = projectileImpacts[i];
-                float targetHealth = Mathf.Max(0f, serverHealth[impact.TargetEntityId] - impact.Shot.Damage);
-                serverHealth[impact.TargetEntityId] = targetHealth;
+                float targetHealth = ApplyDamage(impact.Shot.EntityId, impact.TargetEntityId, impact.Shot.Damage, serverWorldTick);
                 BroadcastShotResult(new AuthoritativeShotResult(impact.Shot, impact.RemainingAmmo, true, impact.TargetEntityId, targetHealth, impact.HitPoint));
             }
         }
@@ -445,6 +518,10 @@ namespace AFPS.NetCode.Sessions
             foreach (KeyValuePair<TransportConnectionId, ServerAuthoritativeMovementSession> pair in serverSessions)
             {
                 uint entityId = serverEntityIds[pair.Key];
+                if (!IsServerPlayerAlive(entityId))
+                {
+                    continue;
+                }
                 ServerCombatTarget target = new ServerCombatTarget(entityId, pair.Value.CurrentState.Position, 0.5f, 2f, serverHealth[entityId]);
                 rewindHistories[entityId].Record(serverWorldTick, target);
             }
@@ -455,11 +532,193 @@ namespace AFPS.NetCode.Sessions
             combatTargets.Clear();
             foreach (KeyValuePair<uint, RewindHitboxHistory> pair in rewindHistories)
             {
+                if (!IsServerPlayerAlive(pair.Key))
+                {
+                    continue;
+                }
                 if (pair.Value.TryGetAtOrBefore(requestedTick, currentTick, maximumRewindTicks, out ServerCombatTarget historical, out _))
                 {
                     combatTargets.Add(new ServerCombatTarget(pair.Key, historical.Position, historical.Radius, historical.Height, serverHealth[pair.Key]));
                 }
             }
+        }
+
+        private void UpdateDeathmatchBeforeSimulation(uint serverWorldTick)
+        {
+            if (deathmatchPhase == DeathmatchPhase.WaitingForPlayers && serverSessions.Count >= 2)
+            {
+                deathmatchPhase = DeathmatchPhase.Playing;
+                deathmatchStartTick = serverWorldTick;
+                deathmatchStateDirty = true;
+            }
+
+            if (deathmatchPhase != DeathmatchPhase.Playing)
+            {
+                return;
+            }
+
+            deathmatchEntityIds.Clear();
+            foreach (uint entityId in serverRespawnTicks.Keys)
+            {
+                deathmatchEntityIds.Add(entityId);
+            }
+
+            for (int i = 0; i < deathmatchEntityIds.Count; i++)
+            {
+                uint entityId = deathmatchEntityIds[i];
+                uint respawnTick = serverRespawnTicks[entityId];
+                if (!HasReached(serverWorldTick, respawnTick))
+                {
+                    continue;
+                }
+
+                serverRespawnTicks.Remove(entityId);
+                serverHealth[entityId] = 100f;
+                foreach (KeyValuePair<TransportConnectionId, uint> pair in serverEntityIds)
+                {
+                    if (pair.Value == entityId && serverSessions.TryGetValue(pair.Key, out ServerAuthoritativeMovementSession session))
+                    {
+                        session.Teleport(serverInitialState.Position + Vector3.right * (entityId - 1) * serverSpawnSpacing);
+                        break;
+                    }
+                }
+
+                deathmatchStateDirty = true;
+            }
+
+            if (unchecked(serverWorldTick - deathmatchStartTick) >= deathmatchDurationTicks)
+            {
+                FinishDeathmatch(FindLeadingPlayer());
+            }
+        }
+
+        private float ApplyDamage(uint attackerEntityId, uint targetEntityId, float damage, uint serverWorldTick)
+        {
+            if (deathmatchPhase != DeathmatchPhase.Playing || !IsServerPlayerAlive(targetEntityId))
+            {
+                return serverHealth.TryGetValue(targetEntityId, out float existingHealth) ? existingHealth : 0f;
+            }
+
+            float targetHealth = Mathf.Max(0f, serverHealth[targetEntityId] - damage);
+            serverHealth[targetEntityId] = targetHealth;
+            deathmatchStateDirty = true;
+            if (targetHealth > 0f)
+            {
+                return targetHealth;
+            }
+
+            serverDeaths[targetEntityId] = (ushort)Mathf.Min(ushort.MaxValue, serverDeaths[targetEntityId] + 1);
+            serverRespawnTicks[targetEntityId] = unchecked(serverWorldTick + deathmatchRespawnTicks);
+            if (attackerEntityId != targetEntityId && serverKills.ContainsKey(attackerEntityId))
+            {
+                serverKills[attackerEntityId] = (ushort)Mathf.Min(ushort.MaxValue, serverKills[attackerEntityId] + 1);
+                if (serverKills[attackerEntityId] >= deathmatchKillLimit)
+                {
+                    FinishDeathmatch(attackerEntityId);
+                }
+            }
+
+            return targetHealth;
+        }
+
+        private bool IsServerPlayerAlive(uint entityId)
+        {
+            return serverHealth.TryGetValue(entityId, out float health) && health > 0f && !serverRespawnTicks.ContainsKey(entityId);
+        }
+
+        private void FinishDeathmatch(uint winnerEntityId)
+        {
+            deathmatchPhase = DeathmatchPhase.Finished;
+            deathmatchWinnerEntityId = winnerEntityId;
+            deathmatchStateDirty = true;
+        }
+
+        private uint FindLeadingPlayer()
+        {
+            uint winner = 0;
+            ushort bestKills = 0;
+            bool tied = false;
+            foreach (KeyValuePair<uint, ushort> pair in serverKills)
+            {
+                if (winner == 0 || pair.Value > bestKills)
+                {
+                    winner = pair.Key;
+                    bestKills = pair.Value;
+                    tied = false;
+                }
+                else if (pair.Value == bestKills)
+                {
+                    tied = true;
+                }
+            }
+
+            return tied ? 0u : winner;
+        }
+
+        private void ReplicateDeathmatchState(uint serverWorldTick)
+        {
+            if (serverTransport == null || serverSessions.Count == 0 || (!deathmatchStateDirty && unchecked(serverWorldTick - lastDeathmatchReplicationTick) < deathmatchReplicationIntervalTicks))
+            {
+                return;
+            }
+
+            deathmatchEntityIds.Clear();
+            foreach (uint entityId in serverHealth.Keys)
+            {
+                deathmatchEntityIds.Add(entityId);
+            }
+            deathmatchEntityIds.Sort();
+
+            DeathmatchPlayerState[] players = new DeathmatchPlayerState[deathmatchEntityIds.Count];
+            for (int i = 0; i < players.Length; i++)
+            {
+                players[i] = CreateDeathmatchPlayerState(deathmatchEntityIds[i], serverWorldTick);
+            }
+
+            uint remainingTicks = 0;
+            if (deathmatchPhase == DeathmatchPhase.Playing)
+            {
+                uint elapsed = unchecked(serverWorldTick - deathmatchStartTick);
+                remainingTicks = elapsed >= deathmatchDurationTicks ? 0 : deathmatchDurationTicks - elapsed;
+            }
+
+            DeathmatchState state = new DeathmatchState(deathmatchPhase, serverWorldTick, remainingTicks, deathmatchWinnerEntityId, players);
+            uint sequence = deathmatchPacketSequence++;
+            if (deathmatchPacketSequence == 0) deathmatchPacketSequence = 1;
+            if (!DeathmatchStateCodec.TrySerialize(state, sequence, new ArraySegment<byte>(deathmatchStateBuffer), out int packetBytes))
+            {
+                return;
+            }
+
+            foreach (TransportConnectionId connectionId in serverSessions.Keys)
+            {
+                serverTransport.Send(connectionId, TransportDelivery.ReliableSequenced, new ArraySegment<byte>(deathmatchStateBuffer, 0, packetBytes));
+            }
+
+            deathmatchStateDirty = false;
+            lastDeathmatchReplicationTick = serverWorldTick;
+        }
+
+        private DeathmatchPlayerState CreateDeathmatchPlayerState(uint entityId, uint serverWorldTick)
+        {
+            uint respawnTicks = 0;
+            if (serverRespawnTicks.TryGetValue(entityId, out uint respawnTick) && !HasReached(serverWorldTick, respawnTick))
+            {
+                respawnTicks = unchecked(respawnTick - serverWorldTick);
+            }
+
+            return new DeathmatchPlayerState(
+                entityId,
+                (ushort)Mathf.Clamp(Mathf.RoundToInt(serverHealth[entityId]), 0, ushort.MaxValue),
+                serverKills[entityId],
+                serverDeaths[entityId],
+                (ushort)Mathf.Min(ushort.MaxValue, respawnTicks),
+                IsServerPlayerAlive(entityId));
+        }
+
+        private static bool HasReached(uint current, uint target)
+        {
+            return current == target || SequenceMath.IsNewer(current, target);
         }
 
         private void BroadcastShotResult(in AuthoritativeShotResult result)

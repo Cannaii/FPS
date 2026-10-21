@@ -3,6 +3,7 @@ using AFPS.Core.Tick;
 using AFPS.Bootstrap.Physics;
 using AFPS.Input;
 using AFPS.NetCode.Messages;
+using AFPS.NetCode.Match;
 using AFPS.NetCode.Prediction;
 using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Runtime;
@@ -50,6 +51,11 @@ namespace AFPS.Bootstrap
         [SerializeField, Min(0f)] private float remoteInterpolationDelayTicks = 2f;
         [SerializeField, Min(0f)] private float remoteMaxExtrapolationTicks = 2f;
         [SerializeField, Min(0.01f)] private float remoteTeleportDistance = 5f;
+        [Header("Deathmatch")]
+        [SerializeField, Min(1)] private int deathmatchKillLimit = 10;
+        [SerializeField, Min(1f)] private float deathmatchDurationSeconds = 300f;
+        [SerializeField, Min(0f)] private float deathmatchRespawnSeconds = 3f;
+        [SerializeField, Min(0.05f)] private float deathmatchReplicationIntervalSeconds = 0.25f;
         [Header("Predictable Character Collision")]
         [SerializeField] private LayerMask collisionLayers = ~0;
         [SerializeField] private bool collideWithTriggers;
@@ -67,6 +73,8 @@ namespace AFPS.Bootstrap
         private uint observedRemoteSnapshotVersion;
         private uint latestRemoteServerTick;
         private double latestRemoteSnapshotReceiveTime;
+        private DeathmatchHud deathmatchHud;
+        private bool weaponViewWasActive;
 
         /// <summary>
         /// 当前连接事件所创建的会话管理器，供运行时诊断读取。
@@ -139,7 +147,7 @@ namespace AFPS.Bootstrap
 
             try
             {
-                sessionManager = new NetworkMovementSessionManager(networkBootstrap.Runtime.ServerTransport, networkBootstrap.Runtime.ClientTransport, serverInitialState, clientInitialState, config, tickRunner.TickDeltaTime, predictionHistoryCapacity, inputRedundancyCount, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks, positionErrorThreshold, velocityErrorThreshold, collisionWorld, serverSpawnSpacing, remoteSnapshotCapacity, remoteInterpolationDelayTicks, remoteMaxExtrapolationTicks, remoteTeleportDistance);
+                sessionManager = new NetworkMovementSessionManager(networkBootstrap.Runtime.ServerTransport, networkBootstrap.Runtime.ClientTransport, serverInitialState, clientInitialState, config, tickRunner.TickDeltaTime, predictionHistoryCapacity, inputRedundancyCount, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks, positionErrorThreshold, velocityErrorThreshold, collisionWorld, serverSpawnSpacing, remoteSnapshotCapacity, remoteInterpolationDelayTicks, remoteMaxExtrapolationTicks, remoteTeleportDistance, deathmatchKillLimit: deathmatchKillLimit, deathmatchDurationSeconds: deathmatchDurationSeconds, deathmatchRespawnSeconds: deathmatchRespawnSeconds, deathmatchReplicationIntervalSeconds: deathmatchReplicationIntervalSeconds);
             }
             catch (ArgumentException exception)
             {
@@ -187,6 +195,14 @@ namespace AFPS.Bootstrap
                 {
                     remotePlayerWorldView = gameObject.AddComponent<RemotePlayerWorldView>();
                 }
+
+                deathmatchHud = GetComponent<DeathmatchHud>();
+                if (deathmatchHud == null)
+                {
+                    deathmatchHud = gameObject.AddComponent<DeathmatchHud>();
+                }
+                deathmatchHud.Configure(sessionManager, tickRunner.TickDeltaTime);
+                weaponViewWasActive = firstPersonWeaponView != null && firstPersonWeaponView.gameObject.activeSelf;
             }
 
             initialized = true;
@@ -223,7 +239,15 @@ namespace AFPS.Bootstrap
 
                 if (firstPersonWeaponView != null && playerView.TryGetLatestState(out PlayerState localState))
                 {
-                    firstPersonWeaponView.Render(localState, Time.unscaledDeltaTime);
+                    bool active = IsLocalGameplayActive();
+                    if (firstPersonWeaponView.gameObject.activeSelf != active && (active || weaponViewWasActive))
+                    {
+                        firstPersonWeaponView.gameObject.SetActive(active);
+                    }
+                    if (active)
+                    {
+                        firstPersonWeaponView.Render(localState, Time.unscaledDeltaTime);
+                    }
                 }
 
                 RenderRemotePlayers();
@@ -242,6 +266,14 @@ namespace AFPS.Bootstrap
             {
                 uint inputTick = unchecked(clientSession.CurrentState.Tick + 1);
                 PlayerInputCommand command = inputCollector.ConsumeCommand(inputTick);
+                if (!IsLocalGameplayActive())
+                {
+                    command.MoveX = 0f;
+                    command.MoveY = 0f;
+                    command.JumpPressed = false;
+                    command.FirePressed = false;
+                    command.ShotSequence = 0;
+                }
                 if (command.FirePressed)
                 {
                     command.ShotServerTick = sessionManager.RemotePlayers != null && sessionManager.RemotePlayers.LatestServerTick != 0 ? sessionManager.RemotePlayers.LatestServerTick : serverWorldTick;
@@ -319,12 +351,24 @@ namespace AFPS.Bootstrap
 
             if (observedRemoteSnapshotVersion == 0)
             {
-                remotePlayerWorldView.Render(sessionManager.RemotePlayers, 0d);
+                remotePlayerWorldView.Render(sessionManager.RemotePlayers, 0d, sessionManager.ClientDeathmatchState);
                 return;
             }
 
             double elapsedTicks = (Time.realtimeSinceStartupAsDouble - latestRemoteSnapshotReceiveTime) / tickRunner.TickDeltaTime;
-            remotePlayerWorldView.Render(sessionManager.RemotePlayers, latestRemoteServerTick + elapsedTicks);
+            remotePlayerWorldView.Render(sessionManager.RemotePlayers, latestRemoteServerTick + elapsedTicks, sessionManager.ClientDeathmatchState);
+        }
+
+        private bool IsLocalGameplayActive()
+        {
+            DeathmatchState match = sessionManager.ClientDeathmatchState;
+            if (match == null)
+            {
+                return true;
+            }
+
+            uint localEntityId = sessionManager.RemotePlayers != null ? sessionManager.RemotePlayers.LocalEntityId : 0;
+            return match.Phase == DeathmatchPhase.Playing && match.TryGetPlayer(localEntityId, out DeathmatchPlayerState local) && local.IsAlive;
         }
     }
 }

@@ -9,6 +9,11 @@ namespace AFPS.Presentation.Characters
     public sealed class RemotePlayerView : MonoBehaviour
     {
         [SerializeField] private Transform presentationTransform;
+        [SerializeField] private Renderer[] renderers;
+        [SerializeField] private Color aliveColor = new Color(0.15f, 0.65f, 1f);
+        [SerializeField] private Color deadColor = new Color(0.35f, 0.08f, 0.08f);
+        private Vector3 initialScale;
+        private bool? lastAlive;
 
         private void Awake()
         {
@@ -16,11 +21,37 @@ namespace AFPS.Presentation.Characters
             {
                 presentationTransform = transform;
             }
+
+            initialScale = presentationTransform.localScale;
+            if (renderers == null || renderers.Length == 0)
+            {
+                renderers = GetComponentsInChildren<Renderer>(true);
+            }
         }
 
-        public void ApplyRenderState(in RemotePlayerRenderState state)
+        public void ApplyRenderState(in RemotePlayerRenderState state, bool isAlive = true)
         {
-            presentationTransform.SetPositionAndRotation(state.Position, state.Rotation);
+            float speed = new Vector2(state.Velocity.x, state.Velocity.z).magnitude;
+            float bob = isAlive && speed > 0.15f ? Mathf.Sin((float)state.ServerTickTime * 0.7f) * Mathf.Min(0.045f, speed * 0.008f) : 0f;
+            Quaternion rotation = isAlive ? state.Rotation : state.Rotation * Quaternion.Euler(0f, 0f, 90f);
+            Vector3 position = state.Position + Vector3.up * (isAlive ? bob : -0.5f);
+            presentationTransform.SetPositionAndRotation(position, rotation);
+            presentationTransform.localScale = isAlive ? initialScale : new Vector3(initialScale.x, initialScale.y * 0.65f, initialScale.z);
+
+            if (lastAlive == isAlive)
+            {
+                return;
+            }
+
+            lastAlive = isAlive;
+            Color color = isAlive ? aliveColor : deadColor;
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i] != null)
+                {
+                    renderers[i].material.color = color;
+                }
+            }
         }
     }
 }

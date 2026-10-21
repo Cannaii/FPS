@@ -62,6 +62,19 @@ namespace AFPS.NetCode.Sessions
         /// <summary>最近一次权威模拟 Tick 的射击验证结果；无武器或未请求射击时不接受。</summary>
         public WeaponFireResult LastWeaponFireResult { get; private set; }
 
+        public bool GameplayEnabled { get; set; } = true;
+
+        public bool WeaponEnabled { get; set; } = true;
+
+        public void Teleport(UnityEngine.Vector3 position)
+        {
+            PlayerState state = CurrentState;
+            state.Position = position;
+            state.Velocity = UnityEngine.Vector3.zero;
+            state.IsGrounded = true;
+            CurrentState = state;
+        }
+
         public ServerAuthoritativeMovementSession(IGameTransport transport, TransportConnectionId clientConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int inputWindowCapacity, int maxMissingInputWaitTicks = 2, int maxRepeatedMovementTicks = 2, ICharacterCollisionWorld collisionWorld = null, uint entityId = 0, WeaponSimulationConfig? weaponConfig = null, IFixedCharacterCollisionWorld fixedCollisionWorld = null)
         {
             if (tickDeltaTime <= 0f || float.IsNaN(tickDeltaTime) || float.IsInfinity(tickDeltaTime))
@@ -157,10 +170,25 @@ namespace AFPS.NetCode.Sessions
 
         private bool SimulateAndSend(uint serverWorldTick, in PlayerInputCommand command, out AuthoritativePlayerState authoritativeState, out AuthoritativeStateSendResult sendResult)
         {
-            LastAppliedInput = command;
-            CurrentState = PlayerSimulation.Simulate(CurrentState, command, simulationConfig, tickDeltaTime, collisionWorld);
-            LastWeaponFireResult = weaponFireController != null ? weaponFireController.Process(serverWorldTick, entityId, command, CurrentState) : default;
-            authoritativeState = new AuthoritativePlayerState(serverWorldTick, command.Tick, CurrentState);
+            PlayerInputCommand appliedCommand = command;
+            if (!GameplayEnabled)
+            {
+                appliedCommand.MoveX = 0f;
+                appliedCommand.MoveY = 0f;
+                appliedCommand.JumpPressed = false;
+                appliedCommand.FirePressed = false;
+                appliedCommand.ShotSequence = 0;
+            }
+            else if (!WeaponEnabled)
+            {
+                appliedCommand.FirePressed = false;
+                appliedCommand.ShotSequence = 0;
+            }
+
+            LastAppliedInput = appliedCommand;
+            CurrentState = PlayerSimulation.Simulate(CurrentState, appliedCommand, simulationConfig, tickDeltaTime, collisionWorld);
+            LastWeaponFireResult = weaponFireController != null ? weaponFireController.Process(serverWorldTick, entityId, appliedCommand, CurrentState) : default;
+            authoritativeState = new AuthoritativePlayerState(serverWorldTick, appliedCommand.Tick, CurrentState);
             stateSender.TrySend(authoritativeState, out sendResult);
             return true;
         }

@@ -152,11 +152,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 71e46163eb9741fca25c11d39d691147, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  launchMode: 2
+  launchMode: 1
   serverAddress: 127.0.0.1
   port: 5771
   maxConnections: 32
   useCommandLineOverrides: 1
+  showConnectionMenu: 1
   receiveBufferCapacity: 2048
   enableNetworkImpairment: 0
   simulatedLatencyMilliseconds: 0
@@ -218,6 +219,10 @@ MonoBehaviour:
   remoteInterpolationDelayTicks: 2
   remoteMaxExtrapolationTicks: 2
   remoteTeleportDistance: 5
+  deathmatchKillLimit: 10
+  deathmatchDurationSeconds: 300
+  deathmatchRespawnSeconds: 3
+  deathmatchReplicationIntervalSeconds: 0.25
   collisionLayers:
     serializedVersion: 2
     m_Bits: 256

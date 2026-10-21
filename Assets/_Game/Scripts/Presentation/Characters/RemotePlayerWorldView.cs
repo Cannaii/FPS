@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using AFPS.NetCode.SnapshotInterpolation;
+using AFPS.NetCode.Match;
 using UnityEngine;
 
 namespace AFPS.Presentation.Characters
@@ -18,7 +19,7 @@ namespace AFPS.Presentation.Characters
         private readonly List<uint> staleEntityIds = new List<uint>();
 
         /// <summary>按照客户端估算的服务器时间渲染所有远端玩家。</summary>
-        public void Render(RemotePlayerReplicaSet replicas, double estimatedServerTick)
+        public void Render(RemotePlayerReplicaSet replicas, double estimatedServerTick, DeathmatchState deathmatchState = null)
         {
             if (replicas == null)
             {
@@ -41,7 +42,8 @@ namespace AFPS.Presentation.Characters
                     views.Add(entityId, view);
                 }
 
-                view.ApplyRenderState(state);
+                bool isAlive = deathmatchState == null || !deathmatchState.TryGetPlayer(entityId, out DeathmatchPlayerState playerState) || playerState.IsAlive;
+                view.ApplyRenderState(state, isAlive);
             }
 
             staleEntityIds.Clear();

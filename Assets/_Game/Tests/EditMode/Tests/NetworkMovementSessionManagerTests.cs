@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using AFPS.NetCode.InputReplication;
 using AFPS.NetCode.Messages;
+using AFPS.NetCode.Match;
 using AFPS.NetCode.Prediction;
 using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Runtime;
@@ -54,8 +55,9 @@ namespace AFPS.Tests.EditMode
             Assert.That(manager.TryHandleData(NetworkTransportSide.Server, serverConnection, clientTransport.SentPackets[0], out _), Is.True);
 
             Assert.That(manager.AdvanceServerSessions(100), Is.EqualTo(1));
-            Assert.That(serverTransport.SentPackets, Has.Count.EqualTo(1));
-            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, clientConnection, serverTransport.SentPackets[0], out ReconciliationResult reconciliation), Is.True);
+            ArraySegment<byte> authoritativePacket = FindPacket(serverTransport, NetworkMessageType.AuthoritativePlayerState);
+            Assert.That(authoritativePacket.Array, Is.Not.Null);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, clientConnection, authoritativePacket, out ReconciliationResult reconciliation), Is.True);
             Assert.That(reconciliation.Status, Is.EqualTo(ReconciliationStatus.NoCorrection));
             Assert.That(manager.ClientSession.CurrentState.Tick, Is.EqualTo(1));
         }
@@ -158,6 +160,81 @@ namespace AFPS.Tests.EditMode
             Assert.That(manager.Metrics.RewindQueries, Is.EqualTo(1));
             Assert.That(manager.Metrics.ShotResultsSent, Is.EqualTo(2));
             Assert.That(manager.Metrics.LastRewindMicroseconds, Is.GreaterThanOrEqualTo(0));
+        }
+
+        [Test]
+        public void DeathmatchStateCodec_RoundTripsScoreHealthAndRespawnState()
+        {
+            DeathmatchPlayerState[] players =
+            {
+                new DeathmatchPlayerState(1, 100, 4, 2, 0, true),
+                new DeathmatchPlayerState(2, 0, 1, 5, 75, false)
+            };
+            DeathmatchState expected = new DeathmatchState(DeathmatchPhase.Playing, 1234, 9000, 0, players);
+            byte[] packet = new byte[DeathmatchStateCodec.GetPacketSize(players.Length)];
+
+            Assert.That(DeathmatchStateCodec.TrySerialize(expected, 7, new ArraySegment<byte>(packet), out int bytes), Is.True);
+            Assert.That(bytes, Is.EqualTo(packet.Length));
+            Assert.That(DeathmatchStateCodec.TryDeserialize(new ArraySegment<byte>(packet), out PacketHeader header, out DeathmatchState actual), Is.True);
+            Assert.That(header.Sequence, Is.EqualTo(7));
+            Assert.That(actual.Phase, Is.EqualTo(DeathmatchPhase.Playing));
+            Assert.That(actual.RemainingTicks, Is.EqualTo(9000));
+            Assert.That(actual.PlayerCount, Is.EqualTo(2));
+            Assert.That(actual.GetPlayer(1).EntityId, Is.EqualTo(2));
+            Assert.That(actual.GetPlayer(1).RespawnTicksRemaining, Is.EqualTo(75));
+            Assert.That(actual.GetPlayer(1).IsAlive, Is.False);
+        }
+
+        [Test]
+        public void Deathmatch_KillUpdatesScoreThenRespawnsTarget()
+        {
+            FakeTransport transport = new FakeTransport(TransportRole.Server);
+            NetworkMovementSessionManager manager = CreateManager(transport, null, deathmatchRespawnSeconds: 0.04f);
+            TransportConnectionId shooter = new TransportConnectionId(10);
+            TransportConnectionId target = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, shooter);
+            manager.HandleConnected(NetworkTransportSide.Server, target);
+            manager.TryGetServerEntityId(shooter, out uint shooterEntity);
+            manager.TryGetServerEntityId(target, out uint targetEntity);
+
+            for (uint i = 0; i < 5; i++)
+            {
+                SendTick(manager, shooter, target, i + 1, 100 + i * 5, new PlayerInputCommand { LookYaw = 90f, FirePressed = true, ShotSequence = i + 1 }, default);
+            }
+
+            Assert.That(manager.TryGetServerDeathmatchPlayer(shooterEntity, out DeathmatchPlayerState shooterState), Is.True);
+            Assert.That(shooterState.Kills, Is.EqualTo(1));
+            Assert.That(manager.TryGetServerDeathmatchPlayer(targetEntity, out DeathmatchPlayerState deadState), Is.True);
+            Assert.That(deadState.IsAlive, Is.False);
+            Assert.That(deadState.Deaths, Is.EqualTo(1));
+
+            SendTick(manager, shooter, target, 6, 122, default, default);
+            Assert.That(manager.TryGetServerDeathmatchPlayer(targetEntity, out DeathmatchPlayerState respawnedState), Is.True);
+            Assert.That(respawnedState.IsAlive, Is.True);
+            Assert.That(respawnedState.Health, Is.EqualTo(100));
+        }
+
+        [Test]
+        public void Deathmatch_ReachingKillLimitFinishesWithWinner()
+        {
+            FakeTransport transport = new FakeTransport(TransportRole.Server);
+            NetworkMovementSessionManager manager = CreateManager(transport, null, deathmatchKillLimit: 1);
+            TransportConnectionId shooter = new TransportConnectionId(10);
+            TransportConnectionId target = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, shooter);
+            manager.HandleConnected(NetworkTransportSide.Server, target);
+            manager.TryGetServerEntityId(shooter, out uint shooterEntity);
+
+            for (uint i = 0; i < 5; i++)
+            {
+                SendTick(manager, shooter, target, i + 1, 100 + i * 5, new PlayerInputCommand { LookYaw = 90f, FirePressed = true, ShotSequence = i + 1 }, default);
+            }
+
+            Assert.That(manager.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.Finished));
+            ArraySegment<byte> packet = FindPacket(transport, NetworkMessageType.DeathmatchState, true);
+            Assert.That(DeathmatchStateCodec.TryDeserialize(packet, out _, out DeathmatchState state), Is.True);
+            Assert.That(state.Phase, Is.EqualTo(DeathmatchPhase.Finished));
+            Assert.That(state.WinnerEntityId, Is.EqualTo(shooterEntity));
         }
 
         [Test]
@@ -368,11 +445,11 @@ namespace AFPS.Tests.EditMode
             Assert.That(manager.Metrics.LastServerTickMicroseconds, Is.LessThan(1000000), "64 玩家测试 Tick 不应超过一秒的安全上限。");
         }
 
-        private static NetworkMovementSessionManager CreateManager(IGameTransport serverTransport, IGameTransport clientTransport, uint maximumRewindTicks = 10, float interestRadius = 150f, int snapshotBudget = 32)
+        private static NetworkMovementSessionManager CreateManager(IGameTransport serverTransport, IGameTransport clientTransport, uint maximumRewindTicks = 10, float interestRadius = 150f, int snapshotBudget = 32, int deathmatchKillLimit = 10, float deathmatchRespawnSeconds = 3f)
         {
             PlayerState initialState = new PlayerState { Tick = 0, IsGrounded = true };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-            return new NetworkMovementSessionManager(serverTransport, clientTransport, initialState, initialState, config, 0.02f, 64, 3, 16, 2, 2, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold, maximumRewindTicks: maximumRewindTicks, interestRadius: interestRadius, snapshotBudgetPerClientPerTick: snapshotBudget);
+            return new NetworkMovementSessionManager(serverTransport, clientTransport, initialState, initialState, config, 0.02f, 64, 3, 16, 2, 2, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold, maximumRewindTicks: maximumRewindTicks, interestRadius: interestRadius, snapshotBudgetPerClientPerTick: snapshotBudget, deathmatchKillLimit: deathmatchKillLimit, deathmatchRespawnSeconds: deathmatchRespawnSeconds);
         }
 
         private static void SendTick(NetworkMovementSessionManager manager, TransportConnectionId shooter, TransportConnectionId target, uint inputTick, uint serverTick, PlayerInputCommand shooterCommand, PlayerInputCommand targetCommand)
@@ -409,6 +486,22 @@ namespace AFPS.Tests.EditMode
             }
 
             return false;
+        }
+
+        private static ArraySegment<byte> FindPacket(FakeTransport transport, NetworkMessageType messageType, bool searchFromEnd = false)
+        {
+            int index = searchFromEnd ? transport.SentPackets.Count - 1 : 0;
+            int end = searchFromEnd ? -1 : transport.SentPackets.Count;
+            int step = searchFromEnd ? -1 : 1;
+            for (; index != end; index += step)
+            {
+                if (PacketHeaderCodec.TryRead(transport.SentPackets[index], out PacketHeader header) && header.MessageType == messageType)
+                {
+                    return transport.SentPackets[index];
+                }
+            }
+
+            return default;
         }
 
         private static ArraySegment<byte> CreateInputPacket(uint tick, float yaw)
