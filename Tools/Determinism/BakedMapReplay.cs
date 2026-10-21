@@ -1,5 +1,5 @@
 using System;
-using AFPS.Simulation.World;
+using AFPS.Simulation.Characters;
 using AFPS.Tests.EditMode;
 
 internal static class BakedMapReplay
@@ -7,16 +7,19 @@ internal static class BakedMapReplay
     private static int Main(string[] args)
     {
         byte[] bytes = System.IO.File.ReadAllBytes(args.Length > 0 ? args[0] : "Assets/_Game/Worlds/SampleScene.bytes");
-        if (!FixedWorldCodec.TryDeserialize(new ArraySegment<byte>(bytes), out var world, out var error))
-        {
-            throw new Exception("World snapshot failed: " + error);
-        }
-
-        ulong hash = DeterministicMapReplayScenario.Run(world, out int contacts);
-        Console.WriteLine($"BakedMapReplay={hash}; Sweeps=4096; Ticks=8192; Contacts={contacts}; World={world.VersionHash}");
+        var context = SimulationWorldContext.Load(
+            new ArraySegment<byte>(bytes), DeterministicMapReplayScenario.CreateConfiguration(), SimulationStep.Step50Hz);
+        ulong hash = DeterministicMapReplayScenario.Run(context, out int contacts);
+        Console.WriteLine($"BakedMapReplay={hash}; Sweeps=4096; Ticks=8192; Contacts={contacts}; World={context.Identity.WorldHash}");
+        Console.WriteLine($"Algorithm={context.Identity.AlgorithmVersion}; Configuration={context.Identity.ConfigurationHash}");
         if (hash != 7359184500043852174UL)
         {
             throw new Exception("Regression fingerprint changed");
+        }
+
+        if (context.Identity.AlgorithmVersion != 1 || context.Identity.ConfigurationHash != 9050714250728135314UL)
+        {
+            throw new Exception("World compatibility fingerprint changed");
         }
 
         return 0;
