@@ -40,7 +40,7 @@ namespace AFPS.NetCode.TimeSync
                 return false;
             }
 
-            ushort tickFraction = (ushort)Math.Round(serverTickAlpha * 65535.0, MidpointRounding.AwayFromZero);
+            ushort tickFraction = (ushort)System.Math.Round(serverTickAlpha * 65535.0, MidpointRounding.AwayFromZero);
             TimeSyncResponse response = new TimeSyncResponse(request.RequestSequence, request.ClientSendTimestampMicroseconds, serverReceiveTimestampMicroseconds, serverSendTimestampMicroseconds, serverWorldTick, tickFraction);
             uint responseSequence = nextResponseSequence;
             if (!TimeSyncCodec.TrySerializeResponse(response, responseSequence, new ArraySegment<byte>(responseBuffer), out int packetBytes))

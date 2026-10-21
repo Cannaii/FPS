@@ -75,7 +75,7 @@ namespace AFPS.NetCode.Messages
 
         private static bool TryQuantizePosition(float value, out int quantized)
         {
-            double rounded = Math.Round(value / AuthoritativePlayerStateCodec.PositionResolution);
+            double rounded = System.Math.Round(value / AuthoritativePlayerStateCodec.PositionResolution);
             bool valid = !float.IsNaN(value) && !float.IsInfinity(value) && rounded >= int.MinValue && rounded <= int.MaxValue;
             quantized = valid ? (int)rounded : 0;
             return valid;
@@ -83,7 +83,7 @@ namespace AFPS.NetCode.Messages
 
         private static bool TryQuantizeVelocity(float value, out short quantized)
         {
-            double rounded = Math.Round(value / AuthoritativePlayerStateCodec.VelocityResolution);
+            double rounded = System.Math.Round(value / AuthoritativePlayerStateCodec.VelocityResolution);
             bool valid = !float.IsNaN(value) && !float.IsInfinity(value) && rounded >= short.MinValue && rounded <= short.MaxValue;
             quantized = valid ? (short)rounded : (short)0;
             return valid;
@@ -97,9 +97,9 @@ namespace AFPS.NetCode.Messages
                 value += 360f;
             }
 
-            return (ushort)Math.Round(value / AuthoritativePlayerStateCodec.LookAngleResolution);
+            return (ushort)System.Math.Round(value / AuthoritativePlayerStateCodec.LookAngleResolution);
         }
 
-        private static short QuantizePitch(float value) => (short)Math.Round(Mathf.Clamp(value, -89.9f, 89.9f) / AuthoritativePlayerStateCodec.LookAngleResolution);
+        private static short QuantizePitch(float value) => (short)System.Math.Round(Mathf.Clamp(value, -89.9f, 89.9f) / AuthoritativePlayerStateCodec.LookAngleResolution);
     }
 }

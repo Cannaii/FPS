@@ -31,7 +31,7 @@ namespace AFPS.NetCode.Messages
                 return false;
             }
 
-            ushort health = (ushort)Math.Round(result.TargetHealth / ScalarResolution);
+            ushort health = (ushort)System.Math.Round(result.TargetHealth / ScalarResolution);
             PacketHeader header = new PacketHeader(NetworkMessageType.AuthoritativeShotResult, PayloadSize, packetSequence);
             if (!PacketHeaderCodec.TryWrite(header, destination))
             {
@@ -94,15 +94,15 @@ namespace AFPS.NetCode.Messages
             }
 
             direction.Normalize();
-            x = (short)Math.Round(Mathf.Clamp(direction.x, -1f, 1f) * short.MaxValue);
-            y = (short)Math.Round(Mathf.Clamp(direction.y, -1f, 1f) * short.MaxValue);
-            z = (short)Math.Round(Mathf.Clamp(direction.z, -1f, 1f) * short.MaxValue);
+            x = (short)System.Math.Round(Mathf.Clamp(direction.x, -1f, 1f) * short.MaxValue);
+            y = (short)System.Math.Round(Mathf.Clamp(direction.y, -1f, 1f) * short.MaxValue);
+            z = (short)System.Math.Round(Mathf.Clamp(direction.z, -1f, 1f) * short.MaxValue);
             return true;
         }
 
         private static bool TryQuantizeSigned(float value, float resolution, out int quantized)
         {
-            double rounded = Math.Round(value / resolution);
+            double rounded = System.Math.Round(value / resolution);
             bool valid = !float.IsNaN(value) && !float.IsInfinity(value) && rounded >= int.MinValue && rounded <= int.MaxValue;
             quantized = valid ? (int)rounded : 0;
             return valid;
@@ -116,7 +116,7 @@ namespace AFPS.NetCode.Messages
 
         private static bool TryQuantizeNonNegative(float value, float resolution, int maximum, out uint quantized)
         {
-            double rounded = Math.Round(value / resolution);
+            double rounded = System.Math.Round(value / resolution);
             bool valid = !float.IsNaN(value) && !float.IsInfinity(value) && rounded >= 0 && rounded <= maximum;
             quantized = valid ? (uint)rounded : 0;
             return valid;

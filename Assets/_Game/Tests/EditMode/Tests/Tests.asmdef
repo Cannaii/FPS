@@ -9,7 +9,8 @@
         "AFPS.NetCode",
         "AFPS.Input",
         "AFPS.Presentation",
-        "AFPS.Transport.Unity"
+        "AFPS.Transport.Unity",
+        "AFPS.Math"
     ],
     "includePlatforms": [
         "Editor"

@@ -200,7 +200,7 @@ namespace AFPS.NetCode.Messages
                 value += 360f;
             }
 
-            return (ushort)Math.Round(value / LookAngleResolution);
+            return (ushort)System.Math.Round(value / LookAngleResolution);
         }
 
         private static short QuantizePitch(float value)
@@ -210,7 +210,7 @@ namespace AFPS.NetCode.Messages
                 return 0;
             }
 
-            return (short)Math.Round(Math.Max(-89.9f, Math.Min(89.9f, value)) / LookAngleResolution);
+            return (short)System.Math.Round(System.Math.Max(-89.9f, System.Math.Min(89.9f, value)) / LookAngleResolution);
         }
 
         private static float DequantizeYaw(ushort value) => value * LookAngleResolution;

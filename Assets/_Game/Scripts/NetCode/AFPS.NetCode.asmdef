@@ -3,7 +3,8 @@
     "rootNamespace": "AFPS.NetCode",
     "references": [
         "AFPS.Core",
-        "AFPS.Simulation"
+        "AFPS.Simulation",
+        "AFPS.Math"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

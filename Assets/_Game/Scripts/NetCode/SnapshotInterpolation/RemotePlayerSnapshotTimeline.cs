@@ -60,7 +60,7 @@ namespace AFPS.NetCode.SnapshotInterpolation
 
             double targetTick = estimatedServerTick - interpolationDelayTicks;
             RemotePlayerSnapshot newest = buffer.GetAt(buffer.Count - 1);
-            double estimatedWholeTick = Math.Floor(estimatedServerTick);
+            double estimatedWholeTick = System.Math.Floor(estimatedServerTick);
             uint estimatedRawTick = unchecked((uint)(long)estimatedWholeTick);
             double newestTickTime = estimatedWholeTick + unchecked((int)(newest.ServerTick - estimatedRawTick));
             RemotePlayerSnapshot oldest = buffer.GetAt(0);
@@ -101,8 +101,8 @@ namespace AFPS.NetCode.SnapshotInterpolation
                 return true;
             }
 
-            double requestedExtrapolationTicks = Math.Max(0.0, targetTick - newestTickTime);
-            double appliedExtrapolationTicks = Math.Min(requestedExtrapolationTicks, maxExtrapolationTicks);
+            double requestedExtrapolationTicks = System.Math.Max(0.0, targetTick - newestTickTime);
+            double appliedExtrapolationTicks = System.Math.Min(requestedExtrapolationTicks, maxExtrapolationTicks);
             Vector3 extrapolatedPosition = newest.Position + newest.Velocity * (float)(appliedExtrapolationTicks * tickDeltaTime);
             RemotePlayerSamplingStatus extrapolationStatus = requestedExtrapolationTicks <= 0.0 ? RemotePlayerSamplingStatus.Held : requestedExtrapolationTicks <= maxExtrapolationTicks ? RemotePlayerSamplingStatus.Extrapolated : RemotePlayerSamplingStatus.ExtrapolationLimitReached;
             state = new RemotePlayerRenderState(targetTick, extrapolatedPosition, newest.Rotation, newest.Velocity, extrapolationStatus);

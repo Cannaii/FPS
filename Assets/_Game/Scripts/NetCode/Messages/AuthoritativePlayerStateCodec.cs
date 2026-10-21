@@ -139,7 +139,7 @@ namespace AFPS.NetCode.Messages
                 return false;
             }
 
-            double rounded = Math.Round(value / PositionResolution, MidpointRounding.AwayFromZero);
+            double rounded = System.Math.Round(value / PositionResolution, MidpointRounding.AwayFromZero);
             if (rounded < int.MinValue || rounded > int.MaxValue)
             {
                 quantized = default;
@@ -158,7 +158,7 @@ namespace AFPS.NetCode.Messages
                 return false;
             }
 
-            double rounded = Math.Round(value / VelocityResolution, MidpointRounding.AwayFromZero);
+            double rounded = System.Math.Round(value / VelocityResolution, MidpointRounding.AwayFromZero);
             if (rounded < short.MinValue || rounded > short.MaxValue)
             {
                 quantized = default;
@@ -188,7 +188,7 @@ namespace AFPS.NetCode.Messages
                 value += 360f;
             }
 
-            return (ushort)Math.Round(value / LookAngleResolution);
+            return (ushort)System.Math.Round(value / LookAngleResolution);
         }
 
         private static short QuantizePitch(float value)
@@ -198,7 +198,7 @@ namespace AFPS.NetCode.Messages
                 return 0;
             }
 
-            return (short)Math.Round(Math.Max(-89.9f, Math.Min(89.9f, value)) / LookAngleResolution);
+            return (short)System.Math.Round(System.Math.Max(-89.9f, System.Math.Min(89.9f, value)) / LookAngleResolution);
         }
     }
 }

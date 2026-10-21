@@ -144,7 +144,7 @@ namespace AFPS.NetCode.Transport.Simulation
             }
 
             double jitter = (random.NextUnitDouble() * 2d - 1d) * config.JitterSeconds;
-            double delay = Math.Max(0d, config.BaseLatencySeconds + jitter);
+            double delay = System.Math.Max(0d, config.BaseLatencySeconds + jitter);
             var packet = new ScheduledPacket
             {
                 ConnectionId = connectionId,
@@ -158,8 +158,8 @@ namespace AFPS.NetCode.Transport.Simulation
             if (previousPacketIndex >= 0 && random.NextUnitDouble() < config.ReorderProbability)
             {
                 ScheduledPacket previousPacket = scheduledPackets[previousPacketIndex];
-                packet.ReleaseTimeSeconds = Math.Min(packet.ReleaseTimeSeconds, previousPacket.ReleaseTimeSeconds);
-                previousPacket.ReleaseTimeSeconds = Math.Max(previousPacket.ReleaseTimeSeconds, packet.ReleaseTimeSeconds) + config.ReorderExtraDelaySeconds;
+                packet.ReleaseTimeSeconds = System.Math.Min(packet.ReleaseTimeSeconds, previousPacket.ReleaseTimeSeconds);
+                previousPacket.ReleaseTimeSeconds = System.Math.Max(previousPacket.ReleaseTimeSeconds, packet.ReleaseTimeSeconds) + config.ReorderExtraDelaySeconds;
             }
 
             scheduledPackets.Add(packet);
