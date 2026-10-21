@@ -7,6 +7,9 @@ using AFPS.NetCode.Sessions;
 using AFPS.NetCode.StateReplication;
 using AFPS.NetCode.Transport;
 using AFPS.Simulation.Characters;
+using AFPS.Math;
+using AFPS.Simulation.World;
+using AFPS.Simulation.Characters.Collision;
 using AFPS.Transport.Unity;
 using NUnit.Framework;
 using UnityEngine;
@@ -18,8 +21,9 @@ namespace AFPS.Tests.EditMode
         private const ushort TestPort = 47993;
         private const int PumpLimit = 1000;
 
-        [Test]
-        public void ClientAheadOfServer_CorrectsAcknowledgedTickAndReplaysToCurrentTickThroughUdp()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void ClientAheadOfServer_CorrectsAcknowledgedTickAndReplaysToCurrentTickThroughUdp(bool useFixedWorld)
         {
             using (var serverTransport = new UnityGameTransport())
             using (var clientTransport = new UnityGameTransport())
@@ -40,8 +44,11 @@ namespace AFPS.Tests.EditMode
                 PlayerState initialState = new PlayerState { Tick = 0, Position = Vector3.zero, Velocity = Vector3.zero, IsGrounded = true };
                 PlayerSimulationConfig clientConfig = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
                 PlayerSimulationConfig serverConfig = new PlayerSimulationConfig(6f, 10f, 20f, 8f);
-                ClientPredictedMovementSession clientSession = new ClientPredictedMovementSession(clientTransport, clientConnection, initialState, clientConfig, 0.02f, 64, 3, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold);
-                ServerAuthoritativeMovementSession serverSession = new ServerAuthoritativeMovementSession(serverTransport, serverConnection, initialState, serverConfig, 0.02f, 64);
+                var fixedWorld = useFixedWorld ? new FixedCharacterCollisionWorld(new FixedWorld(null,new[] {
+                    new FixedWorldPlane(1,0,FixedSurface.Solid,FixedAxis.Y,Fix.Zero),
+                    new FixedWorldPlane(2,0,FixedSurface.Solid,FixedAxis.Z,Fix.FromRaw(34734),false) })) : null;
+                ClientPredictedMovementSession clientSession = new ClientPredictedMovementSession(clientTransport, clientConnection, initialState, clientConfig, 0.02f, 64, 3, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold, fixedCollisionWorld: fixedWorld);
+                ServerAuthoritativeMovementSession serverSession = new ServerAuthoritativeMovementSession(serverTransport, serverConnection, initialState, serverConfig, 0.02f, 64, fixedCollisionWorld: fixedWorld);
 
                 for (uint tick = 1; tick <= 3; tick++)
                 {
@@ -88,6 +95,7 @@ namespace AFPS.Tests.EditMode
                 Assert.That(reconciliation.ReplayedTickCount, Is.EqualTo(2));
                 Assert.That(clientSession.CurrentState.Tick, Is.EqualTo(3));
                 Assert.That(clientSession.CurrentState.Tick, Is.Not.EqualTo(sentState.LastProcessedInputTick));
+                if (useFixedWorld) { Assert.That(clientSession.CurrentState.PositionFixed.Z.Raw,Is.EqualTo(1966)); Assert.That(clientSession.CurrentState.VelocityFixed.Z.Raw,Is.Zero); }
             }
         }
 

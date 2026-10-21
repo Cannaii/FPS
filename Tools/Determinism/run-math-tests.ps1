@@ -2,9 +2,11 @@ param(
     [Parameter(Mandatory = $true)][string]$UnityEditorPath,
     [switch]$IncludeWorld,
     [switch]$IncludeInput,
-    [switch]$IncludeMovement
+    [switch]$IncludeMovement,
+    [switch]$IncludeCollision
 )
 $ErrorActionPreference = 'Stop'
+if ($IncludeCollision) { $IncludeMovement = $true; $IncludeWorld = $true }
 if ($IncludeMovement) { $IncludeInput = $true }
 $taskProjectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $taskEditorDirectory = Split-Path -Parent $UnityEditorPath
@@ -35,9 +37,13 @@ if ($IncludeMovement) {
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Core/Collections/TickBuffer.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/FixedPlayerSimulationTests.cs'
 }
+if ($IncludeCollision) {
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Simulation/Characters/Collision/FixedCharacterCollisionWorld.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/CapsuleWorldTests.cs'
+}
 $taskSources += Join-Path $PSScriptRoot 'MathTestRunner.cs'
 $taskCompilerArguments = @('-nologo', '-langversion:9', '-checked+', '-optimize+', '-target:exe', ('-out:' + (Join-Path $taskOutputDirectory 'VerifyMono.exe')))
-$taskCompilerArguments += @('mscorlib.dll', 'System.dll', 'System.Core.dll') | ForEach-Object { '-r:' + (Join-Path $taskMonoReferences $_) }
+$taskCompilerArguments += @('mscorlib.dll', 'System.dll', 'System.Core.dll', 'System.Numerics.dll') | ForEach-Object { '-r:' + (Join-Path $taskMonoReferences $_) }
 $taskCompilerArguments += '-r:' + $taskNUnit
 $taskCompilerArguments += $taskSources
 $taskResponse = Join-Path $taskOutputDirectory 'mono.rsp'

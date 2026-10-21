@@ -12,7 +12,7 @@ $taskSources = @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets
 $taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Simulation/World') -Filter '*.cs').FullName)
 $taskSources += Join-Path $PSScriptRoot 'WorldQueryReplay.cs'
 $taskArguments = @('-nologo', '-langversion:9', '-checked+', '-optimize+', '-target:exe', ('-out:' + (Join-Path $taskOutput 'WorldQueryReplay.exe')))
-$taskArguments += @('mscorlib.dll', 'System.dll', 'System.Core.dll') | ForEach-Object { '-r:' + (Join-Path $taskMonoReferences $_) }
+$taskArguments += @('mscorlib.dll', 'System.dll', 'System.Core.dll', 'System.Numerics.dll') | ForEach-Object { '-r:' + (Join-Path $taskMonoReferences $_) }
 $taskArguments += $taskSources
 $taskResponse = Join-Path $taskOutput 'compile.rsp'
 [IO.File]::WriteAllLines($taskResponse, @($taskArguments | ForEach-Object { '"' + $_ + '"' }))

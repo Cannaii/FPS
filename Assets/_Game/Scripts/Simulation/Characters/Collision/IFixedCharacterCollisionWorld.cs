@@ -5,6 +5,7 @@ namespace AFPS.Simulation.Characters.Collision
     /// <summary>定点运动求解的胶囊查询边界，几何一致性由具体后端负责。</summary>
     public interface IFixedCharacterCollisionWorld
     {
+        /// <summary>direction 由运动求解器归一化；后端保留该方向 Raw，距离必须对应同一条射线。</summary>
         bool CapsuleCast(FixVec3 feetPosition, FixVec3 direction, Fix distance, in CharacterCollisionConfig config, out FixedCharacterCollisionHit hit);
     }
     public readonly struct FixedCharacterCollisionHit

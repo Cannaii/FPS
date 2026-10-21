@@ -4,8 +4,8 @@ using AFPS.Math;
 
 namespace AFPS.Simulation.World
 {
-    /// <summary>不可变的平面/AABB 世界。构造时复制并按稳定 ID 排序，查询只使用整数且不分配托管对象。</summary>
-    public sealed class FixedWorld : IWorldQuery
+    /// <summary>不可变的平面/AABB 世界。构造时复制并按稳定 ID 排序，射线/地面查询只使用整数且不分配托管对象。</summary>
+    public sealed partial class FixedWorld : IWorldQuery
     {
         private readonly FixedWorldBox[] boxes;
         private readonly FixedWorldPlane[] planes;

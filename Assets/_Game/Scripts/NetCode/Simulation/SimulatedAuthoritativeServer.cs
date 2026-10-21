@@ -76,7 +76,7 @@ namespace AFPS.NetCode.Simulation
             float tickDeltaTime,
             int inputDelayTicks,
             int stateDelayTicks,
-            ICharacterCollisionWorld collisionWorld = null)
+            ICharacterCollisionWorld collisionWorld = null, IFixedCharacterCollisionWorld fixedCollisionWorld = null)
         {
             if (tickDeltaTime <= 0f || float.IsNaN(tickDeltaTime) || float.IsInfinity(tickDeltaTime))
             {
@@ -98,7 +98,8 @@ namespace AFPS.NetCode.Simulation
             this.tickDeltaTime = SimulationStep.FromSeconds(tickDeltaTime);
             this.inputDelayTicks = (uint)inputDelayTicks;
             this.stateDelayTicks = (uint)stateDelayTicks;
-            this.collisionWorld = LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
+            if (collisionWorld != null && fixedCollisionWorld != null) throw new ArgumentException("只能指定一种碰撞后端。", nameof(fixedCollisionWorld));
+            this.collisionWorld = fixedCollisionWorld ?? LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
         }
 
         /// <summary>

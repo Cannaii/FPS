@@ -31,7 +31,7 @@ namespace AFPS.NetCode.Sessions
         /// </summary>
         public PlayerState CurrentState { get; private set; }
 
-        public ClientPredictedMovementSession(IGameTransport transport, TransportConnectionId serverConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int historyCapacity, int inputRedundancyCount, float positionErrorThreshold, float velocityErrorThreshold, ICharacterCollisionWorld collisionWorld = null)
+        public ClientPredictedMovementSession(IGameTransport transport, TransportConnectionId serverConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int historyCapacity, int inputRedundancyCount, float positionErrorThreshold, float velocityErrorThreshold, ICharacterCollisionWorld collisionWorld = null, IFixedCharacterCollisionWorld fixedCollisionWorld = null)
         {
             if (tickDeltaTime <= 0f || float.IsNaN(tickDeltaTime) || float.IsInfinity(tickDeltaTime))
             {
@@ -55,7 +55,8 @@ namespace AFPS.NetCode.Sessions
 
             this.simulationConfig = simulationConfig;
             this.tickDeltaTime = SimulationStep.FromSeconds(tickDeltaTime);
-            this.collisionWorld = LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
+            if (collisionWorld != null && fixedCollisionWorld != null) throw new ArgumentException("只能指定一种碰撞后端。", nameof(fixedCollisionWorld));
+            this.collisionWorld = fixedCollisionWorld ?? LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
             CurrentState = initialState;
             inputHistory = new TickBuffer<PlayerInputCommand>(historyCapacity);
             stateHistory = new TickBuffer<PlayerState>(historyCapacity);

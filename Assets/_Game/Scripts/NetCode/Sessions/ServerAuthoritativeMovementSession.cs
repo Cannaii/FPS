@@ -62,7 +62,7 @@ namespace AFPS.NetCode.Sessions
         /// <summary>最近一次权威模拟 Tick 的射击验证结果；无武器或未请求射击时不接受。</summary>
         public WeaponFireResult LastWeaponFireResult { get; private set; }
 
-        public ServerAuthoritativeMovementSession(IGameTransport transport, TransportConnectionId clientConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int inputWindowCapacity, int maxMissingInputWaitTicks = 2, int maxRepeatedMovementTicks = 2, ICharacterCollisionWorld collisionWorld = null, uint entityId = 0, WeaponSimulationConfig? weaponConfig = null)
+        public ServerAuthoritativeMovementSession(IGameTransport transport, TransportConnectionId clientConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int inputWindowCapacity, int maxMissingInputWaitTicks = 2, int maxRepeatedMovementTicks = 2, ICharacterCollisionWorld collisionWorld = null, uint entityId = 0, WeaponSimulationConfig? weaponConfig = null, IFixedCharacterCollisionWorld fixedCollisionWorld = null)
         {
             if (tickDeltaTime <= 0f || float.IsNaN(tickDeltaTime) || float.IsInfinity(tickDeltaTime))
             {
@@ -83,7 +83,8 @@ namespace AFPS.NetCode.Sessions
             this.tickDeltaTime = SimulationStep.FromSeconds(tickDeltaTime);
             this.maxMissingInputWaitTicks = maxMissingInputWaitTicks;
             this.maxRepeatedMovementTicks = maxRepeatedMovementTicks;
-            this.collisionWorld = LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
+            if (collisionWorld != null && fixedCollisionWorld != null) throw new ArgumentException("只能指定一种碰撞后端。", nameof(fixedCollisionWorld));
+            this.collisionWorld = fixedCollisionWorld ?? LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
             this.entityId = entityId;
             if (weaponConfig.HasValue)
             {
