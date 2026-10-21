@@ -21,9 +21,10 @@ namespace AFPS.Tests.EditMode
         private const ushort TestPort = 47993;
         private const int PumpLimit = 1000;
 
-        [TestCase(false)]
-        [TestCase(true)]
-        public void ClientAheadOfServer_CorrectsAcknowledgedTickAndReplaysToCurrentTickThroughUdp(bool useFixedWorld)
+        [TestCase(false,false)]
+        [TestCase(true,false)]
+        [TestCase(true,true)]
+        public void ClientAheadOfServer_CorrectsAcknowledgedTickAndReplaysToCurrentTickThroughUdp(bool useFixedWorld,bool triangleGeometry)
         {
             using (var serverTransport = new UnityGameTransport())
             using (var clientTransport = new UnityGameTransport())
@@ -44,9 +45,13 @@ namespace AFPS.Tests.EditMode
                 PlayerState initialState = new PlayerState { Tick = 0, Position = Vector3.zero, Velocity = Vector3.zero, IsGrounded = true };
                 PlayerSimulationConfig clientConfig = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
                 PlayerSimulationConfig serverConfig = new PlayerSimulationConfig(6f, 10f, 20f, 8f);
-                var fixedWorld = useFixedWorld ? new FixedCharacterCollisionWorld(new FixedWorld(null,new[] {
+                Fix wallZ=Fix.FromRaw(34734);
+                var geometry = triangleGeometry ? new FixedWorld(null,null,new[] {
+                    new FixedWorldTriangle(1,0,FixedSurface.Solid,new FixVec3(Fix.FromInt(-5),Fix.Zero,Fix.FromInt(-5)),new FixVec3(Fix.Zero,Fix.Zero,Fix.FromInt(5)),new FixVec3(Fix.FromInt(5),Fix.Zero,Fix.FromInt(-5))),
+                    new FixedWorldTriangle(2,0,FixedSurface.Solid,new FixVec3(Fix.FromInt(-5),Fix.Zero,wallZ),new FixVec3(Fix.Zero,Fix.FromInt(5),wallZ),new FixVec3(Fix.FromInt(5),Fix.Zero,wallZ)) }) : new FixedWorld(null,new[] {
                     new FixedWorldPlane(1,0,FixedSurface.Solid,FixedAxis.Y,Fix.Zero),
-                    new FixedWorldPlane(2,0,FixedSurface.Solid,FixedAxis.Z,Fix.FromRaw(34734),false) })) : null;
+                    new FixedWorldPlane(2,0,FixedSurface.Solid,FixedAxis.Z,wallZ,false) });
+                var fixedWorld = useFixedWorld ? new FixedCharacterCollisionWorld(geometry) : null;
                 ClientPredictedMovementSession clientSession = new ClientPredictedMovementSession(clientTransport, clientConnection, initialState, clientConfig, 0.02f, 64, 3, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold, fixedCollisionWorld: fixedWorld);
                 ServerAuthoritativeMovementSession serverSession = new ServerAuthoritativeMovementSession(serverTransport, serverConnection, initialState, serverConfig, 0.02f, 64, fixedCollisionWorld: fixedWorld);
 

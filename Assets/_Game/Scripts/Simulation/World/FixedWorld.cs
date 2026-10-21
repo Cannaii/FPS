@@ -4,24 +4,30 @@ using AFPS.Math;
 
 namespace AFPS.Simulation.World
 {
-    /// <summary>不可变的平面/AABB 世界。构造时复制并按稳定 ID 排序，射线/地面查询只使用整数且不分配托管对象。</summary>
+    /// <summary>不可变的平面/AABB/三角形世界；稳定 ID、规范快照与整数查询，不访问引擎状态。</summary>
     public sealed partial class FixedWorld : IWorldQuery
     {
         private readonly FixedWorldBox[] boxes;
         private readonly FixedWorldPlane[] planes;
+        private readonly FixedWorldTriangle[] triangles;
+        private readonly TriangleTree triangleTree;
         private readonly byte[] snapshot;
         public ulong VersionHash { get; }
         public int BoxCount => boxes.Length;
         public int PlaneCount => planes.Length;
+        public int TriangleCount => triangles.Length;
+        public FixedWorldTriangle GetTriangle(int index) => triangles[index];
         public FixedWorldBox GetBox(int index) => boxes[index];
         public FixedWorldPlane GetPlane(int index) => planes[index];
 
-        public FixedWorld(FixedWorldBox[] boxes, FixedWorldPlane[] planes = null)
+        public FixedWorld(FixedWorldBox[] boxes, FixedWorldPlane[] planes = null, FixedWorldTriangle[] triangles = null)
         {
             int boxCount = boxes?.Length ?? 0, planeCount = planes?.Length ?? 0;
             if ((long)boxCount + planeCount > FixedWorldCodec.MaxShapeCount) throw new ArgumentException("World shape limit exceeded.");
             this.boxes = boxes == null ? Array.Empty<FixedWorldBox>() : (FixedWorldBox[])boxes.Clone();
             this.planes = planes == null ? Array.Empty<FixedWorldPlane>() : (FixedWorldPlane[])planes.Clone();
+            if ((triangles?.Length ?? 0) > FixedWorldCodec.MaxTriangleCount) throw new ArgumentException("World triangle limit exceeded.");
+            this.triangles = triangles == null ? Array.Empty<FixedWorldTriangle>() : (FixedWorldTriangle[])triangles.Clone();
             var ids = new HashSet<uint>();
             foreach (FixedWorldBox box in this.boxes)
             {
@@ -33,6 +39,13 @@ namespace AFPS.Simulation.World
                 FixedWorldBox.ValidateIdentity(plane.ShapeId, plane.Layer, plane.Surface);
                 if (plane.Axis > FixedAxis.Z || !ids.Add(plane.ShapeId)) throw new ArgumentException("Invalid axis or duplicate shape ID.");
             }
+            foreach (FixedWorldTriangle triangle in this.triangles)
+            {
+                _ = new FixedWorldTriangle(triangle.ShapeId,triangle.Layer,triangle.Surface,triangle.A,triangle.B,triangle.C);
+                if (!ids.Add(triangle.ShapeId)) throw new ArgumentException("Duplicate shape ID.");
+            }
+            Array.Sort(this.triangles,(a,b)=>a.ShapeId.CompareTo(b.ShapeId));
+            triangleTree = new TriangleTree(this.triangles);
             Array.Sort(this.boxes, (a, b) => a.ShapeId.CompareTo(b.ShapeId));
             Array.Sort(this.planes, (a, b) => a.ShapeId.CompareTo(b.ShapeId));
             snapshot = FixedWorldCodec.WriteCanonical(this);
@@ -64,6 +77,7 @@ namespace AFPS.Simulation.World
                 FixVec3 normal = AxisNormal(axis, plane.DoubleSided ? component < 0 : plane.PositiveNormal);
                 Consider(plane.ShapeId, plane.Layer, plane.Surface, origin, unit, distance, normal, false, ref bestDistance, ref best);
             }
+            RaycastTriangles(origin,unit,maxDistance,layerMask,surfaceMask,bestDistance,ref best);
             return best;
         }
 
@@ -89,6 +103,22 @@ namespace AFPS.Simulation.World
             {
                 if (plane.Axis != FixedAxis.Y || (!plane.PositiveNormal && !plane.DoubleSided) || !Matches(plane.Layer, plane.Surface, layerMask, FixedSurface.Ground)) continue;
                 ConsiderGround(plane.ShapeId, plane.Layer, plane.Surface, center.X.Raw, plane.Coordinate.Raw, center.Z.Raw, feetY, probeDistance, ref best);
+            }
+            if (triangles.Length>0)
+            {
+                if(feetY<int.MinValue || feetY>int.MaxValue) throw new ArgumentOutOfRangeException(nameof(center));
+                if(radius.Raw>int.MaxValue/2) throw new ArgumentOutOfRangeException(nameof(radius));
+                FixVec3 feet=new FixVec3(center.X,Fix.FromRaw((int)feetY),center.Z);
+                if(radius.Raw==0)
+                {
+                    RayDistance time=new RayDistance(best.DidHit ? best.Distance.Raw : probeDistance.Raw,1);
+                    RaycastTriangles(feet,-FixVec3.Up,probeDistance,layerMask,FixedSurface.Ground,time,ref best);
+                }
+                else
+                {
+                    CapsuleSweepTime time=CapsuleSweepTime.Rational(best.DidHit ? best.Distance.Raw : probeDistance.Raw,1);
+                    SweepTriangles(feet,radius,Fix.FromRaw(radius.Raw*2),-FixVec3.Up,probeDistance,layerMask,FixedSurface.Ground,ref time,ref best);
+                }
             }
             return best;
         }

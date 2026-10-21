@@ -1,0 +1,12 @@
+{
+    "name": "AFPS.World.Editor",
+    "references": [
+        "_Game.Bootstrap",
+        "AFPS.Simulation",
+        "AFPS.Presentation"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "autoReferenced": true
+}

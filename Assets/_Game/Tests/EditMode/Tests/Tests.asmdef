@@ -10,7 +10,9 @@
         "AFPS.Input",
         "AFPS.Presentation",
         "AFPS.Transport.Unity",
-        "AFPS.Math"
+        "AFPS.Math",
+        "_Game.Bootstrap",
+        "AFPS.World.Editor"
     ],
     "includePlatforms": [
         "Editor"

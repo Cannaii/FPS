@@ -245,7 +245,7 @@ namespace AFPS.Tests.EditMode
         }
 
         [TestCase(0, 0, FixedWorldReadError.InvalidMagic)]
-        [TestCase(4, 2, FixedWorldReadError.UnsupportedVersion)]
+        [TestCase(4, 3, FixedWorldReadError.UnsupportedVersion)]
         [TestCase(6, 1, FixedWorldReadError.ReservedBits)]
         [TestCase(11, 128, FixedWorldReadError.InvalidCount)]
         [TestCase(16, 0, FixedWorldReadError.InvalidShape)]

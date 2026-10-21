@@ -9,7 +9,7 @@ namespace AFPS.Simulation.World
         /// <summary>
         /// 竖直胶囊的连续扫掠。圆角使用解析球/边/面求交；只在最终返回时向下取整距离。
         /// 初始重叠仅阻止继续深入，允许沿外侧法线脱离；贴面向外/平移不自命中。
-        /// BigInteger 只用于二次根判别与比较，避免世界极值处的宽乘积溢出。
+        /// BigInteger 用于宽几何和二次根比较，避免世界极值处的中间乘积溢出。
         /// </summary>
         public DeterministicHit CapsuleCast(in FixVec3 feet, Fix radius, Fix height, in FixVec3 direction, Fix maxDistance, int layerMask = ~0, FixedSurface surfaceMask = FixedSurface.Solid)
             => CapsuleCastCore(feet,radius,height,direction,maxDistance,layerMask,surfaceMask,true);
@@ -62,6 +62,7 @@ namespace AFPS.Simulation.World
                 bestTime = time;
                 best = new DeterministicHit(plane.ShapeId, plane.Layer, plane.Surface, Fix.FromRaw(distance), RawPoint(x,y,z), AxisNormal(axis,positive), gap < 0);
             }
+            SweepTriangles(feet,radius,height,unit,maxDistance,layerMask,surfaceMask,ref bestTime,ref best);
             return best;
         }
 

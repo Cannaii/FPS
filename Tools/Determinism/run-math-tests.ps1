@@ -40,6 +40,7 @@ if ($IncludeMovement) {
 if ($IncludeCollision) {
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Simulation/Characters/Collision/FixedCharacterCollisionWorld.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/CapsuleWorldTests.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/TriangleWorldTests.cs'
 }
 $taskSources += Join-Path $PSScriptRoot 'MathTestRunner.cs'
 $taskCompilerArguments = @('-nologo', '-langversion:9', '-checked+', '-optimize+', '-target:exe', ('-out:' + (Join-Path $taskOutputDirectory 'VerifyMono.exe')))

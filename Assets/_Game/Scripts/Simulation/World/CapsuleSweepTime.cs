@@ -17,19 +17,19 @@ namespace AFPS.Simulation.World
             this.denominator = denominator;
         }
 
-        public static CapsuleSweepTime Rational(long numerator, int denominator)
+        public static CapsuleSweepTime Rational(BigInteger numerator, BigInteger denominator)
         {
             if (denominator == 0) throw new ArgumentOutOfRangeException(nameof(denominator));
             if (denominator < 0) { numerator = -numerator; denominator = -denominator; }
             return new CapsuleSweepTime(numerator, BigInteger.Zero, denominator);
         }
 
-        public static bool TryQuadratic(BigInteger a, BigInteger b, BigInteger c, int maximum, out CapsuleSweepTime time)
+        public static bool TryQuadratic(BigInteger a, BigInteger b, BigInteger c, int maximum, out CapsuleSweepTime time, bool rejectTangent = false)
         {
             time = default;
             if (a.Sign <= 0) return false;
             BigInteger d = b * b - 4 * a * c;
-            if (d.Sign < 0) return false;
+            if (d.Sign < 0 || (rejectTangent && d.IsZero)) return false;
             time = new CapsuleSweepTime(-b, d, 2 * a);
             return time.CompareToFraction(0, 1) >= 0 && time.CompareToFraction(maximum, 1) <= 0;
         }
@@ -47,7 +47,14 @@ namespace AFPS.Simulation.World
             }
         }
 
-        public int CompareToFraction(long n, int d)
+        public int SignOfLinear(BigInteger constant, BigInteger slope)
+        {
+            if (slope.IsZero) return constant.Sign;
+            int order=CompareToFraction(-constant,slope);
+            return slope.Sign<0 ? -order : order;
+        }
+
+        public int CompareToFraction(BigInteger n, BigInteger d)
         {
             if (d == 0) throw new ArgumentOutOfRangeException(nameof(d));
             if (d < 0) { n = -n; d = -d; }

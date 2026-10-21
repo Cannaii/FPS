@@ -15,10 +15,14 @@ namespace AFPS.Simulation.World
         NonCanonicalOrder
     }
 
-    /// <summary>世界快照 v1：小端 Raw、固定长度记录、显式版本；不使用运行时对象哈希或平台字节序。</summary>
+    /// <summary>世界快照 v1（盒/平面）及 v2（三角形）：小端 Raw、固定长度记录、显式版本；不使用运行时对象哈希或平台字节序。</summary>
     public static class FixedWorldCodec
     {
         public const ushort FormatVersion = 1;
+        public const ushort TriangleFormatVersion = 2;
+        public const int TriangleHeaderSize = 20;
+        public const int TriangleSize = 48;
+        public const int MaxTriangleCount = 1048576;
         public const int HeaderSize = 16;
         public const int BoxSize = 36;
         public const int PlaneSize = 20;
@@ -27,12 +31,14 @@ namespace AFPS.Simulation.World
 
         internal static byte[] WriteCanonical(FixedWorld world)
         {
-            byte[] data = new byte[checked(HeaderSize + world.BoxCount * BoxSize + world.PlaneCount * PlaneSize)];
+            bool hasTriangles=world.TriangleCount>0;
+            byte[] data = new byte[checked((hasTriangles ? TriangleHeaderSize : HeaderSize) + world.BoxCount * BoxSize + world.PlaneCount * PlaneSize + world.TriangleCount * TriangleSize)];
             int offset = 0;
             Write(data, ref offset, Magic);
-            Write(data, ref offset, FormatVersion); // 低 16 位版本，高 16 位保留为零。
+            Write(data, ref offset, hasTriangles ? TriangleFormatVersion : FormatVersion); // 低 16 位版本，高 16 位保留为零。
             Write(data, ref offset, (uint)world.BoxCount);
             Write(data, ref offset, (uint)world.PlaneCount);
+            if(hasTriangles) Write(data,ref offset,(uint)world.TriangleCount);
             for (int i = 0; i < world.BoxCount; i++)
             {
                 FixedWorldBox box = world.GetBox(i);
@@ -53,6 +59,12 @@ namespace AFPS.Simulation.World
                 Write(data, ref offset, (uint)plane.Axis | flags << 8);
                 Write(data, ref offset, unchecked((uint)plane.Coordinate.Raw));
             }
+            for(int i=0;i<world.TriangleCount;i++)
+            {
+                FixedWorldTriangle triangle=world.GetTriangle(i);
+                Write(data,ref offset,triangle.ShapeId); Write(data,ref offset,(uint)triangle.Layer); Write(data,ref offset,(uint)triangle.Surface);
+                WriteVector(data,ref offset,triangle.A); WriteVector(data,ref offset,triangle.B); WriteVector(data,ref offset,triangle.C);
+            }
             return data;
         }
 
@@ -65,14 +77,23 @@ namespace AFPS.Simulation.World
             int offset = source.Offset;
             if (Read(data, ref offset) != Magic) { error = FixedWorldReadError.InvalidMagic; return false; }
             uint version = Read(data, ref offset);
-            if ((version & 0xffff) != FormatVersion) { error = FixedWorldReadError.UnsupportedVersion; return false; }
+            if ((version & 0xffff) != FormatVersion && (version & 0xffff) != TriangleFormatVersion) { error = FixedWorldReadError.UnsupportedVersion; return false; }
             if ((version >> 16) != 0) { error = FixedWorldReadError.ReservedBits; return false; }
             uint boxCount = Read(data, ref offset), planeCount = Read(data, ref offset);
             if ((ulong)boxCount + planeCount > MaxShapeCount) { error = FixedWorldReadError.InvalidCount; return false; }
-            long length = HeaderSize + (long)boxCount * BoxSize + (long)planeCount * PlaneSize;
+            bool hasTriangles=(version & 0xffff)==TriangleFormatVersion;
+            uint triangleCount=0;
+            if(hasTriangles)
+            {
+                if(source.Count<TriangleHeaderSize) return false;
+                triangleCount=Read(data,ref offset);
+                if(triangleCount==0 || triangleCount>MaxTriangleCount) {error=FixedWorldReadError.InvalidCount;return false;}
+            }
+            long length = (hasTriangles ? TriangleHeaderSize : HeaderSize) + (long)boxCount * BoxSize + (long)planeCount * PlaneSize + (long)triangleCount * TriangleSize;
             if (length != source.Count) return false;
             var boxes = new FixedWorldBox[(int)boxCount];
             var planes = new FixedWorldPlane[(int)planeCount];
+            var triangles = new FixedWorldTriangle[(int)triangleCount];
             try
             {
                 uint previousId = 0;
@@ -99,7 +120,18 @@ namespace AFPS.Simulation.World
                     planes[i] = new FixedWorldPlane(id, (int)layer, surface, (FixedAxis)(bits & 0xff), Fix.FromRaw(coordinate), (bits & 0x100) != 0, (bits & 0x200) != 0);
                     previousId = id;
                 }
-                world = new FixedWorld(boxes, planes);
+                previousId=0;
+                for(int i=0;i<triangles.Length;i++)
+                {
+                    uint id=Read(data,ref offset),layer=Read(data,ref offset);
+                    var surface=(FixedSurface)Read(data,ref offset);
+                    FixVec3 a=ReadVector(data,ref offset),b=ReadVector(data,ref offset),c=ReadVector(data,ref offset);
+                    if(id!=0 && id<=previousId) {error=FixedWorldReadError.NonCanonicalOrder;return false;}
+                    if(layer>31) {error=FixedWorldReadError.InvalidShape;return false;}
+                    triangles[i]=new FixedWorldTriangle(id,(int)layer,surface,a,b,c);
+                    previousId=id;
+                }
+                world = new FixedWorld(boxes, planes, triangles);
                 error = FixedWorldReadError.None;
                 return true;
             }
