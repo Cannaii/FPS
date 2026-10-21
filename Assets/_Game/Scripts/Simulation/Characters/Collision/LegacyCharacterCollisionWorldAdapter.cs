@@ -1,0 +1,20 @@
+using AFPS.Math;
+
+namespace AFPS.Simulation.Characters.Collision
+{
+    /// <summary>旧 PhysX 查询的显式适配：仅规范返回值，不承诺几何跨平台确定性。Phase 2C 替换。</summary>
+    public sealed class LegacyCharacterCollisionWorldAdapter : IFixedCharacterCollisionWorld
+    {
+        private readonly ICharacterCollisionWorld world;
+        private LegacyCharacterCollisionWorldAdapter(ICharacterCollisionWorld world) => this.world = world;
+        public static IFixedCharacterCollisionWorld Adapt(ICharacterCollisionWorld world) => world == null || ReferenceEquals(world, FlatGroundCollisionWorld.Instance)
+            ? FixedFlatGroundCollisionWorld.Instance : new LegacyCharacterCollisionWorldAdapter(world);
+        public bool CapsuleCast(FixVec3 feetPosition, FixVec3 direction, Fix distance, in CharacterCollisionConfig config, out FixedCharacterCollisionHit hit)
+        {
+            hit = default;
+            if (!world.CapsuleCast(PlayerState.ToVector(feetPosition), PlayerState.ToVector(direction), distance.ToFloat(), config, out CharacterCollisionHit legacy)) return false;
+            hit = new FixedCharacterCollisionHit(Fix.FromFloat(legacy.Distance), PlayerState.ToFixed(legacy.Normal).Normalized());
+            return true;
+        }
+    }
+}

@@ -1,4 +1,5 @@
 using System;
+using AFPS.Math;
 using AFPS.NetCode.InputReplication;
 using AFPS.NetCode.Messages;
 using AFPS.NetCode.Protocol;
@@ -20,10 +21,10 @@ namespace AFPS.NetCode.Sessions
         private readonly ServerInputCommandReceiver inputReceiver;
         private readonly ServerAuthoritativeStateSender stateSender;
         private readonly PlayerSimulationConfig simulationConfig;
-        private readonly float tickDeltaTime;
+        private readonly Fix tickDeltaTime;
         private readonly int maxMissingInputWaitTicks;
         private readonly int maxRepeatedMovementTicks;
-        private readonly ICharacterCollisionWorld collisionWorld;
+        private readonly IFixedCharacterCollisionWorld collisionWorld;
         private readonly uint entityId;
         private readonly ServerWeaponFireController weaponFireController;
         private bool hasAdvancedServerTick;
@@ -79,10 +80,10 @@ namespace AFPS.NetCode.Sessions
             }
 
             this.simulationConfig = simulationConfig;
-            this.tickDeltaTime = tickDeltaTime;
+            this.tickDeltaTime = SimulationStep.FromSeconds(tickDeltaTime);
             this.maxMissingInputWaitTicks = maxMissingInputWaitTicks;
             this.maxRepeatedMovementTicks = maxRepeatedMovementTicks;
-            this.collisionWorld = collisionWorld ?? FlatGroundCollisionWorld.Instance;
+            this.collisionWorld = LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
             this.entityId = entityId;
             if (weaponConfig.HasValue)
             {
@@ -143,8 +144,7 @@ namespace AFPS.NetCode.Sessions
             if (!hasLastReceivedInput)
             {
                 // 尚未收到真实输入时只从初始权威状态取朝向；已有命令直接复制整数档位。
-                command.LookYaw = CurrentState.Yaw;
-                command.LookPitch = CurrentState.Pitch;
+                command.SetFixedControls(command.MoveXFixed, command.MoveYFixed, CurrentState.YawFixedDegrees, CurrentState.PitchFixedDegrees);
             }
             consecutiveSubstitutedInputTicks++;
             LastAdvanceStatus = repeatContinuousInput ? ServerInputAdvanceStatus.RepeatedContinuousInput : ServerInputAdvanceStatus.NeutralFallback;

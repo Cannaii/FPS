@@ -1,55 +1,23 @@
+using System;
+using AFPS.Math;
+using AFPS.Simulation.Characters.Collision;
 
 namespace AFPS.Simulation.Characters
 {
-    using Collision;
-
-    /// <summary>
-    /// 保存速度、加速度等参数
-    /// </summary>
-    public readonly struct PlayerSimulationConfig
+    public readonly partial struct PlayerSimulationConfig
     {
-        /// <summary>
-        /// 玩家在地面上的最大水平移动速度，单位为米每秒。
-        /// </summary>
-        public readonly float MaxGroundSpeed;
-
-        /// <summary>
-        /// 玩家在地面上的水平加速度，单位为米每二次方秒。
-        /// 数值越大，玩家达到最大移动速度所需的时间越短。
-        /// </summary>
-        public readonly float GroundAcceleration;
-
-        /// <summary>
-        /// 玩家受到的垂直重力加速度，单位为米每二次方秒。
-        /// 建议保存为正数，例如 20，由模拟逻辑负责向下应用。
-        /// </summary>
-        public readonly float Gravity;
-
-        /// <summary>
-        /// 玩家成功跳跃时获得的初始向上速度，单位为米每秒。
-        /// </summary>
-        public readonly float JumpSpeed;
-
-        /// <summary>
-        /// 角色胶囊、斜坡、台阶和碰撞迭代参数；客户端与服务器必须完全一致。
-        /// </summary>
+        public readonly Fix MaxGroundSpeedFixed;
+        public readonly Fix GroundAccelerationFixed;
+        public readonly Fix GravityFixed;
+        public readonly Fix JumpSpeedFixed;
         public readonly CharacterCollisionConfig Collision;
-
-        /// <summary>
-        /// 创建一组玩家移动模拟参数。
-        /// 客户端预测与服务器权威模拟必须使用一致的参数。
-        /// </summary>
-        public PlayerSimulationConfig(
-            float maxGroundSpeed,
-            float groundAcceleration,
-            float gravity,
-            float jumpSpeed,
-            CharacterCollisionConfig? collision = null)
+        public PlayerSimulationConfig(Fix maxGroundSpeed, Fix groundAcceleration, Fix gravity, Fix jumpSpeed, CharacterCollisionConfig? collision = null)
         {
-            MaxGroundSpeed = maxGroundSpeed;
-            GroundAcceleration = groundAcceleration;
-            Gravity = gravity;
-            JumpSpeed = jumpSpeed;
+            if (maxGroundSpeed.Raw < 0 || groundAcceleration.Raw < 0 || gravity.Raw < 0 || jumpSpeed.Raw < 0) throw new ArgumentOutOfRangeException(nameof(maxGroundSpeed));
+            MaxGroundSpeedFixed = maxGroundSpeed;
+            GroundAccelerationFixed = groundAcceleration;
+            GravityFixed = gravity;
+            JumpSpeedFixed = jumpSpeed;
             Collision = collision ?? CharacterCollisionConfig.Default;
         }
     }

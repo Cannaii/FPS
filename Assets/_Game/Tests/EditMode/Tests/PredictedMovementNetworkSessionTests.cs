@@ -92,14 +92,14 @@ namespace AFPS.Tests.EditMode
         }
 
         [Test]
-        public void ClientSession_RejectsThresholdBelowProtocolQuantizationNoise()
+        public void ClientSession_RejectsNegativeDiagnosticThreshold()
         {
             FakeTransport transport = new FakeTransport();
             PlayerState initialState = new PlayerState { Tick = 0 };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
 
-            Assert.Throws<ArgumentOutOfRangeException>(() => new ClientPredictedMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 64, 3, 0f, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold));
-            Assert.Throws<ArgumentOutOfRangeException>(() => new ClientPredictedMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 64, 3, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, 0f));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new ClientPredictedMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 64, 3, -1f, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new ClientPredictedMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 64, 3, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, -1f));
         }
 
         [Test]

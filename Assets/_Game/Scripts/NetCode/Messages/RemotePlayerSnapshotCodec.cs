@@ -12,6 +12,8 @@ namespace AFPS.NetCode.Messages
     /// </summary>
     public static class RemotePlayerSnapshotCodec
     {
+        public const float MaximumPositionQuantizationError = 0.000867f;
+        public const float MaximumVelocityQuantizationError = 0.008661f;
         public const int PayloadSize = 31;
         public const int PacketSize = PacketHeader.Size + PayloadSize;
         private const byte TeleportMask = 1 << 0;

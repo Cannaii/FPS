@@ -1,9 +1,11 @@
 param(
     [Parameter(Mandatory = $true)][string]$UnityEditorPath,
     [switch]$IncludeWorld,
-    [switch]$IncludeInput
+    [switch]$IncludeInput,
+    [switch]$IncludeMovement
 )
 $ErrorActionPreference = 'Stop'
+if ($IncludeMovement) { $IncludeInput = $true }
 $taskProjectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $taskEditorDirectory = Split-Path -Parent $UnityEditorPath
 $taskOutputDirectory = Join-Path $taskProjectRoot 'Temp/FixedMathVerification'
@@ -13,7 +15,7 @@ $taskNUnitPackage = Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Libr
 if ($null -eq $taskNUnitPackage) { throw 'Open the project in Unity first to restore its NUnit package.' }
 $taskNUnit = Join-Path $taskNUnitPackage.FullName 'net35/unity-custom/nunit.framework.dll'
 $taskSources = @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Math') -Filter '*.cs').FullName)
-$taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests') -Filter 'Fix*Tests.cs' | Where-Object { $_.Name -ne 'FixedWorldTests.cs' }).FullName)
+$taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests') -Filter 'Fix*Tests.cs' | Where-Object { $_.Name -notin @('FixedWorldTests.cs', 'FixedPlayerSimulationTests.cs') }).FullName)
 if ($IncludeWorld) {
     $taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Simulation/World') -Filter '*.cs').FullName)
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/FixedWorldTests.cs'
@@ -24,6 +26,14 @@ if ($IncludeInput) {
     $taskSources += @('PacketHeader.cs', 'PacketHeaderCodec.cs', 'NetworkMessageType.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Protocol/' + $_) }
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Serialization/PacketBuffer.cs'
     $taskSources += @('InputGridTests.cs', 'InputCommandBatchCodecTests.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Tests/EditMode/Tests/' + $_) }
+}
+if ($IncludeMovement) {
+    $taskSources += @('PlayerState.cs','PlayerStateHash.cs','PlayerSimulation.cs','PlayerSimulationConfig.cs','SimulationStep.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/Simulation/Characters/' + $_) }
+    $taskSources += @('CharacterCollisionConfig.cs','IFixedCharacterCollisionWorld.cs','FixedFlatGroundCollisionWorld.cs','KinematicCharacterMotor.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/Simulation/Characters/Collision/' + $_) }
+    $taskSources += @('AuthoritativePlayerState.cs','AuthoritativePlayerStateCodec.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Messages/' + $_) }
+    $taskSources += @('ClientPredictionComparer.cs','ClientPredictionReconciler.cs','PredictionError.cs','ReconciliationResult.cs','ReconciliationStatus.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Prediction/' + $_) }
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Core/Collections/TickBuffer.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/FixedPlayerSimulationTests.cs'
 }
 $taskSources += Join-Path $PSScriptRoot 'MathTestRunner.cs'
 $taskCompilerArguments = @('-nologo', '-langversion:9', '-checked+', '-optimize+', '-target:exe', ('-out:' + (Join-Path $taskOutputDirectory 'VerifyMono.exe')))

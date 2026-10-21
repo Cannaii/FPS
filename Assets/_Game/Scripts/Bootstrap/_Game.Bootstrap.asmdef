@@ -3,6 +3,7 @@
     "rootNamespace": "AFPS.Bootstrap",
     "references": [
         "AFPS.Core",
+        "AFPS.Math",
         "AFPS.Simulation",
         "AFPS.Input",
         "AFPS.NetCode",

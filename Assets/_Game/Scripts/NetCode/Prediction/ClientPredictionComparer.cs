@@ -1,43 +1,26 @@
 using System;
+using AFPS.Math;
 using AFPS.NetCode.Messages;
 using AFPS.Simulation.Characters;
-using UnityEngine;
 
 namespace AFPS.NetCode.Prediction
 {
-    /// <summary>
-    /// 比较服务器权威状态与客户端相同输入 Tick 的历史预测状态。
-    /// </summary>
     public static class ClientPredictionComparer
     {
-        /// <summary>
-        /// 计算服务器权威状态与客户端同 Tick 预测状态之间的误差。
-        /// </summary>
-        /// <param name="predictedState">客户端缓存的历史预测状态。</param>
-        /// <param name="authoritativeState">服务器返回的权威状态确认。</param>
-        /// <returns>位置、速度和落地状态的比较结果。</returns>
-        public static PredictionError Compare(
-            in PlayerState predictedState,
-            in AuthoritativePlayerState authoritativeState)
+        public static PredictionError Compare(in PlayerState predicted, in AuthoritativePlayerState authoritative)
         {
-            if (authoritativeState.State.Tick != authoritativeState.LastProcessedInputTick)
-            {
-                throw new ArgumentException("服务器权威状态 Tick 必须与最后处理的输入 Tick 一致。", nameof(authoritativeState));
-            }
-
-            if (predictedState.Tick != authoritativeState.LastProcessedInputTick)
-            {
-                throw new ArgumentException("只能比较相同输入 Tick 的客户端预测状态与服务器权威状态。", nameof(predictedState));
-            }
-
-            float positionError = Vector3.Distance(predictedState.Position, authoritativeState.State.Position);
-            float velocityError = Vector3.Distance(predictedState.Velocity, authoritativeState.State.Velocity);
-            float yawError = Mathf.Abs(Mathf.DeltaAngle(predictedState.Yaw, authoritativeState.State.Yaw));
-            float pitchError = Mathf.Abs(predictedState.Pitch - authoritativeState.State.Pitch);
-            float lookAngleError = Mathf.Max(yawError, pitchError);
-            bool groundedMismatch = predictedState.IsGrounded != authoritativeState.State.IsGrounded;
-
-            return new PredictionError(predictedState.Tick, positionError, velocityError, lookAngleError, groundedMismatch);
+            if (authoritative.State.Tick != authoritative.LastProcessedInputTick || predicted.Tick != authoritative.LastProcessedInputTick) throw new ArgumentException("Only states at the same acknowledged input Tick may be compared.");
+            PlayerState state = authoritative.State;
+            long yawDelta = System.Math.Abs((long)predicted.YawFixedDegrees.Raw - state.YawFixedDegrees.Raw) % (360 * Fix.Scale);
+            yawDelta = System.Math.Min(yawDelta, 360 * Fix.Scale - yawDelta);
+            long pitchDelta = System.Math.Abs((long)predicted.PitchFixedDegrees.Raw - state.PitchFixedDegrees.Raw);
+            // 浮点值仅用于诊断显示；校正决策读取 RawMismatch，绝不读取这些距离阈值。
+            return new PredictionError(predicted.Tick, Distance(predicted.PositionFixed, state.PositionFixed), Distance(predicted.VelocityFixed, state.VelocityFixed), (float)(System.Math.Max(yawDelta, pitchDelta) / (double)Fix.Scale), predicted.IsGrounded != state.IsGrounded, !predicted.RawEquals(state));
+        }
+        private static float Distance(in FixVec3 a, in FixVec3 b)
+        {
+            double x = ((long)a.X.Raw - b.X.Raw) / (double)Fix.Scale, y = ((long)a.Y.Raw - b.Y.Raw) / (double)Fix.Scale, z = ((long)a.Z.Raw - b.Z.Raw) / (double)Fix.Scale;
+            return (float)System.Math.Sqrt(x*x + y*y + z*z);
         }
     }
 }

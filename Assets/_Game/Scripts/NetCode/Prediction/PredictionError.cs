@@ -5,6 +5,8 @@ namespace AFPS.NetCode.Prediction
     /// </summary>
     public readonly struct PredictionError
     {
+        /// <summary>同输入 Tick 的任一模拟 Raw/标志位不同；回滚决策只读取该值。</summary>
+        public readonly bool RawMismatch;
         /// <summary>
         /// 本次比较对应的客户端输入 Tick。
         /// </summary>
@@ -28,8 +30,9 @@ namespace AFPS.NetCode.Prediction
         /// </summary>
         public readonly bool GroundedMismatch;
 
-        public PredictionError(uint inputTick, float position, float velocity, float lookAngle, bool groundedMismatch)
+        public PredictionError(uint inputTick, float position, float velocity, float lookAngle, bool groundedMismatch, bool rawMismatch = false)
         {
+            RawMismatch = rawMismatch;
             InputTick = inputTick;
             Position = position;
             Velocity = velocity;

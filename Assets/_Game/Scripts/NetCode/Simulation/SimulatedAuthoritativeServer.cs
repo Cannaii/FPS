@@ -1,4 +1,5 @@
 using System;
+using AFPS.Math;
 using System.Collections.Generic;
 using AFPS.NetCode.Messages;
 using AFPS.Simulation.Characters;
@@ -45,10 +46,10 @@ namespace AFPS.NetCode.Simulation
         private readonly Queue<ScheduledInput> pendingInputs = new Queue<ScheduledInput>();
         private readonly Queue<ScheduledState> pendingStates = new Queue<ScheduledState>();
         private readonly PlayerSimulationConfig simulationConfig;
-        private readonly float tickDeltaTime;
+        private readonly Fix tickDeltaTime;
         private readonly uint inputDelayTicks;
         private readonly uint stateDelayTicks;
-        private readonly ICharacterCollisionWorld collisionWorld;
+        private readonly IFixedCharacterCollisionWorld collisionWorld;
         private PlayerState currentState;
 
         /// <summary>
@@ -94,10 +95,10 @@ namespace AFPS.NetCode.Simulation
 
             currentState = initialState;
             simulationConfig = config;
-            this.tickDeltaTime = tickDeltaTime;
+            this.tickDeltaTime = SimulationStep.FromSeconds(tickDeltaTime);
             this.inputDelayTicks = (uint)inputDelayTicks;
             this.stateDelayTicks = (uint)stateDelayTicks;
-            this.collisionWorld = collisionWorld ?? FlatGroundCollisionWorld.Instance;
+            this.collisionWorld = LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
         }
 
         /// <summary>

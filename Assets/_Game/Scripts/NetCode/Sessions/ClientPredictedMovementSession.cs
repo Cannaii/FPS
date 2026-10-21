@@ -1,4 +1,5 @@
 using System;
+using AFPS.Math;
 using AFPS.Core.Collections;
 using AFPS.NetCode.InputReplication;
 using AFPS.NetCode.Messages;
@@ -22,10 +23,8 @@ namespace AFPS.NetCode.Sessions
         private readonly ClientInputBatchSender inputSender;
         private readonly ClientAuthoritativeStateReceiver stateReceiver = new ClientAuthoritativeStateReceiver();
         private readonly PlayerSimulationConfig simulationConfig;
-        private readonly float tickDeltaTime;
-        private readonly float positionErrorThreshold;
-        private readonly float velocityErrorThreshold;
-        private readonly ICharacterCollisionWorld collisionWorld;
+        private readonly Fix tickDeltaTime;
+        private readonly IFixedCharacterCollisionWorld collisionWorld;
 
         /// <summary>
         /// 客户端执行完最新本地输入后持有的预测状态。
@@ -44,21 +43,19 @@ namespace AFPS.NetCode.Sessions
                 throw new ArgumentOutOfRangeException(nameof(historyCapacity));
             }
 
-            if (positionErrorThreshold < AuthoritativePlayerStateCodec.MaximumPositionQuantizationError)
+            if (positionErrorThreshold < 0f || float.IsNaN(positionErrorThreshold) || float.IsInfinity(positionErrorThreshold))
             {
-                throw new ArgumentOutOfRangeException(nameof(positionErrorThreshold), "位置误差阈值不能低于权威状态协议的最大位置量化误差。");
+                throw new ArgumentOutOfRangeException(nameof(positionErrorThreshold), "诊断阈值必须是非负有限值；定点校正始终逐位比较。");
             }
 
-            if (velocityErrorThreshold < AuthoritativePlayerStateCodec.MaximumVelocityQuantizationError)
+            if (velocityErrorThreshold < 0f || float.IsNaN(velocityErrorThreshold) || float.IsInfinity(velocityErrorThreshold))
             {
-                throw new ArgumentOutOfRangeException(nameof(velocityErrorThreshold), "速度误差阈值不能低于权威状态协议的最大速度量化误差。");
+                throw new ArgumentOutOfRangeException(nameof(velocityErrorThreshold), "诊断阈值必须是非负有限值；定点校正始终逐位比较。");
             }
 
             this.simulationConfig = simulationConfig;
-            this.tickDeltaTime = tickDeltaTime;
-            this.positionErrorThreshold = positionErrorThreshold;
-            this.velocityErrorThreshold = velocityErrorThreshold;
-            this.collisionWorld = collisionWorld ?? FlatGroundCollisionWorld.Instance;
+            this.tickDeltaTime = SimulationStep.FromSeconds(tickDeltaTime);
+            this.collisionWorld = LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
             CurrentState = initialState;
             inputHistory = new TickBuffer<PlayerInputCommand>(historyCapacity);
             stateHistory = new TickBuffer<PlayerState>(historyCapacity);
@@ -87,7 +84,7 @@ namespace AFPS.NetCode.Sessions
         }
 
         /// <summary>
-        /// 接收一条服务器权威状态包，并在同 Tick 误差超过阈值时回滚到权威状态再重放到当前 Tick。
+        /// 接收一条服务器权威状态包，并在同 Tick Raw 不一致时回滚到权威状态再重放到当前 Tick。
         /// </summary>
         public bool TryReceiveAuthoritativePacket(ArraySegment<byte> packet, out AuthoritativeStateReceiveResult receiveResult, out ReconciliationResult reconciliationResult)
         {
@@ -106,7 +103,7 @@ namespace AFPS.NetCode.Sessions
             }
             else
             {
-                reconciliationResult = ClientPredictionReconciler.Reconcile(authoritativeState, CurrentState.Tick, CurrentState, inputHistory, stateHistory, simulationConfig, tickDeltaTime, positionErrorThreshold, velocityErrorThreshold, collisionWorld);
+                reconciliationResult = ClientPredictionReconciler.Reconcile(authoritativeState, CurrentState.Tick, CurrentState, inputHistory, stateHistory, simulationConfig, tickDeltaTime, collisionWorld);
             }
 
             if (reconciliationResult.RequiresHardCorrection)

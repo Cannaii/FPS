@@ -1,204 +1,58 @@
 using System;
+using AFPS.Math;
 using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Serialization;
 using AFPS.Simulation.Characters;
-using UnityEngine;
 
 namespace AFPS.NetCode.Messages
 {
-    /// <summary>
-    /// 将服务器权威玩家状态编码为固定布局网络包，并解码为客户端校正状态。
-    /// </summary>
+    /// <summary>权威状态 v3：位置/速度无损 Raw，观察角沿用无损可逆的百分度网格。</summary>
     public static class AuthoritativePlayerStateCodec
     {
-        /// <summary>
-        /// 权威状态负载的固定字节数。
-        /// </summary>
-        public const int PayloadSize = 31;
-
-        /// <summary>
-        /// 包头和权威状态负载合计的固定字节数。
-        /// </summary>
+        public const int PayloadSize = 37;
         public const int PacketSize = PacketHeader.Size + PayloadSize;
-
-        /// <summary>
-        /// 位置整数最小单位为一毫米。
-        /// </summary>
+        // 以下分辨率暂供旧远端 Snapshot 使用，权威状态不再按这些常量量化。
         public const float PositionResolution = 0.001f;
-
-        /// <summary>
-        /// 速度整数最小单位为每秒一厘米。
-        /// </summary>
         public const float VelocityResolution = 0.01f;
-
-        /// <summary>Yaw 和 Pitch 的整数最小单位为百分之一度。</summary>
         public const float LookAngleResolution = 0.01f;
+        public const float MaximumPositionQuantizationError = 0f;
+        public const float MaximumVelocityQuantizationError = 0f;
+        public const float RecommendedPositionErrorThreshold = 0f;
+        public const float RecommendedVelocityErrorThreshold = 0f;
+        private const byte GroundedMask = 1;
 
-        /// <summary>
-        /// 三个位置分量共同量化后可能产生的最大空间距离误差，单位为米。
-        /// </summary>
-        public const float MaximumPositionQuantizationError = 0.000867f;
-
-        /// <summary>
-        /// 三个速度分量共同量化后可能产生的最大速度差，单位为米每秒。
-        /// </summary>
-        public const float MaximumVelocityQuantizationError = 0.008661f;
-
-        /// <summary>
-        /// 为量化误差和少量浮点运算误差保留余量的位置校正阈值建议值，单位为米。
-        /// </summary>
-        public const float RecommendedPositionErrorThreshold = 0.002f;
-
-        /// <summary>
-        /// 为量化误差和少量浮点运算误差保留余量的速度校正阈值建议值，单位为米每秒。
-        /// </summary>
-        public const float RecommendedVelocityErrorThreshold = 0.02f;
-
-        private const byte GroundedMask = 1 << 0;
-
-        public static bool TrySerialize(in AuthoritativePlayerState authoritativeState, uint sequence, ArraySegment<byte> destination, out int bytesWritten)
+        public static bool TrySerialize(in AuthoritativePlayerState authoritative, uint sequence, ArraySegment<byte> destination, out int bytesWritten)
         {
             bytesWritten = 0;
-            if (destination.Count < PacketSize || authoritativeState.State.Tick != authoritativeState.LastProcessedInputTick || !IsFinite(authoritativeState.State.Yaw) || !IsFinite(authoritativeState.State.Pitch))
-            {
-                return false;
-            }
-
-            PlayerState state = authoritativeState.State;
-            if (!TryQuantizePosition(state.Position.x, out int positionX) || !TryQuantizePosition(state.Position.y, out int positionY) || !TryQuantizePosition(state.Position.z, out int positionZ))
-            {
-                return false;
-            }
-
-            if (!TryQuantizeVelocity(state.Velocity.x, out short velocityX) || !TryQuantizeVelocity(state.Velocity.y, out short velocityY) || !TryQuantizeVelocity(state.Velocity.z, out short velocityZ))
-            {
-                return false;
-            }
-
-            ushort yaw = QuantizeYaw(state.Yaw);
-            short pitch = QuantizePitch(state.Pitch);
-
-            PacketHeader header = new PacketHeader(NetworkMessageType.AuthoritativePlayerState, PayloadSize, sequence);
-            if (!PacketHeaderCodec.TryWrite(header, destination))
-            {
-                return false;
-            }
-
-            ArraySegment<byte> payloadDestination = new ArraySegment<byte>(destination.Array, destination.Offset + PacketHeader.Size, PayloadSize);
-            PacketBufferWriter writer = new PacketBufferWriter(payloadDestination);
-            byte flags = state.IsGrounded ? GroundedMask : (byte)0;
-            bool success = writer.TryWriteUInt32(authoritativeState.ServerTick) && writer.TryWriteUInt32(authoritativeState.LastProcessedInputTick) && writer.TryWriteInt32(positionX) && writer.TryWriteInt32(positionY) && writer.TryWriteInt32(positionZ) && writer.TryWriteInt16(velocityX) && writer.TryWriteInt16(velocityY) && writer.TryWriteInt16(velocityZ) && writer.TryWriteUInt16(yaw) && writer.TryWriteInt16(pitch) && writer.TryWriteByte(flags);
-            if (!success)
-            {
-                return false;
-            }
-
+            PlayerState state = authoritative.State;
+            if (destination.Count < PacketSize || state.Tick != authoritative.LastProcessedInputTick) return false;
+            ushort yaw = InputAngleGrid.YawFromFix(state.YawFixedDegrees);
+            short pitch = InputAngleGrid.PitchFromFix(state.PitchFixedDegrees);
+            if (InputAngleGrid.YawToFix(yaw) != state.YawFixedDegrees || InputAngleGrid.PitchToFix(pitch) != state.PitchFixedDegrees) return false;
+            if (!PacketHeaderCodec.TryWrite(new PacketHeader(NetworkMessageType.AuthoritativePlayerState, PayloadSize, sequence), destination)) return false;
+            var writer = new PacketBufferWriter(new ArraySegment<byte>(destination.Array, destination.Offset + PacketHeader.Size, PayloadSize));
+            if (!writer.TryWriteUInt32(authoritative.ServerTick) || !writer.TryWriteUInt32(authoritative.LastProcessedInputTick) || !WriteVector(ref writer, state.PositionFixed) || !WriteVector(ref writer, state.VelocityFixed) || !writer.TryWriteUInt16(yaw) || !writer.TryWriteInt16(pitch) || !writer.TryWriteByte(state.IsGrounded ? GroundedMask : (byte)0)) return false;
             bytesWritten = PacketHeader.Size + writer.BytesWritten;
             return true;
         }
-
-        public static bool TryDeserialize(ArraySegment<byte> packet, out PacketHeader header, out AuthoritativePlayerState authoritativeState)
+        public static bool TryDeserialize(ArraySegment<byte> packet, out PacketHeader header, out AuthoritativePlayerState authoritative)
         {
-            header = default;
-            authoritativeState = default;
-            if (!PacketHeaderCodec.TryRead(packet, out header) || header.MessageType != NetworkMessageType.AuthoritativePlayerState || header.PayloadLength != PayloadSize)
-            {
-                return false;
-            }
-
-            ArraySegment<byte> payload = new ArraySegment<byte>(packet.Array, packet.Offset + PacketHeader.Size, PayloadSize);
-            PacketBufferReader reader = new PacketBufferReader(payload);
-            if (!reader.TryReadUInt32(out uint serverTick) || !reader.TryReadUInt32(out uint lastProcessedInputTick) || !reader.TryReadInt32(out int positionX) || !reader.TryReadInt32(out int positionY) || !reader.TryReadInt32(out int positionZ) || !reader.TryReadInt16(out short velocityX) || !reader.TryReadInt16(out short velocityY) || !reader.TryReadInt16(out short velocityZ) || !reader.TryReadUInt16(out ushort yaw) || !reader.TryReadInt16(out short pitch) || !reader.TryReadByte(out byte flags))
-            {
-                return false;
-            }
-
-            if (reader.BytesRemaining != 0 || (flags & ~GroundedMask) != 0)
-            {
-                return false;
-            }
-
-            PlayerState state = new PlayerState
-            {
-                Tick = lastProcessedInputTick,
-                Position = new Vector3(DequantizePosition(positionX), DequantizePosition(positionY), DequantizePosition(positionZ)),
-                Velocity = new Vector3(DequantizeVelocity(velocityX), DequantizeVelocity(velocityY), DequantizeVelocity(velocityZ)),
-                Yaw = yaw * LookAngleResolution,
-                Pitch = pitch * LookAngleResolution,
-                IsGrounded = (flags & GroundedMask) != 0
-            };
-            authoritativeState = new AuthoritativePlayerState(serverTick, lastProcessedInputTick, state);
+            header = default; authoritative = default;
+            if (!PacketHeaderCodec.TryRead(packet, out header) || header.MessageType != NetworkMessageType.AuthoritativePlayerState || header.PayloadLength != PayloadSize) return false;
+            var reader = new PacketBufferReader(new ArraySegment<byte>(packet.Array, packet.Offset + PacketHeader.Size, PayloadSize));
+            if (!reader.TryReadUInt32(out uint serverTick) || !reader.TryReadUInt32(out uint inputTick) || !ReadVector(ref reader, out FixVec3 position) || !ReadVector(ref reader, out FixVec3 velocity) || !reader.TryReadUInt16(out ushort yaw) || !reader.TryReadInt16(out short pitch) || !reader.TryReadByte(out byte flags)) return false;
+            if (reader.BytesRemaining != 0 || (flags & ~GroundedMask) != 0 || !InputAngleGrid.IsValid(yaw, pitch)) return false;
+            var state = new PlayerState { Tick = inputTick, PositionFixed = position, VelocityFixed = velocity, YawFixedDegrees = InputAngleGrid.YawToFix(yaw), PitchFixedDegrees = InputAngleGrid.PitchToFix(pitch), IsGrounded = (flags & GroundedMask) != 0 };
+            authoritative = new AuthoritativePlayerState(serverTick, inputTick, state);
             return true;
         }
-
-        private static bool TryQuantizePosition(float value, out int quantized)
+        private static bool WriteVector(ref PacketBufferWriter writer, in FixVec3 value) => writer.TryWriteInt32(value.X.Raw) && writer.TryWriteInt32(value.Y.Raw) && writer.TryWriteInt32(value.Z.Raw);
+        private static bool ReadVector(ref PacketBufferReader reader, out FixVec3 value)
         {
-            if (!IsFinite(value))
-            {
-                quantized = default;
-                return false;
-            }
-
-            double rounded = System.Math.Round(value / PositionResolution, MidpointRounding.AwayFromZero);
-            if (rounded < int.MinValue || rounded > int.MaxValue)
-            {
-                quantized = default;
-                return false;
-            }
-
-            quantized = (int)rounded;
+            value = default;
+            if (!reader.TryReadInt32(out int x) || !reader.TryReadInt32(out int y) || !reader.TryReadInt32(out int z)) return false;
+            value = new FixVec3(Fix.FromRaw(x), Fix.FromRaw(y), Fix.FromRaw(z));
             return true;
-        }
-
-        private static bool TryQuantizeVelocity(float value, out short quantized)
-        {
-            if (!IsFinite(value))
-            {
-                quantized = default;
-                return false;
-            }
-
-            double rounded = System.Math.Round(value / VelocityResolution, MidpointRounding.AwayFromZero);
-            if (rounded < short.MinValue || rounded > short.MaxValue)
-            {
-                quantized = default;
-                return false;
-            }
-
-            quantized = (short)rounded;
-            return true;
-        }
-
-        private static float DequantizePosition(int value) => value * PositionResolution;
-
-        private static float DequantizeVelocity(short value) => value * VelocityResolution;
-
-        private static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
-
-        private static ushort QuantizeYaw(float value)
-        {
-            if (!IsFinite(value))
-            {
-                return 0;
-            }
-
-            value %= 360f;
-            if (value < 0f)
-            {
-                value += 360f;
-            }
-
-            return (ushort)System.Math.Round(value / LookAngleResolution);
-        }
-
-        private static short QuantizePitch(float value)
-        {
-            if (!IsFinite(value))
-            {
-                return 0;
-            }
-
-            return (short)System.Math.Round(System.Math.Max(-89.9f, System.Math.Min(89.9f, value)) / LookAngleResolution);
         }
     }
 }

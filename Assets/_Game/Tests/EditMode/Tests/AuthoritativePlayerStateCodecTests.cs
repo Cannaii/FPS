@@ -11,7 +11,7 @@ namespace AFPS.Tests.EditMode
     public sealed class AuthoritativePlayerStateCodecTests
     {
         [Test]
-        public void State_RoundTripsTicksFlagsAndQuantizedVectors()
+        public void State_RoundTripsTicksFlagsAndRawVectors()
         {
             PlayerState sourceState = new PlayerState
             {
@@ -61,11 +61,10 @@ namespace AFPS.Tests.EditMode
             PlayerState mismatched = new PlayerState { Tick = 4 };
             Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, 5, mismatched), 1, new ArraySegment<byte>(packet), out _), Is.False);
 
-            PlayerState invalidPosition = new PlayerState { Tick = 5, Position = new Vector3(float.NaN, 0f, 0f) };
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, 5, invalidPosition), 1, new ArraySegment<byte>(packet), out _), Is.False);
+            Assert.Throws<ArgumentOutOfRangeException>(() => new PlayerState { Tick = 5, Position = new Vector3(float.NaN, 0f, 0f) });
 
             PlayerState excessiveVelocity = new PlayerState { Tick = 5, Velocity = new Vector3(400f, 0f, 0f) };
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, 5, excessiveVelocity), 1, new ArraySegment<byte>(packet), out _), Is.False);
+            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, 5, excessiveVelocity), 1, new ArraySegment<byte>(packet), out _), Is.True);
         }
 
         [Test]

@@ -53,8 +53,8 @@ namespace AFPS.Tests.EditMode
             Assert.That(header.Sequence, Is.EqualTo(99));
             Assert.That(decoded.EntityId, Is.EqualTo(source.EntityId));
             Assert.That(decoded.ServerTick, Is.EqualTo(source.ServerTick));
-            Assert.That(Vector3.Distance(decoded.Position, source.Position), Is.LessThanOrEqualTo(AuthoritativePlayerStateCodec.MaximumPositionQuantizationError));
-            Assert.That(Vector3.Distance(decoded.Velocity, source.Velocity), Is.LessThanOrEqualTo(AuthoritativePlayerStateCodec.MaximumVelocityQuantizationError));
+            Assert.That(Vector3.Distance(decoded.Position, source.Position), Is.LessThanOrEqualTo(RemotePlayerSnapshotCodec.MaximumPositionQuantizationError));
+            Assert.That(Vector3.Distance(decoded.Velocity, source.Velocity), Is.LessThanOrEqualTo(RemotePlayerSnapshotCodec.MaximumVelocityQuantizationError));
             Assert.That(Quaternion.Angle(decoded.Rotation, source.Rotation), Is.LessThan(0.03f));
             Assert.That(decoded.IsTeleport, Is.True);
         }
