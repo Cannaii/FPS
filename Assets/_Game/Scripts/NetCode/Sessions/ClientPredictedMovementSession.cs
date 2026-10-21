@@ -25,13 +25,23 @@ namespace AFPS.NetCode.Sessions
         private readonly PlayerSimulationConfig simulationConfig;
         private readonly Fix tickDeltaTime;
         private readonly IFixedCharacterCollisionWorld collisionWorld;
-
         /// <summary>
         /// 客户端执行完最新本地输入后持有的预测状态。
         /// </summary>
         public PlayerState CurrentState { get; private set; }
 
-        public ClientPredictedMovementSession(IGameTransport transport, TransportConnectionId serverConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int historyCapacity, int inputRedundancyCount, float positionErrorThreshold, float velocityErrorThreshold, ICharacterCollisionWorld collisionWorld = null, IFixedCharacterCollisionWorld fixedCollisionWorld = null)
+        public ClientPredictedMovementSession(
+            IGameTransport transport,
+            TransportConnectionId serverConnectionId,
+            in PlayerState initialState,
+            in PlayerSimulationConfig simulationConfig,
+            float tickDeltaTime,
+            int historyCapacity,
+            int inputRedundancyCount,
+            float positionErrorThreshold,
+            float velocityErrorThreshold,
+            ICharacterCollisionWorld collisionWorld = null,
+            IFixedCharacterCollisionWorld fixedCollisionWorld = null)
         {
             if (tickDeltaTime <= 0f || float.IsNaN(tickDeltaTime) || float.IsInfinity(tickDeltaTime))
             {
@@ -55,7 +65,11 @@ namespace AFPS.NetCode.Sessions
 
             this.simulationConfig = simulationConfig;
             this.tickDeltaTime = SimulationStep.FromSeconds(tickDeltaTime);
-            if (collisionWorld != null && fixedCollisionWorld != null) throw new ArgumentException("只能指定一种碰撞后端。", nameof(fixedCollisionWorld));
+            if (collisionWorld != null && fixedCollisionWorld != null)
+            {
+                throw new ArgumentException("只能指定一种碰撞后端。", nameof(fixedCollisionWorld));
+            }
+
             this.collisionWorld = fixedCollisionWorld ?? LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
             CurrentState = initialState;
             inputHistory = new TickBuffer<PlayerInputCommand>(historyCapacity);
@@ -87,7 +101,10 @@ namespace AFPS.NetCode.Sessions
         /// <summary>
         /// 接收一条服务器权威状态包，并在同 Tick Raw 不一致时回滚到权威状态再重放到当前 Tick。
         /// </summary>
-        public bool TryReceiveAuthoritativePacket(ArraySegment<byte> packet, out AuthoritativeStateReceiveResult receiveResult, out ReconciliationResult reconciliationResult)
+        public bool TryReceiveAuthoritativePacket(
+            ArraySegment<byte> packet,
+            out AuthoritativeStateReceiveResult receiveResult,
+            out ReconciliationResult reconciliationResult)
         {
             reconciliationResult = default;
             if (!stateReceiver.TryReceivePacket(packet, out AuthoritativePlayerState authoritativeState, out receiveResult))

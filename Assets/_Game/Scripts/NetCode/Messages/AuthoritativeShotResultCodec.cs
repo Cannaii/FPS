@@ -16,17 +16,34 @@ namespace AFPS.NetCode.Messages
         private const float ScalarResolution = 0.01f;
         private const float PositionResolution = 0.001f;
         private const float DirectionResolution = 1f / short.MaxValue;
-
         public static bool TrySerialize(in AuthoritativeShotResult result, uint packetSequence, ArraySegment<byte> destination, out int bytesWritten)
         {
             bytesWritten = 0;
             AuthoritativeShot shot = result.Shot;
-            if (shot.EntityId == 0 || shot.ShotSequence == 0 || shot.WeaponId == 0 || result.RemainingAmmo < 0 || result.RemainingAmmo > ushort.MaxValue || result.TargetHealth < 0f || result.TargetHealth > ushort.MaxValue * ScalarResolution || destination.Count < PacketSize || !TryQuantizeVector(shot.Origin, PositionResolution, out int ox, out int oy, out int oz) || !TryQuantizeDirection(shot.Direction, out short dx, out short dy, out short dz) || !TryQuantizeVector(result.HitPoint, PositionResolution, out int hx, out int hy, out int hz) || !TryQuantizePositive(shot.Damage, ScalarResolution, ushort.MaxValue, out uint damage) || !TryQuantizePositive(shot.Range, PositionResolution, int.MaxValue, out uint range) || !TryQuantizeNonNegative(shot.ProjectileSpeed, PositionResolution, int.MaxValue, out uint projectileSpeed))
+            if (shot.EntityId == 0
+                || shot.ShotSequence == 0
+                || shot.WeaponId == 0
+                || result.RemainingAmmo < 0
+                || result.RemainingAmmo > ushort.MaxValue
+                || result.TargetHealth < 0f
+                || result.TargetHealth > ushort.MaxValue * ScalarResolution
+                || destination.Count < PacketSize
+                || !TryQuantizeVector(shot.Origin, PositionResolution, out int ox, out int oy, out int oz)
+                || !TryQuantizeDirection(shot.Direction, out short dx, out short dy, out short dz)
+                || !TryQuantizeVector(result.HitPoint, PositionResolution, out int hx, out int hy, out int hz)
+                || !TryQuantizePositive(shot.Damage, ScalarResolution, ushort.MaxValue, out uint damage)
+                || !TryQuantizePositive(shot.Range, PositionResolution, int.MaxValue, out uint range)
+                || !TryQuantizeNonNegative(shot.ProjectileSpeed, PositionResolution, int.MaxValue, out uint projectileSpeed))
             {
                 return false;
             }
 
-            if ((shot.FireMode != WeaponFireMode.Hitscan && shot.FireMode != WeaponFireMode.Projectile) || (result.DidHit && result.TargetEntityId == 0) || (!result.DidHit && result.TargetEntityId != 0))
+            if ((shot.FireMode != WeaponFireMode.Hitscan
+                && shot.FireMode != WeaponFireMode.Projectile)
+                || (result.DidHit
+                && result.TargetEntityId == 0)
+                || (!result.DidHit
+                && result.TargetEntityId != 0))
             {
                 return false;
             }
@@ -39,7 +56,27 @@ namespace AFPS.NetCode.Messages
             }
 
             PacketBufferWriter writer = new PacketBufferWriter(new ArraySegment<byte>(destination.Array, destination.Offset + PacketHeader.Size, PayloadSize));
-            bool success = writer.TryWriteUInt32(shot.EntityId) && writer.TryWriteUInt32(shot.ShotSequence) && writer.TryWriteUInt32(shot.ServerTick) && writer.TryWriteUInt16(shot.WeaponId) && writer.TryWriteByte((byte)shot.FireMode) && writer.TryWriteUInt16((ushort)result.RemainingAmmo) && writer.TryWriteByte(result.DidHit ? HitMask : (byte)0) && writer.TryWriteUInt32(result.TargetEntityId) && writer.TryWriteUInt16(health) && writer.TryWriteInt32(ox) && writer.TryWriteInt32(oy) && writer.TryWriteInt32(oz) && writer.TryWriteInt16(dx) && writer.TryWriteInt16(dy) && writer.TryWriteInt16(dz) && writer.TryWriteInt32(hx) && writer.TryWriteInt32(hy) && writer.TryWriteInt32(hz) && writer.TryWriteUInt16((ushort)damage) && writer.TryWriteInt32((int)range) && writer.TryWriteInt32((int)projectileSpeed);
+            bool success = writer.TryWriteUInt32(shot.EntityId)
+                && writer.TryWriteUInt32(shot.ShotSequence)
+                && writer.TryWriteUInt32(shot.ServerTick)
+                && writer.TryWriteUInt16(shot.WeaponId)
+                && writer.TryWriteByte((byte)shot.FireMode)
+                && writer.TryWriteUInt16((ushort)result.RemainingAmmo)
+                && writer.TryWriteByte(result.DidHit ? HitMask : (byte)0)
+                && writer.TryWriteUInt32(result.TargetEntityId)
+                && writer.TryWriteUInt16(health)
+                && writer.TryWriteInt32(ox)
+                && writer.TryWriteInt32(oy)
+                && writer.TryWriteInt32(oz)
+                && writer.TryWriteInt16(dx)
+                && writer.TryWriteInt16(dy)
+                && writer.TryWriteInt16(dz)
+                && writer.TryWriteInt32(hx)
+                && writer.TryWriteInt32(hy)
+                && writer.TryWriteInt32(hz)
+                && writer.TryWriteUInt16((ushort)damage)
+                && writer.TryWriteInt32((int)range)
+                && writer.TryWriteInt32((int)projectileSpeed);
             if (!success || writer.BytesWritten != PayloadSize)
             {
                 return false;
@@ -53,13 +90,35 @@ namespace AFPS.NetCode.Messages
         {
             header = default;
             result = default;
-            if (!PacketHeaderCodec.TryRead(packet, out header) || header.MessageType != NetworkMessageType.AuthoritativeShotResult || header.PayloadLength != PayloadSize)
+            if (!PacketHeaderCodec.TryRead(packet, out header)
+                || header.MessageType != NetworkMessageType.AuthoritativeShotResult
+                || header.PayloadLength != PayloadSize)
             {
                 return false;
             }
 
             PacketBufferReader reader = new PacketBufferReader(new ArraySegment<byte>(packet.Array, packet.Offset + PacketHeader.Size, PayloadSize));
-            if (!reader.TryReadUInt32(out uint entityId) || !reader.TryReadUInt32(out uint shotSequence) || !reader.TryReadUInt32(out uint serverTick) || !reader.TryReadUInt16(out ushort weaponId) || !reader.TryReadByte(out byte fireModeRaw) || !reader.TryReadUInt16(out ushort ammo) || !reader.TryReadByte(out byte flags) || !reader.TryReadUInt32(out uint targetId) || !reader.TryReadUInt16(out ushort health) || !reader.TryReadInt32(out int ox) || !reader.TryReadInt32(out int oy) || !reader.TryReadInt32(out int oz) || !reader.TryReadInt16(out short dx) || !reader.TryReadInt16(out short dy) || !reader.TryReadInt16(out short dz) || !reader.TryReadInt32(out int hx) || !reader.TryReadInt32(out int hy) || !reader.TryReadInt32(out int hz) || !reader.TryReadUInt16(out ushort damage) || !reader.TryReadInt32(out int range) || !reader.TryReadInt32(out int projectileSpeed))
+            if (!reader.TryReadUInt32(out uint entityId)
+                || !reader.TryReadUInt32(out uint shotSequence)
+                || !reader.TryReadUInt32(out uint serverTick)
+                || !reader.TryReadUInt16(out ushort weaponId)
+                || !reader.TryReadByte(out byte fireModeRaw)
+                || !reader.TryReadUInt16(out ushort ammo)
+                || !reader.TryReadByte(out byte flags)
+                || !reader.TryReadUInt32(out uint targetId)
+                || !reader.TryReadUInt16(out ushort health)
+                || !reader.TryReadInt32(out int ox)
+                || !reader.TryReadInt32(out int oy)
+                || !reader.TryReadInt32(out int oz)
+                || !reader.TryReadInt16(out short dx)
+                || !reader.TryReadInt16(out short dy)
+                || !reader.TryReadInt16(out short dz)
+                || !reader.TryReadInt32(out int hx)
+                || !reader.TryReadInt32(out int hy)
+                || !reader.TryReadInt32(out int hz)
+                || !reader.TryReadUInt16(out ushort damage)
+                || !reader.TryReadInt32(out int range)
+                || !reader.TryReadInt32(out int projectileSpeed))
             {
                 return false;
             }
@@ -67,7 +126,18 @@ namespace AFPS.NetCode.Messages
             WeaponFireMode fireMode = (WeaponFireMode)fireModeRaw;
             bool didHit = (flags & HitMask) != 0;
             Vector3 direction = new Vector3(dx * DirectionResolution, dy * DirectionResolution, dz * DirectionResolution);
-            if (reader.BytesRemaining != 0 || entityId == 0 || shotSequence == 0 || weaponId == 0 || (fireMode != WeaponFireMode.Hitscan && fireMode != WeaponFireMode.Projectile) || (flags & ~HitMask) != 0 || didHit != (targetId != 0) || range <= 0 || projectileSpeed < 0 || direction.sqrMagnitude < 0.99f || direction.sqrMagnitude > 1.01f)
+            if (reader.BytesRemaining != 0
+                || entityId == 0
+                || shotSequence == 0
+                || weaponId == 0
+                || (fireMode != WeaponFireMode.Hitscan
+                && fireMode != WeaponFireMode.Projectile)
+                || (flags & ~HitMask) != 0
+                || didHit != (targetId != 0)
+                || range <= 0
+                || projectileSpeed < 0
+                || direction.sqrMagnitude < 0.99f
+                || direction.sqrMagnitude > 1.01f)
             {
                 return false;
             }
@@ -75,7 +145,17 @@ namespace AFPS.NetCode.Messages
             direction.Normalize();
             Vector3 origin = new Vector3(ox, oy, oz) * PositionResolution;
             Vector3 hitPoint = new Vector3(hx, hy, hz) * PositionResolution;
-            AuthoritativeShot shot = new AuthoritativeShot(entityId, shotSequence, serverTick, weaponId, fireMode, origin, direction, damage * ScalarResolution, range * PositionResolution, projectileSpeed * PositionResolution);
+            AuthoritativeShot shot = new AuthoritativeShot(
+                entityId,
+                shotSequence,
+                serverTick,
+                weaponId,
+                fireMode,
+                origin,
+                direction,
+                damage * ScalarResolution,
+                range * PositionResolution,
+                projectileSpeed * PositionResolution);
             result = new AuthoritativeShotResult(shot, ammo, didHit, targetId, health * ScalarResolution, hitPoint);
             return true;
         }
@@ -88,7 +168,14 @@ namespace AFPS.NetCode.Messages
         private static bool TryQuantizeDirection(Vector3 direction, out short x, out short y, out short z)
         {
             x = y = z = 0;
-            if (float.IsNaN(direction.x) || float.IsNaN(direction.y) || float.IsNaN(direction.z) || float.IsInfinity(direction.x) || float.IsInfinity(direction.y) || float.IsInfinity(direction.z) || direction.sqrMagnitude < 0.99f || direction.sqrMagnitude > 1.01f)
+            if (float.IsNaN(direction.x)
+                || float.IsNaN(direction.y)
+                || float.IsNaN(direction.z)
+                || float.IsInfinity(direction.x)
+                || float.IsInfinity(direction.y)
+                || float.IsInfinity(direction.z)
+                || direction.sqrMagnitude < 0.99f
+                || direction.sqrMagnitude > 1.01f)
             {
                 return false;
             }

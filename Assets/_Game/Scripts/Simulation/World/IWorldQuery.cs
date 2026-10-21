@@ -8,11 +8,21 @@ namespace AFPS.Simulation.World
         ulong VersionHash { get; }
 
         /// <summary>方向无需预归一化；距离单位为米。相同距离按 ShapeId、X/Y/Z 面顺序裁决。</summary>
-        DeterministicHit Raycast(in FixVec3 origin, in FixVec3 direction, Fix maxDistance, int layerMask = ~0, FixedSurface surfaceMask = FixedSurface.All);
-
+        DeterministicHit Raycast(
+            in FixVec3 origin,
+            in FixVec3 direction,
+            Fix maxDistance,
+            int layerMask = ~0,
+            FixedSurface surfaceMask = FixedSurface.All);
         /// <summary>竖直胶囊连续扫掠，输入脚底/半径/总高；仅阻止初始重叠继续深入，允许脱离。</summary>
-        DeterministicHit CapsuleCast(in FixVec3 feet, Fix radius, Fix height, in FixVec3 direction, Fix maxDistance, int layerMask = ~0, FixedSurface surfaceMask = FixedSurface.Solid);
-
+        DeterministicHit CapsuleCast(
+            in FixVec3 feet,
+            Fix radius,
+            Fix height,
+            in FixVec3 direction,
+            Fix maxDistance,
+            int layerMask = ~0,
+            FixedSurface surfaceMask = FixedSurface.Solid);
         /// <summary>从胶囊脚底向下找圆形足迹内的支撑面；这是地面探测，不是胶囊扫掠求解。</summary>
         DeterministicHit GroundCheck(in FixVec3 center, Fix radius, Fix halfHeight, Fix probeDistance, int layerMask = ~0);
     }

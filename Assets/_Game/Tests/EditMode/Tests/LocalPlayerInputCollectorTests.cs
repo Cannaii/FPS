@@ -14,7 +14,6 @@ namespace AFPS.Tests.EditMode
             {
                 LocalPlayerInputCollector collector = gameObject.AddComponent<LocalPlayerInputCollector>();
                 collector.SetAutomationInput(1f, 1f, -10f, 120f, true, true);
-
                 var first = collector.ConsumeCommand(42);
                 Assert.That(first.Tick, Is.EqualTo(42));
                 Assert.That(first.MoveXFixed.Raw, Is.EqualTo(65536));
@@ -24,16 +23,13 @@ namespace AFPS.Tests.EditMode
                 Assert.That(first.JumpPressed, Is.True);
                 Assert.That(first.FirePressed, Is.True);
                 Assert.That(first.ShotSequence, Is.EqualTo(1));
-
                 var second = collector.ConsumeCommand(43);
                 Assert.That(second.JumpPressed, Is.False);
                 Assert.That(second.FirePressed, Is.False);
                 Assert.That(second.ShotSequence, Is.Zero);
-
                 collector.SetAutomationInput(0f, 0f, 0f, 0f, false, true);
                 var nextShot = collector.ConsumeCommand(44);
                 Assert.That(nextShot.ShotSequence, Is.EqualTo(2));
-
                 collector.ClearAutomationInput();
                 var cleared = collector.ConsumeCommand(45);
                 Assert.That(cleared.MoveX, Is.Zero);

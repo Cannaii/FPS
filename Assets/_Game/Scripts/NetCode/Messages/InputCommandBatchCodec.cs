@@ -14,26 +14,20 @@ namespace AFPS.NetCode.Messages
         /// 单包允许携带的最大输入数量，限制异常包的处理成本。
         /// </summary>
         public const int MaxCommandCount = 32;
-
         /// <summary>
         /// 输入负载固定字段的字节数：FirstTick 四字节，CommandCount 一字节。
         /// </summary>
         public const int PayloadHeaderSize = 5;
-
         /// <summary>
         /// 每条输入占用十五个字节：移动轴、按键位掩码、Yaw、Pitch、射击序号和估计服务器射击 Tick。
         /// </summary>
         public const int BytesPerCommand = 15;
-
         /// <summary>网络观察角的量化精度，单位为度。</summary>
         public const float LookAngleResolution = 0.01f;
-
         private const byte JumpPressedMask = 1 << 0;
         private const byte FirePressedMask = 1 << 1;
         private const byte KnownButtonsMask = JumpPressedMask | FirePressedMask;
-
         public static int GetPacketSize(int commandCount) => PacketHeader.Size + PayloadHeaderSize + commandCount * BytesPerCommand;
-
         /// <summary>
         /// 命令类型已在写入控制量时保证规范整数网格；保留此入口供预测会话统一调用。
         /// </summary>
@@ -78,7 +72,13 @@ namespace AFPS.NetCode.Messages
                     buttons |= FirePressedMask;
                 }
 
-                if (!writer.TryWriteSByte(command.MoveXGrid) || !writer.TryWriteSByte(command.MoveYGrid) || !writer.TryWriteByte(buttons) || !writer.TryWriteUInt16(command.YawCentidegrees) || !writer.TryWriteInt16(command.PitchCentidegrees) || !writer.TryWriteUInt32(command.FirePressed ? command.ShotSequence : 0u) || !writer.TryWriteUInt32(command.FirePressed ? command.ShotServerTick : 0u))
+                if (!writer.TryWriteSByte(command.MoveXGrid)
+                    || !writer.TryWriteSByte(command.MoveYGrid)
+                    || !writer.TryWriteByte(buttons)
+                    || !writer.TryWriteUInt16(command.YawCentidegrees)
+                    || !writer.TryWriteInt16(command.PitchCentidegrees)
+                    || !writer.TryWriteUInt32(command.FirePressed ? command.ShotSequence : 0u)
+                    || !writer.TryWriteUInt32(command.FirePressed ? command.ShotServerTick : 0u))
                 {
                     return false;
                 }
@@ -88,7 +88,12 @@ namespace AFPS.NetCode.Messages
             return true;
         }
 
-        public static bool TryDeserialize(ArraySegment<byte> packet, PlayerInputCommand[] commandBuffer, int commandBufferOffset, out PacketHeader header, out InputCommandBatch batch)
+        public static bool TryDeserialize(
+            ArraySegment<byte> packet,
+            PlayerInputCommand[] commandBuffer,
+            int commandBufferOffset,
+            out PacketHeader header,
+            out InputCommandBatch batch)
         {
             header = default;
             batch = default;
@@ -105,7 +110,11 @@ namespace AFPS.NetCode.Messages
             }
 
             int expectedPayloadLength = PayloadHeaderSize + commandCount * BytesPerCommand;
-            if (commandCount == 0 || commandCount > MaxCommandCount || header.PayloadLength != expectedPayloadLength || commandBufferOffset < 0 || commandBufferOffset > commandBuffer.Length - commandCount)
+            if (commandCount == 0
+                || commandCount > MaxCommandCount
+                || header.PayloadLength != expectedPayloadLength
+                || commandBufferOffset < 0
+                || commandBufferOffset > commandBuffer.Length - commandCount)
             {
                 return false;
             }
@@ -114,12 +123,24 @@ namespace AFPS.NetCode.Messages
             PacketBufferReader validationReader = reader;
             for (int i = 0; i < commandCount; i++)
             {
-                if (!TryReadCommand(ref validationReader, unchecked(firstTick + (uint)i), out _)) return false;
+                if (!TryReadCommand(ref validationReader, unchecked(firstTick + (uint)i), out _))
+                {
+                    return false;
+                }
             }
-            if (validationReader.BytesRemaining != 0) return false;
+
+            if (validationReader.BytesRemaining != 0)
+            {
+                return false;
+            }
+
             for (int i = 0; i < commandCount; i++)
             {
-                if (!TryReadCommand(ref reader, unchecked(firstTick + (uint)i), out PlayerInputCommand command)) return false;
+                if (!TryReadCommand(ref reader, unchecked(firstTick + (uint)i), out PlayerInputCommand command))
+                {
+                    return false;
+                }
+
                 commandBuffer[commandBufferOffset + i] = command;
             }
 
@@ -155,10 +176,28 @@ namespace AFPS.NetCode.Messages
         private static bool TryReadCommand(ref PacketBufferReader reader, uint tick, out PlayerInputCommand command)
         {
             command = default;
-            if (!reader.TryReadSByte(out sbyte moveX) || !reader.TryReadSByte(out sbyte moveY) || !reader.TryReadByte(out byte buttons) || !reader.TryReadUInt16(out ushort yaw) || !reader.TryReadInt16(out short pitch) || !reader.TryReadUInt32(out uint shotSequence) || !reader.TryReadUInt32(out uint shotServerTick)) return false;
+            if (!reader.TryReadSByte(out sbyte moveX)
+                || !reader.TryReadSByte(out sbyte moveY)
+                || !reader.TryReadByte(out byte buttons)
+                || !reader.TryReadUInt16(out ushort yaw)
+                || !reader.TryReadInt16(out short pitch)
+                || !reader.TryReadUInt32(out uint shotSequence)
+                || !reader.TryReadUInt32(out uint shotServerTick))
+            {
+                return false;
+            }
+
             bool fire = (buttons & FirePressedMask) != 0;
-            if ((buttons & ~KnownButtonsMask) != 0 || fire != (shotSequence != 0) || (!fire && shotServerTick != 0)) return false;
-            if (!command.TrySetEncodedControls(moveX, moveY, yaw, pitch)) return false;
+            if ((buttons & ~KnownButtonsMask) != 0 || fire != (shotSequence != 0) || (!fire && shotServerTick != 0))
+            {
+                return false;
+            }
+
+            if (!command.TrySetEncodedControls(moveX, moveY, yaw, pitch))
+            {
+                return false;
+            }
+
             command.Tick = tick;
             command.JumpPressed = (buttons & JumpPressedMask) != 0;
             command.FirePressed = fire;

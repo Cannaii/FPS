@@ -14,12 +14,17 @@ namespace AFPS.NetCode.SnapshotInterpolation
         private readonly double interpolationDelayTicks;
         private readonly double maxExtrapolationTicks;
         private readonly float teleportDistance;
-
         public uint EntityId => buffer.EntityId;
         public int SnapshotCount => buffer.Count;
         public double InterpolationDelayTicks => interpolationDelayTicks;
 
-        public RemotePlayerSnapshotTimeline(uint entityId, int capacity, float tickDeltaTime, double interpolationDelayTicks, double maxExtrapolationTicks, float teleportDistance)
+        public RemotePlayerSnapshotTimeline(
+            uint entityId,
+            int capacity,
+            float tickDeltaTime,
+            double interpolationDelayTicks,
+            double maxExtrapolationTicks,
+            float teleportDistance)
         {
             if (tickDeltaTime <= 0f || float.IsNaN(tickDeltaTime) || float.IsInfinity(tickDeltaTime))
             {
@@ -49,7 +54,6 @@ namespace AFPS.NetCode.SnapshotInterpolation
         }
 
         public SnapshotBufferInsertResult Insert(in RemotePlayerSnapshot snapshot) => buffer.Insert(snapshot);
-
         public bool TrySample(double estimatedServerTick, out RemotePlayerRenderState state)
         {
             state = default;
@@ -65,7 +69,6 @@ namespace AFPS.NetCode.SnapshotInterpolation
             double newestTickTime = estimatedWholeTick + unchecked((int)(newest.ServerTick - estimatedRawTick));
             RemotePlayerSnapshot oldest = buffer.GetAt(0);
             double oldestTickTime = newestTickTime + unchecked((int)(oldest.ServerTick - newest.ServerTick));
-
             if (targetTick <= oldestTickTime)
             {
                 state = FromSnapshot(oldest, targetTick, RemotePlayerSamplingStatus.Held);
@@ -97,7 +100,12 @@ namespace AFPS.NetCode.SnapshotInterpolation
                 }
 
                 float interpolation = (float)((targetTick - beforeTickTime) / (afterTickTime - beforeTickTime));
-                state = new RemotePlayerRenderState(targetTick, Vector3.LerpUnclamped(before.Position, after.Position, interpolation), Quaternion.SlerpUnclamped(before.Rotation, after.Rotation, interpolation), Vector3.LerpUnclamped(before.Velocity, after.Velocity, interpolation), RemotePlayerSamplingStatus.Interpolated);
+                state = new RemotePlayerRenderState(
+                    targetTick,
+                    Vector3.LerpUnclamped(before.Position, after.Position, interpolation),
+                    Quaternion.SlerpUnclamped(before.Rotation, after.Rotation, interpolation),
+                    Vector3.LerpUnclamped(before.Velocity, after.Velocity, interpolation),
+                    RemotePlayerSamplingStatus.Interpolated);
                 return true;
             }
 

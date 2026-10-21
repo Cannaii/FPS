@@ -32,6 +32,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(FixVec3.Cross(FixVec3.Up, FixVec3.Right), Is.EqualTo(-FixVec3.Forward));
             Assert.That(V(3, 4, 0).SqrMagnitude.Raw, Is.EqualTo(1638400));
         }
+
         [Test]
         public void MagnitudeAndNormalization_KeepTinyAndLargeVectors()
         {
@@ -42,8 +43,12 @@ namespace AFPS.Tests.EditMode
             Assert.That(FixVec3.Normalize(FixVec3.Zero), Is.EqualTo(FixVec3.Zero));
             Assert.That(new FixVec3(Fix.Epsilon, Fix.Zero, Fix.Zero).Normalized(), Is.EqualTo(FixVec3.Right));
             Assert.That(new FixVec3(Fix.MaxValue, Fix.MaxValue, Fix.MaxValue).Normalized().X.Raw, Is.EqualTo(37837));
-            Assert.Throws<OverflowException>(() => { var result = V(1000, 0, 0).SqrMagnitude; });
+            Assert.Throws<OverflowException>(() =>
+            {
+                var result = V(1000, 0, 0).SqrMagnitude;
+            });
         }
+
         [Test]
         public void MovementProjectionReflectionAndClamp_RespectLimits()
         {

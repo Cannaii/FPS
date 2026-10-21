@@ -9,7 +9,13 @@ namespace AFPS.Math
         public readonly Fix X;
         public readonly Fix Y;
         public readonly Fix Z;
-        public FixVec3(Fix x, Fix y, Fix z) { X = x; Y = y; Z = z; }
+        public FixVec3(Fix x, Fix y, Fix z)
+        {
+            X = x;
+            Y = y;
+            Z = z;
+        }
+
         public static readonly FixVec3 Zero = new FixVec3(Fix.Zero, Fix.Zero, Fix.Zero);
         public static readonly FixVec3 One = new FixVec3(Fix.One, Fix.One, Fix.One);
         public static readonly FixVec3 Up = new FixVec3(Fix.Zero, Fix.One, Fix.Zero);
@@ -28,56 +34,91 @@ namespace AFPS.Math
             long product = checked((long)a.X.Raw * b.X.Raw + (long)a.Y.Raw * b.Y.Raw + (long)a.Z.Raw * b.Z.Raw);
             return Fix.FromRaw(Fix.RoundProduct(product));
         }
-        public static FixVec3 Cross(FixVec3 a, FixVec3 b) => new FixVec3(
-            Fix.FromRaw(Fix.RoundProduct(checked((long)a.Y.Raw * b.Z.Raw - (long)a.Z.Raw * b.Y.Raw))),
-            Fix.FromRaw(Fix.RoundProduct(checked((long)a.Z.Raw * b.X.Raw - (long)a.X.Raw * b.Z.Raw))),
-            Fix.FromRaw(Fix.RoundProduct(checked((long)a.X.Raw * b.Y.Raw - (long)a.Y.Raw * b.X.Raw))));
+
+        public static FixVec3 Cross(FixVec3 a, FixVec3 b) =>
+            new FixVec3(
+                Fix.FromRaw(Fix.RoundProduct(checked((long)a.Y.Raw * b.Z.Raw - (long)a.Z.Raw * b.Y.Raw))),
+                Fix.FromRaw(Fix.RoundProduct(checked((long)a.Z.Raw * b.X.Raw - (long)a.X.Raw * b.Z.Raw))),
+                Fix.FromRaw(Fix.RoundProduct(checked((long)a.X.Raw * b.Y.Raw - (long)a.Y.Raw * b.X.Raw))));
         public Fix SqrMagnitude => Dot(this, this);
         public Fix Magnitude => Fix.FromRaw(checked((int)FixMath.IntegerSqrt(SquaredRaw())));
+
         private ulong SquaredRaw() => (ulong)((long)X.Raw * X.Raw) + (ulong)((long)Y.Raw * Y.Raw) + (ulong)((long)Z.Raw * Z.Raw);
         public FixVec3 Normalized()
         {
             // 极小方向先提升精度；直接 sqrt(1²+1²)=1 会把对角向量错误归一化成 (1,1,0)。
             long maximum = System.Math.Max(System.Math.Abs((long)X.Raw), System.Math.Max(System.Math.Abs((long)Y.Raw), System.Math.Abs((long)Z.Raw)));
-            if (maximum == 0) return Zero;
+            if (maximum == 0)
+            {
+                return Zero;
+            }
+
             if (maximum < Fix.Scale)
             {
-                long x = X.Raw * Fix.Scale / maximum, y = Y.Raw * Fix.Scale / maximum, z = Z.Raw * Fix.Scale / maximum;
+                long x = X.Raw * Fix.Scale / maximum,
+                    y = Y.Raw * Fix.Scale / maximum,
+                    z = Z.Raw * Fix.Scale / maximum;
                 long scaledMagnitude = (long)FixMath.IntegerSqrt((ulong)(x * x + y * y + z * z));
-                return new FixVec3(Fix.FromRaw((int)(x * Fix.Scale / scaledMagnitude)),
-                    Fix.FromRaw((int)(y * Fix.Scale / scaledMagnitude)), Fix.FromRaw((int)(z * Fix.Scale / scaledMagnitude)));
+                return new FixVec3(
+                    Fix.FromRaw((int)(x * Fix.Scale / scaledMagnitude)),
+                    Fix.FromRaw((int)(y * Fix.Scale / scaledMagnitude)),
+                    Fix.FromRaw((int)(z * Fix.Scale / scaledMagnitude)));
             }
+
             // 长度可能超出 Fix 表示范围，但归一化后的分量仍在 [-1,1]。
             long magnitude = (long)FixMath.IntegerSqrt(SquaredRaw());
-            if (magnitude == 0) return Zero;
-            return new FixVec3(Fix.FromRaw((int)(X.Raw * Fix.Scale / magnitude)),
-                Fix.FromRaw((int)(Y.Raw * Fix.Scale / magnitude)), Fix.FromRaw((int)(Z.Raw * Fix.Scale / magnitude)));
+            if (magnitude == 0)
+            {
+                return Zero;
+            }
+
+            return new FixVec3(
+                Fix.FromRaw((int)(X.Raw * Fix.Scale / magnitude)),
+                Fix.FromRaw((int)(Y.Raw * Fix.Scale / magnitude)),
+                Fix.FromRaw((int)(Z.Raw * Fix.Scale / magnitude)));
         }
+
         public static FixVec3 Normalize(FixVec3 value) => value.Normalized();
         public static FixVec3 MoveTowards(FixVec3 current, FixVec3 target, Fix maxDelta)
         {
-            if (maxDelta.Raw < 0) throw new ArgumentOutOfRangeException(nameof(maxDelta));
+            if (maxDelta.Raw < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxDelta));
+            }
+
             FixVec3 delta = target - current;
             ulong magnitude = FixMath.IntegerSqrt(delta.SquaredRaw());
-            if (magnitude <= (ulong)maxDelta.Raw) return target;
+            if (magnitude <= (ulong)maxDelta.Raw)
+            {
+                return target;
+            }
+
             return current + ScaleToLength(delta, maxDelta, magnitude);
         }
-        private static FixVec3 ScaleToLength(FixVec3 value, Fix length, ulong magnitude) => new FixVec3(
-            Fix.FromRaw((int)((long)value.X.Raw * length.Raw / (long)magnitude)),
-            Fix.FromRaw((int)((long)value.Y.Raw * length.Raw / (long)magnitude)),
-            Fix.FromRaw((int)((long)value.Z.Raw * length.Raw / (long)magnitude)));
+
+        private static FixVec3 ScaleToLength(FixVec3 value, Fix length, ulong magnitude) =>
+            new FixVec3(
+                Fix.FromRaw((int)((long)value.X.Raw * length.Raw / (long)magnitude)),
+                Fix.FromRaw((int)((long)value.Y.Raw * length.Raw / (long)magnitude)),
+                Fix.FromRaw((int)((long)value.Z.Raw * length.Raw / (long)magnitude)));
         public static FixVec3 ClampMagnitude(FixVec3 value, Fix maxLength)
         {
-            if (maxLength.Raw < 0) throw new ArgumentOutOfRangeException(nameof(maxLength));
+            if (maxLength.Raw < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maxLength));
+            }
+
             ulong magnitude = FixMath.IntegerSqrt(value.SquaredRaw());
             return magnitude > (ulong)maxLength.Raw ? ScaleToLength(value, maxLength, magnitude) : value;
         }
+
         /// <summary>支持非单位法线；零法线不改变向量。</summary>
         public static FixVec3 ProjectOnPlane(FixVec3 value, FixVec3 normal)
         {
             Fix squared = Dot(normal, normal);
             return squared.Raw == 0 ? value : value - normal * (Dot(value, normal) / squared);
         }
+
         /// <summary>normal 必须为单位法线，与碰撞查询返回值约定一致。</summary>
         public static FixVec3 Reflect(FixVec3 value, FixVec3 normal) => value - normal * (Fix.FromInt(2) * Dot(value, normal));
         public bool Equals(FixVec3 other) => X == other.X && Y == other.Y && Z == other.Z;

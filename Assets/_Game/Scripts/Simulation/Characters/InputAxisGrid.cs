@@ -7,7 +7,6 @@ namespace AFPS.Simulation.Characters
     public static class InputAxisGrid
     {
         public const int GridMax = 127;
-
         public static Fix ToFix(int grid)
         {
             grid = System.Math.Max(-GridMax, System.Math.Min(GridMax, grid));
@@ -23,13 +22,15 @@ namespace AFPS.Simulation.Characters
         /// <summary>设备采集边界专用；后续预测/编解码不再对 float 做量化往返。</summary>
         public static sbyte FromFloat(float value)
         {
-            if (float.IsNaN(value)) return 0;
+            if (float.IsNaN(value))
+            {
+                return 0;
+            }
+
             double clamped = System.Math.Max(-1d, System.Math.Min(1d, value));
             return (sbyte)System.Math.Round(clamped * GridMax, MidpointRounding.AwayFromZero);
         }
 
-        internal static long RoundNearest(long numerator, long denominator) => numerator >= 0
-            ? (numerator + denominator / 2) / denominator
-            : -((-numerator + denominator / 2) / denominator);
+        internal static long RoundNearest(long numerator, long denominator) => numerator >= 0 ? (numerator + denominator / 2) / denominator : -((-numerator + denominator / 2) / denominator);
     }
 }

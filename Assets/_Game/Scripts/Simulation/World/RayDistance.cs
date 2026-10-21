@@ -8,7 +8,6 @@ namespace AFPS.Simulation.World
         public readonly long Numerator;
         public readonly int Denominator;
         public static readonly RayDistance Zero = new RayDistance(0, 1);
-
         public RayDistance(long numerator, int denominator)
         {
             Numerator = denominator < 0 ? -numerator : numerator;
@@ -27,13 +26,26 @@ namespace AFPS.Simulation.World
         public int CompareTo(RayDistance other)
         {
             // 直接交叉相乘可能超出 long。先比较整数部分，再交叉比较小于分母的余数。
-            long a = Floor, b = other.Floor;
+            long a = Floor,
+                b = other.Floor;
             int result = a.CompareTo(b);
-            if (result != 0) return result;
+            if (result != 0)
+            {
+                return result;
+            }
+
             long remainderA = Numerator % Denominator;
             long remainderB = other.Numerator % other.Denominator;
-            if (remainderA < 0) remainderA += Denominator;
-            if (remainderB < 0) remainderB += other.Denominator;
+            if (remainderA < 0)
+            {
+                remainderA += Denominator;
+            }
+
+            if (remainderB < 0)
+            {
+                remainderB += other.Denominator;
+            }
+
             return (remainderA * other.Denominator).CompareTo(remainderB * Denominator);
         }
     }

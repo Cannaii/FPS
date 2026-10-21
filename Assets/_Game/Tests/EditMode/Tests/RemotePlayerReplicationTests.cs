@@ -15,7 +15,6 @@ namespace AFPS.Tests.EditMode
             RemotePlayerSnapshot baseline = new RemotePlayerSnapshot(7, 100, new Vector3(1f, 2f, 3f), Quaternion.Euler(0f, 10f, 0f), new Vector3(1f, 0f, 0f));
             RemotePlayerSnapshot current = new RemotePlayerSnapshot(7, 101, new Vector3(1.25f, 2f, 3f), Quaternion.Euler(-5f, 20f, 0f), new Vector3(1f, 0f, 0f), true);
             byte[] packet = new byte[RemotePlayerSnapshotDeltaCodec.MaximumPacketSize];
-
             Assert.That(RemotePlayerSnapshotDeltaCodec.TrySerialize(current, baseline, 9, new ArraySegment<byte>(packet), out int bytes), Is.True);
             Assert.That(bytes, Is.LessThan(RemotePlayerSnapshotCodec.PacketSize));
             Assert.That(RemotePlayerSnapshotDeltaCodec.TryDeserialize(new ArraySegment<byte>(packet, 0, bytes), baseline, out PacketHeader header, out RemotePlayerSnapshot decoded), Is.True);
@@ -25,7 +24,6 @@ namespace AFPS.Tests.EditMode
             Assert.That(decoded.Velocity, Is.EqualTo(baseline.Velocity));
             Assert.That(Quaternion.Angle(decoded.Rotation, current.Rotation), Is.LessThan(0.02f));
             Assert.That(decoded.IsTeleport, Is.True);
-
             RemotePlayerSnapshot wrongBaseline = new RemotePlayerSnapshot(7, 99, baseline.Position, baseline.Rotation, baseline.Velocity);
             Assert.That(RemotePlayerSnapshotDeltaCodec.TryDeserialize(new ArraySegment<byte>(packet, 0, bytes), wrongBaseline, out _, out _), Is.False);
         }
@@ -46,7 +44,6 @@ namespace AFPS.Tests.EditMode
         {
             RemotePlayerSnapshot source = new RemotePlayerSnapshot(7, 200, new Vector3(1.234f, 2.345f, -3.456f), Quaternion.Euler(-25.5f, 123.45f, 0f), new Vector3(4.56f, -7.89f, 0.12f), true);
             byte[] packet = new byte[RemotePlayerSnapshotCodec.PacketSize];
-
             Assert.That(RemotePlayerSnapshotCodec.TrySerialize(source, 99, new ArraySegment<byte>(packet), out int bytesWritten), Is.True);
             Assert.That(bytesWritten, Is.EqualTo(packet.Length));
             Assert.That(RemotePlayerSnapshotCodec.TryDeserialize(new ArraySegment<byte>(packet), out AFPS.NetCode.Protocol.PacketHeader header, out RemotePlayerSnapshot decoded), Is.True);

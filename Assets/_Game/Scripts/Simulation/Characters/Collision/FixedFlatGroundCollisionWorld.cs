@@ -6,13 +6,29 @@ namespace AFPS.Simulation.Characters.Collision
     public sealed class FixedFlatGroundCollisionWorld : IFixedCharacterCollisionWorld
     {
         public static readonly FixedFlatGroundCollisionWorld Instance = new FixedFlatGroundCollisionWorld();
-        private FixedFlatGroundCollisionWorld() { }
-        public bool CapsuleCast(FixVec3 feetPosition, FixVec3 direction, Fix distance, in CharacterCollisionConfig config, out FixedCharacterCollisionHit hit)
+        private FixedFlatGroundCollisionWorld()
+        {
+        }
+
+        public bool CapsuleCast(
+            FixVec3 feetPosition,
+            FixVec3 direction,
+            Fix distance,
+            in CharacterCollisionConfig config,
+            out FixedCharacterCollisionHit hit)
         {
             hit = default;
-            if (direction.Y >= -config.MinimumMoveDistanceFixed || feetPosition.Y.Raw < 0) return false;
+            if (direction.Y >= -config.MinimumMoveDistanceFixed || feetPosition.Y.Raw < 0)
+            {
+                return false;
+            }
+
             long candidate = (long)feetPosition.Y.Raw * Fix.Scale / -direction.Y.Raw;
-            if (candidate < 0 || candidate > distance.Raw) return false;
+            if (candidate < 0 || candidate > distance.Raw)
+            {
+                return false;
+            }
+
             hit = new FixedCharacterCollisionHit(Fix.FromRaw((int)candidate), FixVec3.Up);
             return true;
         }

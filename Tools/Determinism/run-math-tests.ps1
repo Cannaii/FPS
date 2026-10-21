@@ -6,15 +6,22 @@ param(
     [switch]$IncludeCollision
 )
 $ErrorActionPreference = 'Stop'
-if ($IncludeCollision) { $IncludeMovement = $true; $IncludeWorld = $true }
-if ($IncludeMovement) { $IncludeInput = $true }
+if ($IncludeCollision) {
+    $IncludeMovement = $true
+    $IncludeWorld = $true
+}
+if ($IncludeMovement) {
+    $IncludeInput = $true
+}
 $taskProjectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $taskEditorDirectory = Split-Path -Parent $UnityEditorPath
 $taskOutputDirectory = Join-Path $taskProjectRoot 'Temp/FixedMathVerification'
 New-Item -ItemType Directory -Force -Path $taskOutputDirectory | Out-Null
 $taskMonoReferences = Join-Path $taskEditorDirectory 'Data/MonoBleedingEdge/lib/mono/4.7.2-api'
 $taskNUnitPackage = Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Library/PackageCache') -Directory -Filter 'com.unity.ext.nunit@*' | Select-Object -First 1
-if ($null -eq $taskNUnitPackage) { throw 'Open the project in Unity first to restore its NUnit package.' }
+if ($null -eq $taskNUnitPackage) {
+    throw 'Open the project in Unity first to restore its NUnit package.'
+}
 $taskNUnit = Join-Path $taskNUnitPackage.FullName 'net35/unity-custom/nunit.framework.dll'
 $taskSources = @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Math') -Filter '*.cs').FullName)
 $taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests') -Filter 'Fix*Tests.cs' | Where-Object { $_.Name -notin @('FixedWorldTests.cs', 'FixedPlayerSimulationTests.cs') }).FullName)
@@ -51,6 +58,8 @@ $taskResponse = Join-Path $taskOutputDirectory 'mono.rsp'
 [IO.File]::WriteAllLines($taskResponse, @($taskCompilerArguments | ForEach-Object { '"' + $_ + '"' }))
 Copy-Item -LiteralPath $taskNUnit -Destination (Join-Path $taskOutputDirectory 'nunit.framework.dll') -Force
 & (Join-Path $taskEditorDirectory 'Data/NetCoreRuntime/dotnet.exe') (Join-Path $taskEditorDirectory 'Data/DotNetSdkRoslyn/csc.dll') ('@' + $taskResponse)
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
 & (Join-Path $taskEditorDirectory 'Data/MonoBleedingEdge/bin/mono.exe') (Join-Path $taskOutputDirectory 'VerifyMono.exe')
 exit $LASTEXITCODE

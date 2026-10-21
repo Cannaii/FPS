@@ -20,7 +20,6 @@ namespace AFPS.Bootstrap
         private const float MinimumMovementDistance = 0.5f;
         private const float MinimumJumpHeight = 0.2f;
         private const float TestYaw = 25f;
-
         private readonly List<uint> remoteEntityIds = new List<uint>();
         private UnityNetworkBootstrap networkBootstrap;
         private UnityNetworkMovementController movementController;
@@ -32,7 +31,6 @@ namespace AFPS.Bootstrap
         private Vector3 initialPosition;
         private float maximumHeight;
         private uint initialShotResultVersion;
-
         public static bool IsRequested
         {
             get
@@ -111,14 +109,23 @@ namespace AFPS.Bootstrap
                 replicas.CopyEntityIds(remoteEntityIds);
                 foreach (uint entityId in remoteEntityIds)
                 {
-                    if (!replicas.TrySample(entityId,replicas.LatestServerTick,out RemotePlayerRenderState target)) continue;
+                    if (!replicas.TrySample(entityId, replicas.LatestServerTick, out RemotePlayerRenderState target))
+                    {
+                        continue;
+                    }
+
                     Vector3 delta = target.Position - localState.Position;
-                    if (delta.x * delta.x + delta.z * delta.z <= 0.0001f) continue;
-                    yaw = Mathf.Repeat(Mathf.Atan2(delta.x,delta.z) * Mathf.Rad2Deg,360f);
+                    if (delta.x * delta.x + delta.z * delta.z <= 0.0001f)
+                    {
+                        continue;
+                    }
+
+                    yaw = Mathf.Repeat(Mathf.Atan2(delta.x, delta.z) * Mathf.Rad2Deg, 360f);
                     hasAimTarget = true;
                     break;
                 }
             }
+
             bool requestFire = networkBootstrap.ActiveMode == NetworkLaunchMode.Host && hasAimTarget && !fireSent && elapsed >= 0.5d;
             if (requestFire)
             {

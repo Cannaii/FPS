@@ -18,14 +18,16 @@ namespace AFPS.Tests.EditMode
         [TestCase(64, 33026)]
         [TestCase(127, 65536)]
         public void AxisGrid_HasGoldenRawAndExactEndpoints(int grid, int expected) => Assert.That(InputAxisGrid.ToFix(grid).Raw, Is.EqualTo(expected));
-
         [Test]
         public void EveryAxisGrid_RoundTripsThroughFixAndWireExactly()
         {
             for (int grid = -127; grid <= 127; grid++)
             {
                 Assert.That(InputAxisGrid.FromFix(InputAxisGrid.ToFix(grid)), Is.EqualTo(grid));
-                var command = new PlayerInputCommand { Tick = uint.MaxValue };
+                var command = new PlayerInputCommand
+                {
+                    Tick = uint.MaxValue
+                };
                 Assert.That(command.TrySetEncodedControls((sbyte)grid, (sbyte)-grid, 35999, -8990), Is.True);
                 var decoded = RoundTrip(command);
                 Assert.That(decoded.MoveXFixed.Raw, Is.EqualTo(command.MoveXFixed.Raw));
@@ -59,11 +61,13 @@ namespace AFPS.Tests.EditMode
                 Assert.That(InputAngleGrid.YawFromFix(InputAngleGrid.YawToFix((ushort)yaw)), Is.EqualTo(yaw));
                 Assert.That(new PlayerInputCommand { LookYaw = InputAngleGrid.YawToFix((ushort)yaw).ToFloat() }.YawCentidegrees, Is.EqualTo(yaw));
             }
+
             for (int pitch = -8990; pitch <= 8990; pitch++)
             {
                 Assert.That(InputAngleGrid.PitchFromFix(InputAngleGrid.PitchToFix((short)pitch)), Is.EqualTo(pitch));
                 Assert.That(new PlayerInputCommand { LookPitch = InputAngleGrid.PitchToFix((short)pitch).ToFloat() }.PitchCentidegrees, Is.EqualTo(pitch));
             }
+
             Assert.That(InputAngleGrid.YawToFix(1).Raw, Is.EqualTo(655));
             Assert.That(InputAngleGrid.PitchToFix(-1).Raw, Is.EqualTo(-655));
             Assert.That(InputAngleGrid.YawFromFix(Fix.FromInt(-10)), Is.EqualTo(35000));
@@ -91,8 +95,17 @@ namespace AFPS.Tests.EditMode
         public void InputCommand_StoresOnlyIntegerAndEventFields()
         {
             foreach (FieldInfo field in typeof(PlayerInputCommand).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+            {
                 Assert.That(field.FieldType != typeof(float) && field.FieldType != typeof(double), Is.True, field.Name);
-            var command = new PlayerInputCommand { MoveX = 0.1234f, MoveY = -0.6789f, LookYaw = 123.456f, LookPitch = -42.424f };
+            }
+
+            var command = new PlayerInputCommand
+            {
+                MoveX = 0.1234f,
+                MoveY = -0.6789f,
+                LookYaw = 123.456f,
+                LookPitch = -42.424f
+            };
             Assert.That(command.MoveXGrid, Is.EqualTo(16));
             Assert.That(command.MoveYGrid, Is.EqualTo(-86));
             Assert.That(command.YawCentidegrees, Is.EqualTo(12346));
@@ -102,9 +115,19 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void FixedControls_AndLegacyBoundaryHaveSameEncodedValues()
         {
-            var fixedCommand = new PlayerInputCommand { Tick = 1 };
+            var fixedCommand = new PlayerInputCommand
+            {
+                Tick = 1
+            };
             fixedCommand.SetFixedControls(Fix.Half, -Fix.One, Fix.FromInt(350), Fix.FromInt(-42));
-            var legacyCommand = new PlayerInputCommand { Tick = 1, MoveX = 0.5f, MoveY = -1f, LookYaw = -10f, LookPitch = -42f };
+            var legacyCommand = new PlayerInputCommand
+            {
+                Tick = 1,
+                MoveX = 0.5f,
+                MoveY = -1f,
+                LookYaw = -10f,
+                LookPitch = -42f
+            };
             Assert.That(fixedCommand, Is.EqualTo(legacyCommand));
             Assert.That(RoundTrip(fixedCommand), Is.EqualTo(fixedCommand));
         }
@@ -112,7 +135,12 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void InvalidEncodedControls_DoNotChangeExistingCommand()
         {
-            var command = new PlayerInputCommand { Tick = 9, MoveY = 1, LookYaw = 90 };
+            var command = new PlayerInputCommand
+            {
+                Tick = 9,
+                MoveY = 1,
+                LookYaw = 90
+            };
             PlayerInputCommand before = command;
             Assert.That(command.TrySetEncodedControls(-128, 0, 0, 0), Is.False);
             Assert.That(command.TrySetEncodedControls(0, -128, 0, 0), Is.False);
@@ -126,9 +154,17 @@ namespace AFPS.Tests.EditMode
         {
             for (int grid = -127; grid <= 127; grid++)
             {
-                var source = new PlayerInputCommand { Tick = uint.MaxValue, JumpPressed = true, FirePressed = true, ShotSequence = uint.MaxValue, ShotServerTick = 456 };
+                var source = new PlayerInputCommand
+                {
+                    Tick = uint.MaxValue,
+                    JumpPressed = true,
+                    FirePressed = true,
+                    ShotSequence = uint.MaxValue,
+                    ShotServerTick = 456
+                };
                 Assert.That(source.TrySetEncodedControls((sbyte)grid, (sbyte)-grid, 35999, -8990), Is.True);
-                PlayerInputCommand repeated = source.CreateFallback(0, true), neutral = source.CreateFallback(1, false);
+                PlayerInputCommand repeated = source.CreateFallback(0, true),
+                    neutral = source.CreateFallback(1, false);
                 Assert.That(repeated.Tick, Is.Zero);
                 Assert.That(repeated.MoveXFixed, Is.EqualTo(source.MoveXFixed));
                 Assert.That(repeated.MoveYFixed, Is.EqualTo(source.MoveYFixed));
@@ -149,10 +185,32 @@ namespace AFPS.Tests.EditMode
         [TestCase(11, 1)]
         public void InvalidLaterCommand_DoesNotWriteDecodedPrefix(int fieldOffset, int value)
         {
-            PlayerInputCommand[] source = { new PlayerInputCommand { Tick = 10, MoveY = 1 }, new PlayerInputCommand { Tick = 11, MoveY = -1 } };
+            PlayerInputCommand[] source =
+            {
+                new PlayerInputCommand
+                {
+                    Tick = 10,
+                    MoveY = 1
+                },
+                new PlayerInputCommand
+                {
+                    Tick = 11,
+                    MoveY = -1
+                }
+            };
             byte[] packet = Packet(source);
             packet[PacketHeader.Size + InputCommandBatchCodec.PayloadHeaderSize + InputCommandBatchCodec.BytesPerCommand + fieldOffset] = (byte)value;
-            PlayerInputCommand[] output = { new PlayerInputCommand { Tick = 777 }, new PlayerInputCommand { Tick = 888 } };
+            PlayerInputCommand[] output =
+            {
+                new PlayerInputCommand
+                {
+                    Tick = 777
+                },
+                new PlayerInputCommand
+                {
+                    Tick = 888
+                }
+            };
             var before = (PlayerInputCommand[])output.Clone();
             Assert.That(InputCommandBatchCodec.TryDeserialize(new ArraySegment<byte>(packet), output, 0, out _, out InputCommandBatch batch), Is.False);
             CollectionAssert.AreEqual(before, output);
@@ -178,7 +236,18 @@ namespace AFPS.Tests.EditMode
         public void Batch_MaximumCountWithTickWrapAndBufferOffsetRoundTrips()
         {
             var source = new PlayerInputCommand[InputCommandBatchCodec.MaxCommandCount];
-            for (int i = 0; i < source.Length; i++) source[i] = new PlayerInputCommand { Tick = unchecked(uint.MaxValue - 15 + (uint)i), MoveX = i % 2 == 0 ? -1 : 1, FirePressed = true, ShotSequence = (uint)i + 1, ShotServerTick = uint.MaxValue };
+            for (int i = 0; i < source.Length; i++)
+            {
+                source[i] = new PlayerInputCommand
+                {
+                    Tick = unchecked(uint.MaxValue - 15 + (uint)i),
+                    MoveX = i % 2 == 0 ? -1 : 1,
+                    FirePressed = true,
+                    ShotSequence = (uint)i + 1,
+                    ShotServerTick = uint.MaxValue
+                };
+            }
+
             byte[] packet = Packet(source);
             var offsetPacket = new byte[packet.Length + 6];
             Array.Copy(packet, 0, offsetPacket, 3, packet.Length);
@@ -186,23 +255,41 @@ namespace AFPS.Tests.EditMode
             Assert.That(InputCommandBatchCodec.TryDeserialize(new ArraySegment<byte>(offsetPacket, 3, packet.Length), destination, 1, out _, out InputCommandBatch batch), Is.True);
             Assert.That(batch.FirstTick, Is.EqualTo(uint.MaxValue - 15));
             Assert.That(batch.LastTick, Is.EqualTo(15));
-            for (int i = 0; i < source.Length; i++) Assert.That(destination[i + 1], Is.EqualTo(source[i]));
+            for (int i = 0; i < source.Length; i++)
+            {
+                Assert.That(destination[i + 1], Is.EqualTo(source[i]));
+            }
         }
 
         [Test]
         public void CompleteGridRawSequence_MatchesIndependentGoldenHash()
         {
             ulong hash = 14695981039346656037UL;
-            for (int grid = -127; grid <= 127; grid++) AddRaw(ref hash, InputAxisGrid.ToFix(grid).Raw);
-            for (int yaw = 0; yaw < 36000; yaw++) AddRaw(ref hash, InputAngleGrid.YawToFix((ushort)yaw).Raw);
-            for (int pitch = -8990; pitch <= 8990; pitch++) AddRaw(ref hash, InputAngleGrid.PitchToFix((short)pitch).Raw);
+            for (int grid = -127; grid <= 127; grid++)
+            {
+                AddRaw(ref hash, InputAxisGrid.ToFix(grid).Raw);
+            }
+
+            for (int yaw = 0; yaw < 36000; yaw++)
+            {
+                AddRaw(ref hash, InputAngleGrid.YawToFix((ushort)yaw).Raw);
+            }
+
+            for (int pitch = -8990; pitch <= 8990; pitch++)
+            {
+                AddRaw(ref hash, InputAngleGrid.PitchToFix((short)pitch).Raw);
+            }
+
             Assert.That(hash, Is.EqualTo(5458074785564823468UL));
         }
 
         private static void AddRaw(ref ulong hash, int raw)
         {
             uint bits = unchecked((uint)raw);
-            for (int shift = 0; shift < 32; shift += 8) hash = unchecked((hash ^ ((bits >> shift) & 255u)) * 1099511628211UL);
+            for (int shift = 0; shift < 32; shift += 8)
+            {
+                hash = unchecked((hash ^ ((bits >> shift) & 255u)) * 1099511628211UL);
+            }
         }
 
         private static byte[] Packet(PlayerInputCommand[] commands)

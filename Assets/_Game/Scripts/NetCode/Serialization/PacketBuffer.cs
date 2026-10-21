@@ -11,7 +11,6 @@ namespace AFPS.NetCode.Serialization
         private readonly int start;
         private readonly int end;
         private int position;
-
         public int BytesWritten => position - start;
 
         public PacketBufferWriter(ArraySegment<byte> destination)
@@ -34,9 +33,7 @@ namespace AFPS.NetCode.Serialization
         }
 
         public bool TryWriteSByte(sbyte value) => TryWriteByte(unchecked((byte)value));
-
         public bool TryWriteInt16(short value) => TryWriteUInt16(unchecked((ushort)value));
-
         public bool TryWriteUInt16(ushort value)
         {
             if (buffer == null || end - position < 2)
@@ -64,7 +61,6 @@ namespace AFPS.NetCode.Serialization
         }
 
         public bool TryWriteInt32(int value) => TryWriteUInt32(unchecked((uint)value));
-
         public bool TryWriteUInt64(ulong value)
         {
             return TryWriteUInt32(unchecked((uint)value)) && TryWriteUInt32((uint)(value >> 32));
@@ -79,7 +75,6 @@ namespace AFPS.NetCode.Serialization
         private readonly byte[] buffer;
         private readonly int end;
         private int position;
-
         public int BytesRemaining => end - position;
 
         public PacketBufferReader(ArraySegment<byte> source)

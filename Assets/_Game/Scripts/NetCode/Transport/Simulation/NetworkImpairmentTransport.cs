@@ -15,22 +15,18 @@ namespace AFPS.NetCode.Transport.Simulation
             /// 数据包需要发送到的 AFPS 连接。
             /// </summary>
             public TransportConnectionId ConnectionId;
-
             /// <summary>
             /// 数据包使用的不可靠传输语义。
             /// </summary>
             public TransportDelivery Delivery;
-
             /// <summary>
             /// 从调用方缓冲区复制的数据包内容，避免延迟期间原缓冲区被复用。
             /// </summary>
             public byte[] Payload;
-
             /// <summary>
             /// 使用调用方单调时钟表示的计划释放时间，单位为秒。
             /// </summary>
             public double ReleaseTimeSeconds;
-
             /// <summary>
             /// 数据包进入模拟队列的顺序，用于相同释放时间下保持稳定排序。
             /// </summary>
@@ -41,50 +37,40 @@ namespace AFPS.NetCode.Transport.Simulation
         /// 最终执行真实连接、收发和事件轮询的内部传输实例。
         /// </summary>
         private readonly IGameTransport innerTransport;
-
         /// <summary>
         /// 当前传输生命周期使用的只读网络劣化参数。
         /// </summary>
         private readonly NetworkImpairmentConfig config;
-
         /// <summary>
         /// 返回当前单调时间的函数，生产环境使用 Unity 实时时钟，测试使用手动时钟。
         /// </summary>
         private readonly Func<double> timeProvider;
-
         /// <summary>
         /// 已被上层接受、尚未到达计划释放时间的不可靠数据包。
         /// </summary>
         private readonly List<ScheduledPacket> scheduledPackets = new List<ScheduledPacket>();
-
         /// <summary>
         /// 当前生命周期用于丢包、抖动和乱序决策的可复现随机序列。
         /// </summary>
         private DeterministicRandom random;
-
         /// <summary>
         /// 下一个排队数据包获得的稳定次序，在释放时间相同时用于确定先后关系。
         /// </summary>
         private ulong nextEnqueueOrder;
-
         public bool IsRunning => innerTransport.IsRunning;
         public TransportRole Role => innerTransport.Role;
-
         /// <summary>
         /// 当前仍在等待计划释放时间的数据包数量。
         /// </summary>
         public int QueuedPacketCount => scheduledPackets.Count;
-
         /// <summary>
         /// 模拟器按配置主动丢弃的不可靠数据包累计数量。
         /// </summary>
         public ulong DroppedPacketCount { get; private set; }
-
         /// <summary>
         /// 到达计划时间并成功交给内部传输的数据包累计数量。
         /// </summary>
         public ulong ReleasedPacketCount { get; private set; }
-
         /// <summary>
         /// 到达计划时间后被内部传输拒绝的数据包累计数量。
         /// </summary>
@@ -99,9 +85,7 @@ namespace AFPS.NetCode.Transport.Simulation
         }
 
         public bool TryStartServer(ushort port, int maxConnections, out string error) => innerTransport.TryStartServer(port, maxConnections, out error);
-
         public bool TryStartClient(string address, ushort port, out string error) => innerTransport.TryStartClient(address, port, out error);
-
         public void Pump()
         {
             FlushDuePackets();
@@ -109,7 +93,6 @@ namespace AFPS.NetCode.Transport.Simulation
         }
 
         public bool TryPollEvent(ArraySegment<byte> receiveBuffer, out GameTransportEvent transportEvent) => innerTransport.TryPollEvent(receiveBuffer, out transportEvent);
-
         public TransportSendResult Send(TransportConnectionId connectionId, TransportDelivery delivery, ArraySegment<byte> payload)
         {
             if (delivery == TransportDelivery.ReliableSequenced)
@@ -153,7 +136,6 @@ namespace AFPS.NetCode.Transport.Simulation
                 ReleaseTimeSeconds = timeProvider() + delay,
                 EnqueueOrder = nextEnqueueOrder++
             };
-
             int previousPacketIndex = FindPreviousReorderCandidate(packet);
             if (previousPacketIndex >= 0 && random.NextUnitDouble() < config.ReorderProbability)
             {

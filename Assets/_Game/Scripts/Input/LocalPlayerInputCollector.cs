@@ -11,30 +11,29 @@ namespace AFPS.Input
     [DefaultExecutionOrder(-100)]
     public sealed class LocalPlayerInputCollector : MonoBehaviour
     {
-        [SerializeField, Min(0f)] private float mouseSensitivity = 0.08f;
-        [SerializeField, Min(0f)] private float gamepadLookSpeed = 180f;
-        [SerializeField, Range(0f, 0.95f)] private float gamepadDeadZone = 0.15f;
-        [SerializeField] private bool invertVerticalLook;
-        [SerializeField] private bool lockCursor = true;
-        [SerializeField, Range(1f, 89.9f)] private float maximumPitch = 89f;
-
+        [SerializeField, Min(0f)]
+        private float mouseSensitivity = 0.08f;
+        [SerializeField, Min(0f)]
+        private float gamepadLookSpeed = 180f;
+        [SerializeField, Range(0f, 0.95f)]
+        private float gamepadDeadZone = 0.15f;
+        [SerializeField]
+        private bool invertVerticalLook;
+        [SerializeField]
+        private bool lockCursor = true;
+        [SerializeField, Range(1f, 89.9f)]
+        private float maximumPitch = 89f;
         /// <summary>最近渲染帧采集到的本地水平移动输入，范围为 -1 到 1。</summary>
         private float moveX;
-
         /// <summary>最近渲染帧采集到的本地前后移动输入，范围为 -1 到 1。</summary>
         private float moveY;
-
         /// <summary>尚未被模拟 Tick 消费的跳跃按下事件。</summary>
         private bool jumpPressedSinceLastTick;
-
         private bool firePressedSinceLastTick;
         private uint nextShotSequence = 1;
-
         private bool automationEnabled;
-
         /// <summary>本地玩家当前未量化的水平观察角，供相机立即显示。</summary>
         public float LookYaw { get; private set; }
-
         /// <summary>本地玩家当前未量化的垂直观察角，供相机立即显示。</summary>
         public float LookPitch { get; private set; }
 
@@ -64,7 +63,6 @@ namespace AFPS.Input
             Vector2 movement = gamepadMove.sqrMagnitude > keyboardMove.sqrMagnitude ? gamepadMove : keyboardMove;
             moveX = movement.x;
             moveY = movement.y;
-
             Vector2 lookDelta = Vector2.zero;
             if (Mouse.current != null)
             {
@@ -79,11 +77,9 @@ namespace AFPS.Input
             LookYaw = NormalizeYaw(LookYaw + lookDelta.x);
             float verticalDelta = invertVerticalLook ? lookDelta.y : -lookDelta.y;
             LookPitch = Mathf.Clamp(LookPitch + verticalDelta, -maximumPitch, maximumPitch);
-
             bool keyboardJump = Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
             bool gamepadJump = Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame;
             jumpPressedSinceLastTick |= keyboardJump || gamepadJump;
-
             bool mouseFire = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
             bool gamepadFire = Gamepad.current != null && Gamepad.current.rightTrigger.wasPressedThisFrame;
             firePressedSinceLastTick |= mouseFire || gamepadFire;
@@ -100,7 +96,7 @@ namespace AFPS.Input
 
         /// <summary>
         /// Supplies deterministic input for standalone smoke tests. Normal device polling is
-        /// suspended until <see cref="ClearAutomationInput"/> is called.
+        /// suspended until <see cref = "ClearAutomationInput"/> is called.
         /// </summary>
         public void SetAutomationInput(float horizontal, float vertical, float yaw, float pitch, bool jumpPressed, bool firePressed = false)
         {
@@ -140,7 +136,6 @@ namespace AFPS.Input
                 FirePressed = firePressed,
                 ShotSequence = firePressed ? AllocateShotSequence() : 0u
             };
-
             jumpPressedSinceLastTick = false;
             firePressedSinceLastTick = false;
             return command;

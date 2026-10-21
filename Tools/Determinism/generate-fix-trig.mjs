@@ -7,20 +7,26 @@ const quarter = [];
 for (let i = 0; i <= 1024; i++) {
     const x = pi * BigInt(i) / 2048n;
     const squared = x * x / scale;
-    let term = x, sum = x;
+    let term = x;
+    let sum = x;
     for (let k = 1n; k < 20n; k++) {
-        term = -term * squared / (scale * (2n*k) * (2n*k+1n));
+        term = -term * squared / (scale * (2n * k) * (2n * k + 1n));
         sum += term;
     }
-    quarter.push(Number((sum * 65536n + scale/2n) / scale));
+    // 正半轴取最近 Raw，恰好半格向上；其他象限通过对称性生成，避免平台三角函数差异。
+    quarter.push(Number((sum * 65536n + scale / 2n) / scale));
 }
 const table = [];
 for (let i = 0; i < 4096; i++) {
-    const quadrant = i >> 10, offset = i & 1023;
-    const value = quarter[(quadrant & 1) === 0 ? offset : 1024-offset];
+    const quadrant = i >> 10;
+    const offset = i & 1023;
+    const value = quarter[(quadrant & 1) === 0 ? offset : 1024 - offset];
     table.push(quadrant < 2 ? value : -value);
 }
 const rows = [];
-for (let i = 0; i < table.length; i += 16) rows.push('            '+table.slice(i,i+16).join(', ')+',');
+// 生成数据按每行 16 项排列；这类常量表不按执行语句逐项换行。
+for (let i = 0; i < table.length; i += 16) {
+    rows.push('            ' + table.slice(i, i + 16).join(', ') + ',');
+}
 const output = '// 自动生成：Tools/Determinism/generate-fix-trig.mjs；请勿手改。\nnamespace AFPS.Math\n{\n    public static partial class FixTrig\n    {\n        private static readonly int[] SinTableRaw =\n        {\n'+rows.join('\n')+'\n        };\n    }\n}\n';
-await writeFile(new URL('../../Assets/_Game/Scripts/Math/FixTrig.Table.cs', import.meta.url),output,'utf8');
+await writeFile(new URL('../../Assets/_Game/Scripts/Math/FixTrig.Table.cs', import.meta.url), output, 'utf8');

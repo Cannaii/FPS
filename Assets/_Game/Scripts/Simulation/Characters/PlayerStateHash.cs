@@ -7,16 +7,25 @@ namespace AFPS.Simulation.Characters
         {
             ulong hash = 14695981039346656037UL;
             Add(ref hash, unchecked((int)state.Tick));
-            Add(ref hash, state.PositionFixed.X.Raw); Add(ref hash, state.PositionFixed.Y.Raw); Add(ref hash, state.PositionFixed.Z.Raw);
-            Add(ref hash, state.VelocityFixed.X.Raw); Add(ref hash, state.VelocityFixed.Y.Raw); Add(ref hash, state.VelocityFixed.Z.Raw);
-            Add(ref hash, state.YawFixedDegrees.Raw); Add(ref hash, state.PitchFixedDegrees.Raw);
+            Add(ref hash, state.PositionFixed.X.Raw);
+            Add(ref hash, state.PositionFixed.Y.Raw);
+            Add(ref hash, state.PositionFixed.Z.Raw);
+            Add(ref hash, state.VelocityFixed.X.Raw);
+            Add(ref hash, state.VelocityFixed.Y.Raw);
+            Add(ref hash, state.VelocityFixed.Z.Raw);
+            Add(ref hash, state.YawFixedDegrees.Raw);
+            Add(ref hash, state.PitchFixedDegrees.Raw);
             Add(ref hash, state.IsGrounded ? 1 : 0);
             return hash;
         }
+
         private static void Add(ref ulong hash, int raw)
         {
             uint bits = unchecked((uint)raw);
-            for (int shift = 0; shift < 32; shift += 8) hash = unchecked((hash ^ ((bits >> shift) & 255u)) * 1099511628211UL);
+            for (int shift = 0; shift < 32; shift += 8)
+            {
+                hash = unchecked((hash ^ ((bits >> shift) & 255u)) * 1099511628211UL);
+            }
         }
     }
 }

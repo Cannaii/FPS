@@ -6,12 +6,22 @@ namespace AFPS.Simulation.Characters.Collision
     public interface IFixedCharacterCollisionWorld
     {
         /// <summary>direction 由运动求解器归一化；后端保留该方向 Raw，距离必须对应同一条射线。</summary>
-        bool CapsuleCast(FixVec3 feetPosition, FixVec3 direction, Fix distance, in CharacterCollisionConfig config, out FixedCharacterCollisionHit hit);
+        bool CapsuleCast(
+            FixVec3 feetPosition,
+            FixVec3 direction,
+            Fix distance,
+            in CharacterCollisionConfig config,
+            out FixedCharacterCollisionHit hit);
     }
+
     public readonly struct FixedCharacterCollisionHit
     {
         public readonly Fix Distance;
         public readonly FixVec3 Normal;
-        public FixedCharacterCollisionHit(Fix distance, FixVec3 normal) { Distance = distance; Normal = normal; }
+        public FixedCharacterCollisionHit(Fix distance, FixVec3 normal)
+        {
+            Distance = distance;
+            Normal = normal;
+        }
     }
 }

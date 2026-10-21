@@ -17,11 +17,17 @@ namespace AFPS.NetCode.Messages
         public const int PayloadSize = 31;
         public const int PacketSize = PacketHeader.Size + PayloadSize;
         private const byte TeleportMask = 1 << 0;
-
         public static bool TrySerialize(in RemotePlayerSnapshot snapshot, uint sequence, ArraySegment<byte> destination, out int bytesWritten)
         {
             bytesWritten = 0;
-            if (snapshot.EntityId == 0 || destination.Count < PacketSize || !TryQuantizePosition(snapshot.Position.x, out int px) || !TryQuantizePosition(snapshot.Position.y, out int py) || !TryQuantizePosition(snapshot.Position.z, out int pz) || !TryQuantizeVelocity(snapshot.Velocity.x, out short vx) || !TryQuantizeVelocity(snapshot.Velocity.y, out short vy) || !TryQuantizeVelocity(snapshot.Velocity.z, out short vz))
+            if (snapshot.EntityId == 0
+                || destination.Count < PacketSize
+                || !TryQuantizePosition(snapshot.Position.x, out int px)
+                || !TryQuantizePosition(snapshot.Position.y, out int py)
+                || !TryQuantizePosition(snapshot.Position.z, out int pz)
+                || !TryQuantizeVelocity(snapshot.Velocity.x, out short vx)
+                || !TryQuantizeVelocity(snapshot.Velocity.y, out short vy)
+                || !TryQuantizeVelocity(snapshot.Velocity.z, out short vz))
             {
                 return false;
             }
@@ -38,7 +44,17 @@ namespace AFPS.NetCode.Messages
 
             PacketBufferWriter writer = new PacketBufferWriter(new ArraySegment<byte>(destination.Array, destination.Offset + PacketHeader.Size, PayloadSize));
             byte flags = snapshot.IsTeleport ? TeleportMask : (byte)0;
-            bool success = writer.TryWriteUInt32(snapshot.EntityId) && writer.TryWriteUInt32(snapshot.ServerTick) && writer.TryWriteInt32(px) && writer.TryWriteInt32(py) && writer.TryWriteInt32(pz) && writer.TryWriteInt16(vx) && writer.TryWriteInt16(vy) && writer.TryWriteInt16(vz) && writer.TryWriteUInt16(yaw) && writer.TryWriteInt16(pitchValue) && writer.TryWriteByte(flags);
+            bool success = writer.TryWriteUInt32(snapshot.EntityId)
+                && writer.TryWriteUInt32(snapshot.ServerTick)
+                && writer.TryWriteInt32(px)
+                && writer.TryWriteInt32(py)
+                && writer.TryWriteInt32(pz)
+                && writer.TryWriteInt16(vx)
+                && writer.TryWriteInt16(vy)
+                && writer.TryWriteInt16(vz)
+                && writer.TryWriteUInt16(yaw)
+                && writer.TryWriteInt16(pitchValue)
+                && writer.TryWriteByte(flags);
             if (!success)
             {
                 return false;
@@ -58,7 +74,17 @@ namespace AFPS.NetCode.Messages
             }
 
             PacketBufferReader reader = new PacketBufferReader(new ArraySegment<byte>(packet.Array, packet.Offset + PacketHeader.Size, PayloadSize));
-            if (!reader.TryReadUInt32(out uint entityId) || !reader.TryReadUInt32(out uint serverTick) || !reader.TryReadInt32(out int px) || !reader.TryReadInt32(out int py) || !reader.TryReadInt32(out int pz) || !reader.TryReadInt16(out short vx) || !reader.TryReadInt16(out short vy) || !reader.TryReadInt16(out short vz) || !reader.TryReadUInt16(out ushort yaw) || !reader.TryReadInt16(out short pitch) || !reader.TryReadByte(out byte flags))
+            if (!reader.TryReadUInt32(out uint entityId)
+                || !reader.TryReadUInt32(out uint serverTick)
+                || !reader.TryReadInt32(out int px)
+                || !reader.TryReadInt32(out int py)
+                || !reader.TryReadInt32(out int pz)
+                || !reader.TryReadInt16(out short vx)
+                || !reader.TryReadInt16(out short vy)
+                || !reader.TryReadInt16(out short vz)
+                || !reader.TryReadUInt16(out ushort yaw)
+                || !reader.TryReadInt16(out short pitch)
+                || !reader.TryReadByte(out byte flags))
             {
                 return false;
             }
@@ -68,8 +94,14 @@ namespace AFPS.NetCode.Messages
                 return false;
             }
 
-            Vector3 position = new Vector3(px * AuthoritativePlayerStateCodec.PositionResolution, py * AuthoritativePlayerStateCodec.PositionResolution, pz * AuthoritativePlayerStateCodec.PositionResolution);
-            Vector3 velocity = new Vector3(vx * AuthoritativePlayerStateCodec.VelocityResolution, vy * AuthoritativePlayerStateCodec.VelocityResolution, vz * AuthoritativePlayerStateCodec.VelocityResolution);
+            Vector3 position = new Vector3(
+                px * AuthoritativePlayerStateCodec.PositionResolution,
+                py * AuthoritativePlayerStateCodec.PositionResolution,
+                pz * AuthoritativePlayerStateCodec.PositionResolution);
+            Vector3 velocity = new Vector3(
+                vx * AuthoritativePlayerStateCodec.VelocityResolution,
+                vy * AuthoritativePlayerStateCodec.VelocityResolution,
+                vz * AuthoritativePlayerStateCodec.VelocityResolution);
             Quaternion rotation = Quaternion.Euler(pitch * AuthoritativePlayerStateCodec.LookAngleResolution, yaw * AuthoritativePlayerStateCodec.LookAngleResolution, 0f);
             snapshot = new RemotePlayerSnapshot(entityId, serverTick, position, rotation, velocity, (flags & TeleportMask) != 0);
             return true;

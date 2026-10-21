@@ -13,7 +13,11 @@ namespace AFPS.Math
         private static Fix Evaluate(Fix radians, int phaseSlots)
         {
             long wrapped = (long)radians.Raw % TwoPi.Raw;
-            if (wrapped < 0) wrapped += TwoPi.Raw;
+            if (wrapped < 0)
+            {
+                wrapped += TwoPi.Raw;
+            }
+
             // 先乘后除必须使用 long；Fix 中间值会在 4096 槽映射时溢出。
             long phase = wrapped * TableSize + (long)phaseSlots * TwoPi.Raw;
             int index = (int)(phase / TwoPi.Raw) % TableSize;

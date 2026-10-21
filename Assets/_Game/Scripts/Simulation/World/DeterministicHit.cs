@@ -15,8 +15,14 @@ namespace AFPS.Simulation.World
         public readonly FixVec3 Normal;
         // 射线内部起点返回 0/零法线；胶囊内部起点返回 0/脱离法线，仅阻止继续深入。
         public readonly bool StartedInside;
-
-        internal DeterministicHit(uint shapeId, int layer, FixedSurface surface, Fix distance, FixVec3 point, FixVec3 normal, bool startedInside = false)
+        internal DeterministicHit(
+            uint shapeId,
+            int layer,
+            FixedSurface surface,
+            Fix distance,
+            FixVec3 point,
+            FixVec3 normal,
+            bool startedInside = false)
         {
             DidHit = true;
             ShapeId = shapeId;

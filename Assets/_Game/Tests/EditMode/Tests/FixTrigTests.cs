@@ -15,10 +15,22 @@ namespace AFPS.Tests.EditMode
             Assert.That(FixTrig.Sin(Fix.FromRaw(angle)).Raw, Is.EqualTo(sine));
             Assert.That(FixTrig.Cos(Fix.FromRaw(angle)).Raw, Is.EqualTo(cosine));
         }
+
         [Test]
         public void PeriodicAndExtremeInputs_RemainBounded()
         {
-            foreach (int raw in new[] { int.MinValue, -1000000, -1, 0, 1, 1000000, int.MaxValue })
+            foreach (int raw in new[]
+            {
+                int.MinValue,
+                -1000000,
+                -1,
+                0,
+                1,
+                1000000,
+                int.MaxValue
+            }
+
+            )
             {
                 Fix angle = Fix.FromRaw(raw);
                 Assert.That(FixTrig.Sin(angle).Raw, Is.InRange(-65536, 65536));
@@ -27,6 +39,7 @@ namespace AFPS.Tests.EditMode
                 Assert.That(FixTrig.Sin(angle), Is.EqualTo(FixTrig.Sin(Fix.FromRaw(wrapped))));
                 Assert.That(FixTrig.Cos(angle), Is.EqualTo(FixTrig.Cos(Fix.FromRaw(wrapped))));
             }
+
             for (int raw = 0; raw < FixTrig.TwoPi.Raw; raw += 97)
             {
                 Fix a = Fix.FromRaw(raw);
@@ -35,6 +48,7 @@ namespace AFPS.Tests.EditMode
                 Assert.That(FixTrig.Cos(-a), Is.EqualTo(FixTrig.Cos(a)));
             }
         }
+
         [Test]
         public void FullCycle_MatchesReferenceWithinFourRawUnits()
         {

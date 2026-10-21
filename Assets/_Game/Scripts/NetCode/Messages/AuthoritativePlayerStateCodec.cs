@@ -9,6 +9,7 @@ namespace AFPS.NetCode.Messages
     /// <summary>权威状态 v3：位置/速度无损 Raw，观察角沿用无损可逆的百分度网格。</summary>
     public static class AuthoritativePlayerStateCodec
     {
+        // 字节布局：服务器/输入 Tick 各 4B，位置/速度各 12B，Yaw/Pitch 各 2B，状态位 1B。
         public const int PayloadSize = 37;
         public const int PacketSize = PacketHeader.Size + PayloadSize;
         // 以下分辨率暂供旧远端 Snapshot 使用，权威状态不再按这些常量量化。
@@ -20,37 +21,94 @@ namespace AFPS.NetCode.Messages
         public const float RecommendedPositionErrorThreshold = 0f;
         public const float RecommendedVelocityErrorThreshold = 0f;
         private const byte GroundedMask = 1;
-
         public static bool TrySerialize(in AuthoritativePlayerState authoritative, uint sequence, ArraySegment<byte> destination, out int bytesWritten)
         {
             bytesWritten = 0;
             PlayerState state = authoritative.State;
-            if (destination.Count < PacketSize || state.Tick != authoritative.LastProcessedInputTick) return false;
+            if (destination.Count < PacketSize || state.Tick != authoritative.LastProcessedInputTick)
+            {
+                return false;
+            }
+
+            // 观察角必须已处于输入网格，禁止在权威发送时再次量化后悄悄丢失状态精度。
             ushort yaw = InputAngleGrid.YawFromFix(state.YawFixedDegrees);
             short pitch = InputAngleGrid.PitchFromFix(state.PitchFixedDegrees);
-            if (InputAngleGrid.YawToFix(yaw) != state.YawFixedDegrees || InputAngleGrid.PitchToFix(pitch) != state.PitchFixedDegrees) return false;
-            if (!PacketHeaderCodec.TryWrite(new PacketHeader(NetworkMessageType.AuthoritativePlayerState, PayloadSize, sequence), destination)) return false;
+            if (InputAngleGrid.YawToFix(yaw) != state.YawFixedDegrees || InputAngleGrid.PitchToFix(pitch) != state.PitchFixedDegrees)
+            {
+                return false;
+            }
+
+            if (!PacketHeaderCodec.TryWrite(new PacketHeader(NetworkMessageType.AuthoritativePlayerState, PayloadSize, sequence), destination))
+            {
+                return false;
+            }
+
             var writer = new PacketBufferWriter(new ArraySegment<byte>(destination.Array, destination.Offset + PacketHeader.Size, PayloadSize));
-            if (!writer.TryWriteUInt32(authoritative.ServerTick) || !writer.TryWriteUInt32(authoritative.LastProcessedInputTick) || !WriteVector(ref writer, state.PositionFixed) || !WriteVector(ref writer, state.VelocityFixed) || !writer.TryWriteUInt16(yaw) || !writer.TryWriteInt16(pitch) || !writer.TryWriteByte(state.IsGrounded ? GroundedMask : (byte)0)) return false;
+            if (!writer.TryWriteUInt32(authoritative.ServerTick)
+                || !writer.TryWriteUInt32(authoritative.LastProcessedInputTick)
+                || !WriteVector(ref writer, state.PositionFixed)
+                || !WriteVector(ref writer, state.VelocityFixed)
+                || !writer.TryWriteUInt16(yaw)
+                || !writer.TryWriteInt16(pitch)
+                || !writer.TryWriteByte(state.IsGrounded ? GroundedMask : (byte)0))
+            {
+                return false;
+            }
+
             bytesWritten = PacketHeader.Size + writer.BytesWritten;
             return true;
         }
+
         public static bool TryDeserialize(ArraySegment<byte> packet, out PacketHeader header, out AuthoritativePlayerState authoritative)
         {
-            header = default; authoritative = default;
-            if (!PacketHeaderCodec.TryRead(packet, out header) || header.MessageType != NetworkMessageType.AuthoritativePlayerState || header.PayloadLength != PayloadSize) return false;
+            header = default;
+            authoritative = default;
+            if (!PacketHeaderCodec.TryRead(packet, out header)
+                || header.MessageType != NetworkMessageType.AuthoritativePlayerState
+                || header.PayloadLength != PayloadSize)
+            {
+                return false;
+            }
+
             var reader = new PacketBufferReader(new ArraySegment<byte>(packet.Array, packet.Offset + PacketHeader.Size, PayloadSize));
-            if (!reader.TryReadUInt32(out uint serverTick) || !reader.TryReadUInt32(out uint inputTick) || !ReadVector(ref reader, out FixVec3 position) || !ReadVector(ref reader, out FixVec3 velocity) || !reader.TryReadUInt16(out ushort yaw) || !reader.TryReadInt16(out short pitch) || !reader.TryReadByte(out byte flags)) return false;
-            if (reader.BytesRemaining != 0 || (flags & ~GroundedMask) != 0 || !InputAngleGrid.IsValid(yaw, pitch)) return false;
-            var state = new PlayerState { Tick = inputTick, PositionFixed = position, VelocityFixed = velocity, YawFixedDegrees = InputAngleGrid.YawToFix(yaw), PitchFixedDegrees = InputAngleGrid.PitchToFix(pitch), IsGrounded = (flags & GroundedMask) != 0 };
+            if (!reader.TryReadUInt32(out uint serverTick)
+                || !reader.TryReadUInt32(out uint inputTick)
+                || !ReadVector(ref reader, out FixVec3 position)
+                || !ReadVector(ref reader, out FixVec3 velocity)
+                || !reader.TryReadUInt16(out ushort yaw)
+                || !reader.TryReadInt16(out short pitch)
+                || !reader.TryReadByte(out byte flags))
+            {
+                return false;
+            }
+
+            if (reader.BytesRemaining != 0 || (flags & ~GroundedMask) != 0 || !InputAngleGrid.IsValid(yaw, pitch))
+            {
+                return false;
+            }
+
+            var state = new PlayerState
+            {
+                Tick = inputTick,
+                PositionFixed = position,
+                VelocityFixed = velocity,
+                YawFixedDegrees = InputAngleGrid.YawToFix(yaw),
+                PitchFixedDegrees = InputAngleGrid.PitchToFix(pitch),
+                IsGrounded = (flags & GroundedMask) != 0
+            };
             authoritative = new AuthoritativePlayerState(serverTick, inputTick, state);
             return true;
         }
+
         private static bool WriteVector(ref PacketBufferWriter writer, in FixVec3 value) => writer.TryWriteInt32(value.X.Raw) && writer.TryWriteInt32(value.Y.Raw) && writer.TryWriteInt32(value.Z.Raw);
         private static bool ReadVector(ref PacketBufferReader reader, out FixVec3 value)
         {
             value = default;
-            if (!reader.TryReadInt32(out int x) || !reader.TryReadInt32(out int y) || !reader.TryReadInt32(out int z)) return false;
+            if (!reader.TryReadInt32(out int x) || !reader.TryReadInt32(out int y) || !reader.TryReadInt32(out int z))
+            {
+                return false;
+            }
+
             value = new FixVec3(Fix.FromRaw(x), Fix.FromRaw(y), Fix.FromRaw(z));
             return true;
         }

@@ -20,7 +20,6 @@ namespace AFPS.NetCode.Simulation
         {
             public readonly uint DeliveryTick;
             public readonly PlayerInputCommand Command;
-
             public ScheduledInput(uint deliveryTick, in PlayerInputCommand command)
             {
                 DeliveryTick = deliveryTick;
@@ -35,7 +34,6 @@ namespace AFPS.NetCode.Simulation
         {
             public readonly uint DeliveryTick;
             public readonly AuthoritativePlayerState State;
-
             public ScheduledState(uint deliveryTick, in AuthoritativePlayerState state)
             {
                 DeliveryTick = deliveryTick;
@@ -51,12 +49,10 @@ namespace AFPS.NetCode.Simulation
         private readonly uint stateDelayTicks;
         private readonly IFixedCharacterCollisionWorld collisionWorld;
         private PlayerState currentState;
-
         /// <summary>
         /// 获取服务器当前已经推进完成的世界 Tick。
         /// </summary>
         public uint ServerWorldTick { get; private set; }
-
         /// <summary>
         /// 获取服务器当前持有的玩家权威状态。
         /// </summary>
@@ -76,7 +72,8 @@ namespace AFPS.NetCode.Simulation
             float tickDeltaTime,
             int inputDelayTicks,
             int stateDelayTicks,
-            ICharacterCollisionWorld collisionWorld = null, IFixedCharacterCollisionWorld fixedCollisionWorld = null)
+            ICharacterCollisionWorld collisionWorld = null,
+            IFixedCharacterCollisionWorld fixedCollisionWorld = null)
         {
             if (tickDeltaTime <= 0f || float.IsNaN(tickDeltaTime) || float.IsInfinity(tickDeltaTime))
             {
@@ -98,7 +95,11 @@ namespace AFPS.NetCode.Simulation
             this.tickDeltaTime = SimulationStep.FromSeconds(tickDeltaTime);
             this.inputDelayTicks = (uint)inputDelayTicks;
             this.stateDelayTicks = (uint)stateDelayTicks;
-            if (collisionWorld != null && fixedCollisionWorld != null) throw new ArgumentException("只能指定一种碰撞后端。", nameof(fixedCollisionWorld));
+            if (collisionWorld != null && fixedCollisionWorld != null)
+            {
+                throw new ArgumentException("只能指定一种碰撞后端。", nameof(fixedCollisionWorld));
+            }
+
             this.collisionWorld = fixedCollisionWorld ?? LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
         }
 
@@ -121,17 +122,11 @@ namespace AFPS.NetCode.Simulation
         public void Advance(uint networkTick)
         {
             ServerWorldTick++;
-
             while (pendingInputs.Count > 0 && IsDue(pendingInputs.Peek().DeliveryTick, networkTick))
             {
                 ScheduledInput scheduledInput = pendingInputs.Dequeue();
                 currentState = PlayerSimulation.Simulate(currentState, scheduledInput.Command, simulationConfig, tickDeltaTime, collisionWorld);
-
-                AuthoritativePlayerState authoritativeState = new AuthoritativePlayerState(
-                    ServerWorldTick,
-                    scheduledInput.Command.Tick,
-                    currentState);
-
+                AuthoritativePlayerState authoritativeState = new AuthoritativePlayerState(ServerWorldTick, scheduledInput.Command.Tick, currentState);
                 uint deliveryTick = unchecked(networkTick + stateDelayTicks);
                 pendingStates.Enqueue(new ScheduledState(deliveryTick, authoritativeState));
             }

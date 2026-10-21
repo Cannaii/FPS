@@ -186,7 +186,11 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void World_OwnsGeometryAndSnapshotAndCanonicalizesInputOrder()
         {
-            var input = new[] { Box(20), Box(10) };
+            var input = new[]
+            {
+                Box(20),
+                Box(10)
+            };
             var world = new FixedWorld(input, new[] { Ground(5) });
             byte[] snapshot = world.CreateSnapshot();
             input[1] = Box(99);
@@ -232,12 +236,20 @@ namespace AFPS.Tests.EditMode
         public void Snapshot_LayoutAndContentHashHaveGoldenValues()
         {
             var world = new FixedWorld(new[] { Box(1) }, new[] { Ground(2) });
-            byte[] golden = {
-                0x41, 0x46, 0x57, 0x31, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
-                1, 0, 0, 0, 0, 0, 0, 0, 31, 0, 0, 0,
-                0, 0, 2, 0, 0, 0, 255, 255, 0, 0, 255, 255,
-                0, 0, 4, 0, 0, 0, 1, 0, 0, 0, 1, 0,
-                2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0
+            byte[] golden =
+            {
+                0x41, 0x46, 0x57, 0x31, 1, 0,
+                0, 0, 1, 0, 0, 0,
+                1, 0, 0, 0, 1, 0,
+                0, 0, 0, 0, 0, 0,
+                31, 0, 0, 0, 0, 0,
+                2, 0, 0, 0, 255, 255,
+                0, 0, 255, 255, 0, 0,
+                4, 0, 0, 0, 1, 0,
+                0, 0, 1, 0, 2, 0,
+                0, 0, 0, 0, 0, 0,
+                3, 0, 0, 0, 1, 1,
+                0, 0, 0, 0, 0, 0
             };
             CollectionAssert.AreEqual(golden, world.CreateSnapshot());
             Assert.That(world.VersionHash, Is.EqualTo(393673060225373904UL));
@@ -265,7 +277,11 @@ namespace AFPS.Tests.EditMode
         {
             byte[] bytes = new FixedWorld(new[] { Box(1) }, new[] { Ground(2) }).CreateSnapshot();
             Assert.That(FixedWorldCodec.TryDeserialize(default, out _, out _), Is.False);
-            for (int length = 0; length < bytes.Length; length++) Assert.That(FixedWorldCodec.TryDeserialize(new ArraySegment<byte>(bytes, 0, length), out _, out _), Is.False);
+            for (int length = 0; length < bytes.Length; length++)
+            {
+                Assert.That(FixedWorldCodec.TryDeserialize(new ArraySegment<byte>(bytes, 0, length), out _, out _), Is.False);
+            }
+
             byte[] extra = new byte[bytes.Length + 1];
             Array.Copy(bytes, extra, bytes.Length);
             Assert.That(FixedWorldCodec.TryDeserialize(new ArraySegment<byte>(extra), out _, out _), Is.False);
@@ -308,7 +324,9 @@ namespace AFPS.Tests.EditMode
                 byte[] damaged = (byte[])original.Clone();
                 damaged[random.NextInt(0, damaged.Length)] = (byte)random.NextInt(0, 256);
                 if (FixedWorldCodec.TryDeserialize(new ArraySegment<byte>(damaged), out FixedWorld world, out FixedWorldReadError error))
+                {
                     CollectionAssert.AreEqual(damaged, world.CreateSnapshot());
+                }
                 else
                 {
                     Assert.That(error, Is.Not.EqualTo(FixedWorldReadError.None));
@@ -329,7 +347,11 @@ namespace AFPS.Tests.EditMode
                 FixVec3 origin = V(random.NextInt(-30, 30), random.NextInt(-30, 30), random.NextInt(-30, 30));
                 FixVec3 direction = V(random.NextInt(-10, 11), random.NextInt(-10, 11), random.NextInt(-10, 11));
                 // 一半随机方向，一半瞄准箱体中心，避免参考比较退化为几乎全是 miss。
-                if ((i & 1) == 0) direction = (min + max) * Fix.Half - origin;
+                if ((i & 1) == 0)
+                {
+                    direction = (min + max) * Fix.Half - origin;
+                }
+
                 var bounds = new FixedAabb(min, max);
                 var world = new FixedWorld(new[] { new FixedWorldBox(1, 0, FixedSurface.Solid, bounds) });
                 bool expected = ReferenceRay(bounds, origin, direction.Normalized(), out int distance);
@@ -341,28 +363,73 @@ namespace AFPS.Tests.EditMode
                     Assert.That(hit.Distance.Raw, Is.EqualTo(distance), "distance " + i);
                 }
             }
+
             Assert.That(hits, Is.GreaterThan(500));
         }
 
         private static bool ReferenceRay(FixedAabb box, FixVec3 origin, FixVec3 direction, out int distance)
         {
             distance = 0;
-            if (direction == FixVec3.Zero) return false;
-            decimal enter = decimal.MinValue, exit = 100m * 65536m;
+            if (direction == FixVec3.Zero)
+            {
+                return false;
+            }
+
+            decimal enter = decimal.MinValue,
+                exit = 100m * 65536m;
             bool inside = true;
-            int[] low = { box.Min.X.Raw, box.Min.Y.Raw, box.Min.Z.Raw }, high = { box.Max.X.Raw, box.Max.Y.Raw, box.Max.Z.Raw };
-            int[] start = { origin.X.Raw, origin.Y.Raw, origin.Z.Raw }, unit = { direction.X.Raw, direction.Y.Raw, direction.Z.Raw };
+            int[] low =
+            {
+                box.Min.X.Raw,
+                box.Min.Y.Raw,
+                box.Min.Z.Raw
+            },
+                high =
+            {
+                box.Max.X.Raw,
+                box.Max.Y.Raw,
+                box.Max.Z.Raw
+            };
+            int[] start =
+            {
+                origin.X.Raw,
+                origin.Y.Raw,
+                origin.Z.Raw
+            },
+                unit =
+            {
+                direction.X.Raw,
+                direction.Y.Raw,
+                direction.Z.Raw
+            };
             for (int axis = 0; axis < 3; axis++)
             {
                 inside &= start[axis] > low[axis] && start[axis] < high[axis];
-                if (unit[axis] == 0) { if (start[axis] < low[axis] || start[axis] > high[axis]) return false; continue; }
+                if (unit[axis] == 0)
+                {
+                    if (start[axis] < low[axis] || start[axis] > high[axis])
+                    {
+                        return false;
+                    }
+
+                    continue;
+                }
+
                 decimal a = ((decimal)low[axis] - start[axis]) * 65536m / unit[axis];
                 decimal b = ((decimal)high[axis] - start[axis]) * 65536m / unit[axis];
                 enter = System.Math.Max(enter, System.Math.Min(a, b));
                 exit = System.Math.Min(exit, System.Math.Max(a, b));
-                if (enter > exit) return false;
+                if (enter > exit)
+                {
+                    return false;
+                }
             }
-            if (exit < 0 || (enter < 0 && !inside)) return false;
+
+            if (exit < 0 || (enter < 0 && !inside))
+            {
+                return false;
+            }
+
             distance = (int)decimal.Floor(System.Math.Max(0m, enter));
             return true;
         }

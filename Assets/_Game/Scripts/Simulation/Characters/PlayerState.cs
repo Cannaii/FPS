@@ -11,6 +11,12 @@ namespace AFPS.Simulation.Characters
         public Fix YawFixedDegrees;
         public Fix PitchFixedDegrees;
         public bool IsGrounded;
-        public bool RawEquals(in PlayerState other) => Tick == other.Tick && PositionFixed == other.PositionFixed && VelocityFixed == other.VelocityFixed && YawFixedDegrees == other.YawFixedDegrees && PitchFixedDegrees == other.PitchFixedDegrees && IsGrounded == other.IsGrounded;
+        public bool RawEquals(in PlayerState other) =>
+            Tick == other.Tick
+            && PositionFixed == other.PositionFixed
+            && VelocityFixed == other.VelocityFixed
+            && YawFixedDegrees == other.YawFixedDegrees
+            && PitchFixedDegrees == other.PitchFixedDegrees
+            && IsGrounded == other.IsGrounded;
     }
 }

@@ -12,7 +12,23 @@ namespace AFPS.Simulation.Characters.Collision
         public float MaxSlopeAngle => MaxSlopeAngleFixedDegrees.ToFloat();
         public float MinimumMoveDistance => MinimumMoveDistanceFixed.ToFloat();
         public float MinimumGroundNormalY => MinimumGroundNormalYFixed.ToFloat();
-        public CharacterCollisionConfig(float radius, float height, float skinWidth, float groundProbeDistance, float stepHeight, float maxSlopeAngle, int maxSlideIterations)
-            : this(Fix.FromFloat(radius), Fix.FromFloat(height), Fix.FromFloat(skinWidth), Fix.FromFloat(groundProbeDistance), Fix.FromFloat(stepHeight), Fix.FromFloat(maxSlopeAngle), maxSlideIterations) { }
+
+        public CharacterCollisionConfig(
+            float radius,
+            float height,
+            float skinWidth,
+            float groundProbeDistance,
+            float stepHeight,
+            float maxSlopeAngle,
+            int maxSlideIterations) : this(
+            Fix.FromFloat(radius),
+            Fix.FromFloat(height),
+            Fix.FromFloat(skinWidth),
+            Fix.FromFloat(groundProbeDistance),
+            Fix.FromFloat(stepHeight),
+            Fix.FromFloat(maxSlopeAngle),
+            maxSlideIterations)
+        {
+        }
     }
 }

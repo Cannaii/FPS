@@ -20,87 +20,127 @@ namespace AFPS.Tests.EditMode
     {
         private const ushort TestPort = 47993;
         private const int PumpLimit = 1000;
-
-        [TestCase(false,false)]
-        [TestCase(true,false)]
-        [TestCase(true,true)]
-        public void ClientAheadOfServer_CorrectsAcknowledgedTickAndReplaysToCurrentTickThroughUdp(bool useFixedWorld,bool triangleGeometry)
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        public void ClientAheadOfServer_CorrectsAcknowledgedTickAndReplaysToCurrentTickThroughUdp(bool useFixedWorld, bool triangleGeometry)
         {
             using (var serverTransport = new UnityGameTransport())
-            using (var clientTransport = new UnityGameTransport())
             {
-                Assert.That(serverTransport.TryStartServer(TestPort, 2, out string serverError), Is.True, serverError);
-                Assert.That(clientTransport.TryStartClient("127.0.0.1", TestPort, out string clientError), Is.True, clientError);
-                byte[] serverReceiveBuffer = new byte[256];
-                byte[] clientReceiveBuffer = new byte[256];
-                TransportConnectionId serverConnection = default;
-                TransportConnectionId clientConnection = default;
-                PumpUntil(serverTransport, clientTransport, () =>
+                using (var clientTransport = new UnityGameTransport())
                 {
-                    DrainConnected(serverTransport, serverReceiveBuffer, ref serverConnection);
-                    DrainConnected(clientTransport, clientReceiveBuffer, ref clientConnection);
-                    return serverConnection.IsValid && clientConnection.IsValid;
-                });
+                    Assert.That(serverTransport.TryStartServer(TestPort, 2, out string serverError), Is.True, serverError);
+                    Assert.That(clientTransport.TryStartClient("127.0.0.1", TestPort, out string clientError), Is.True, clientError);
+                    byte[] serverReceiveBuffer = new byte[256];
+                    byte[] clientReceiveBuffer = new byte[256];
+                    TransportConnectionId serverConnection = default;
+                    TransportConnectionId clientConnection = default;
+                    PumpUntil(
+                        serverTransport,
+                        clientTransport,
+                        () =>
+                    {
+                        DrainConnected(serverTransport, serverReceiveBuffer, ref serverConnection);
+                        DrainConnected(clientTransport, clientReceiveBuffer, ref clientConnection);
+                        return serverConnection.IsValid && clientConnection.IsValid;
+                    });
+                    PlayerState initialState = new PlayerState
+                    {
+                        Tick = 0,
+                        Position = Vector3.zero,
+                        Velocity = Vector3.zero,
+                        IsGrounded = true
+                    };
+                    PlayerSimulationConfig clientConfig = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
+                    PlayerSimulationConfig serverConfig = new PlayerSimulationConfig(6f, 10f, 20f, 8f);
+                    Fix wallZ = Fix.FromRaw(34734);
+                    var geometry = triangleGeometry ? new FixedWorld(
+                        null,
+                        null,
+                        new[] { new FixedWorldTriangle(
+                            1,
+                            0,
+                            FixedSurface.Solid,
+                            new FixVec3(Fix.FromInt(-5), Fix.Zero, Fix.FromInt(-5)),
+                            new FixVec3(Fix.Zero, Fix.Zero, Fix.FromInt(5)),
+                            new FixVec3(Fix.FromInt(5), Fix.Zero, Fix.FromInt(-5))), new FixedWorldTriangle(
+                            2,
+                            0,
+                            FixedSurface.Solid,
+                            new FixVec3(Fix.FromInt(-5), Fix.Zero, wallZ),
+                            new FixVec3(Fix.Zero, Fix.FromInt(5), wallZ),
+                            new FixVec3(Fix.FromInt(5), Fix.Zero, wallZ)) }) : new FixedWorld(null, new[] { new FixedWorldPlane(1, 0, FixedSurface.Solid, FixedAxis.Y, Fix.Zero), new FixedWorldPlane(2, 0, FixedSurface.Solid, FixedAxis.Z, wallZ, false) });
+                    var fixedWorld = useFixedWorld ? new FixedCharacterCollisionWorld(geometry) : null;
+                    ClientPredictedMovementSession clientSession = new ClientPredictedMovementSession(
+                        clientTransport,
+                        clientConnection,
+                        initialState,
+                        clientConfig,
+                        0.02f,
+                        64,
+                        3,
+                        AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold,
+                        AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold,
+                        fixedCollisionWorld: fixedWorld);
+                    ServerAuthoritativeMovementSession serverSession = new ServerAuthoritativeMovementSession(serverTransport, serverConnection, initialState, serverConfig, 0.02f, 64, fixedCollisionWorld: fixedWorld);
+                    for (uint tick = 1; tick <= 3; tick++)
+                    {
+                        PlayerInputCommand command = new PlayerInputCommand
+                        {
+                            Tick = tick,
+                            MoveY = 1f
+                        };
+                        clientSession.PredictAndSend(command, out InputBatchSendResult sendResult);
+                        Assert.That(sendResult.Succeeded, Is.True);
+                    }
 
-                PlayerState initialState = new PlayerState { Tick = 0, Position = Vector3.zero, Velocity = Vector3.zero, IsGrounded = true };
-                PlayerSimulationConfig clientConfig = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-                PlayerSimulationConfig serverConfig = new PlayerSimulationConfig(6f, 10f, 20f, 8f);
-                Fix wallZ=Fix.FromRaw(34734);
-                var geometry = triangleGeometry ? new FixedWorld(null,null,new[] {
-                    new FixedWorldTriangle(1,0,FixedSurface.Solid,new FixVec3(Fix.FromInt(-5),Fix.Zero,Fix.FromInt(-5)),new FixVec3(Fix.Zero,Fix.Zero,Fix.FromInt(5)),new FixVec3(Fix.FromInt(5),Fix.Zero,Fix.FromInt(-5))),
-                    new FixedWorldTriangle(2,0,FixedSurface.Solid,new FixVec3(Fix.FromInt(-5),Fix.Zero,wallZ),new FixVec3(Fix.Zero,Fix.FromInt(5),wallZ),new FixVec3(Fix.FromInt(5),Fix.Zero,wallZ)) }) : new FixedWorld(null,new[] {
-                    new FixedWorldPlane(1,0,FixedSurface.Solid,FixedAxis.Y,Fix.Zero),
-                    new FixedWorldPlane(2,0,FixedSurface.Solid,FixedAxis.Z,wallZ,false) });
-                var fixedWorld = useFixedWorld ? new FixedCharacterCollisionWorld(geometry) : null;
-                ClientPredictedMovementSession clientSession = new ClientPredictedMovementSession(clientTransport, clientConnection, initialState, clientConfig, 0.02f, 64, 3, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold, fixedCollisionWorld: fixedWorld);
-                ServerAuthoritativeMovementSession serverSession = new ServerAuthoritativeMovementSession(serverTransport, serverConnection, initialState, serverConfig, 0.02f, 64, fixedCollisionWorld: fixedWorld);
+                    Assert.That(clientSession.CurrentState.Tick, Is.EqualTo(3));
+                    bool serverReceivedInput = false;
+                    PumpUntil(
+                        serverTransport,
+                        clientTransport,
+                        () =>
+                    {
+                        while (serverTransport.TryPollEvent(new ArraySegment<byte>(serverReceiveBuffer), out GameTransportEvent transportEvent))
+                        {
+                            if (transportEvent.Type == TransportEventType.Data)
+                            {
+                                serverReceivedInput |= serverSession.TryReceiveInputPacket(new ArraySegment<byte>(serverReceiveBuffer, 0, transportEvent.PayloadLength), out _);
+                            }
+                        }
 
-                for (uint tick = 1; tick <= 3; tick++)
-                {
-                    PlayerInputCommand command = new PlayerInputCommand { Tick = tick, MoveY = 1f };
-                    clientSession.PredictAndSend(command, out InputBatchSendResult sendResult);
-                    Assert.That(sendResult.Succeeded, Is.True);
+                        return serverReceivedInput;
+                    });
+                    Assert.That(serverSession.TryAdvance(10, out AuthoritativePlayerState sentState, out AuthoritativeStateSendResult stateSendResult), Is.True);
+                    Assert.That(sentState.LastProcessedInputTick, Is.EqualTo(1));
+                    Assert.That(stateSendResult.Succeeded, Is.True);
+                    ReconciliationResult reconciliation = default;
+                    bool clientReceivedState = false;
+                    PumpUntil(
+                        serverTransport,
+                        clientTransport,
+                        () =>
+                    {
+                        while (clientTransport.TryPollEvent(new ArraySegment<byte>(clientReceiveBuffer), out GameTransportEvent transportEvent))
+                        {
+                            if (transportEvent.Type == TransportEventType.Data)
+                            {
+                                clientReceivedState |= clientSession.TryReceiveAuthoritativePacket(new ArraySegment<byte>(clientReceiveBuffer, 0, transportEvent.PayloadLength), out _, out reconciliation);
+                            }
+                        }
+
+                        return clientReceivedState;
+                    });
+                    Assert.That(reconciliation.Status, Is.EqualTo(ReconciliationStatus.Corrected));
+                    Assert.That(reconciliation.ReplayedTickCount, Is.EqualTo(2));
+                    Assert.That(clientSession.CurrentState.Tick, Is.EqualTo(3));
+                    Assert.That(clientSession.CurrentState.Tick, Is.Not.EqualTo(sentState.LastProcessedInputTick));
+                    if (useFixedWorld)
+                    {
+                        Assert.That(clientSession.CurrentState.PositionFixed.Z.Raw, Is.EqualTo(1966));
+                        Assert.That(clientSession.CurrentState.VelocityFixed.Z.Raw, Is.Zero);
+                    }
                 }
-                Assert.That(clientSession.CurrentState.Tick, Is.EqualTo(3));
-
-                bool serverReceivedInput = false;
-                PumpUntil(serverTransport, clientTransport, () =>
-                {
-                    while (serverTransport.TryPollEvent(new ArraySegment<byte>(serverReceiveBuffer), out GameTransportEvent transportEvent))
-                    {
-                        if (transportEvent.Type == TransportEventType.Data)
-                        {
-                            serverReceivedInput |= serverSession.TryReceiveInputPacket(new ArraySegment<byte>(serverReceiveBuffer, 0, transportEvent.PayloadLength), out _);
-                        }
-                    }
-
-                    return serverReceivedInput;
-                });
-
-                Assert.That(serverSession.TryAdvance(10, out AuthoritativePlayerState sentState, out AuthoritativeStateSendResult stateSendResult), Is.True);
-                Assert.That(sentState.LastProcessedInputTick, Is.EqualTo(1));
-                Assert.That(stateSendResult.Succeeded, Is.True);
-
-                ReconciliationResult reconciliation = default;
-                bool clientReceivedState = false;
-                PumpUntil(serverTransport, clientTransport, () =>
-                {
-                    while (clientTransport.TryPollEvent(new ArraySegment<byte>(clientReceiveBuffer), out GameTransportEvent transportEvent))
-                    {
-                        if (transportEvent.Type == TransportEventType.Data)
-                        {
-                            clientReceivedState |= clientSession.TryReceiveAuthoritativePacket(new ArraySegment<byte>(clientReceiveBuffer, 0, transportEvent.PayloadLength), out _, out reconciliation);
-                        }
-                    }
-
-                    return clientReceivedState;
-                });
-
-                Assert.That(reconciliation.Status, Is.EqualTo(ReconciliationStatus.Corrected));
-                Assert.That(reconciliation.ReplayedTickCount, Is.EqualTo(2));
-                Assert.That(clientSession.CurrentState.Tick, Is.EqualTo(3));
-                Assert.That(clientSession.CurrentState.Tick, Is.Not.EqualTo(sentState.LastProcessedInputTick));
-                if (useFixedWorld) { Assert.That(clientSession.CurrentState.PositionFixed.Z.Raw,Is.EqualTo(1966)); Assert.That(clientSession.CurrentState.VelocityFixed.Z.Raw,Is.Zero); }
             }
         }
 
@@ -108,9 +148,11 @@ namespace AFPS.Tests.EditMode
         public void ClientSession_RejectsNegativeDiagnosticThreshold()
         {
             FakeTransport transport = new FakeTransport();
-            PlayerState initialState = new PlayerState { Tick = 0 };
+            PlayerState initialState = new PlayerState
+            {
+                Tick = 0
+            };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-
             Assert.Throws<ArgumentOutOfRangeException>(() => new ClientPredictedMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 64, 3, -1f, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold));
             Assert.Throws<ArgumentOutOfRangeException>(() => new ClientPredictedMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 64, 3, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, -1f));
         }
@@ -119,21 +161,37 @@ namespace AFPS.Tests.EditMode
         public void ClientBehindServer_RebasesAndContinuesPrediction()
         {
             FakeTransport transport = new FakeTransport();
-            PlayerState initialState = new PlayerState { Tick = 0, IsGrounded = true };
+            PlayerState initialState = new PlayerState
+            {
+                Tick = 0,
+                IsGrounded = true
+            };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-            ClientPredictedMovementSession session = new ClientPredictedMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 64, 3, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold);
-            PlayerState serverState = new PlayerState { Tick = 25, Position = new Vector3(3f, 0f, 4f), IsGrounded = true };
+            ClientPredictedMovementSession session = new ClientPredictedMovementSession(
+                transport,
+                new TransportConnectionId(1),
+                initialState,
+                config,
+                0.02f,
+                64,
+                3,
+                AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold,
+                AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold);
+            PlayerState serverState = new PlayerState
+            {
+                Tick = 25,
+                Position = new Vector3(3f, 0f, 4f),
+                IsGrounded = true
+            };
             AuthoritativePlayerState authoritativeState = new AuthoritativePlayerState(100, 25, serverState);
             byte[] packet = new byte[AuthoritativePlayerStateCodec.PacketSize];
             Assert.That(AuthoritativePlayerStateCodec.TrySerialize(authoritativeState, 1, new ArraySegment<byte>(packet), out _), Is.True);
-
             Assert.That(session.TryReceiveAuthoritativePacket(new ArraySegment<byte>(packet), out AuthoritativeStateReceiveResult receiveResult, out ReconciliationResult reconciliation), Is.True);
             Assert.That(receiveResult.Status, Is.EqualTo(AuthoritativeStateReceiveStatus.Accepted));
             Assert.That(reconciliation.Status, Is.EqualTo(ReconciliationStatus.MissingPredictionHistory));
             Assert.That(reconciliation.RequiresHardCorrection, Is.True);
             Assert.That(session.CurrentState.Tick, Is.EqualTo(25));
             Assert.That(Vector3.Distance(session.CurrentState.Position, serverState.Position), Is.LessThanOrEqualTo(AuthoritativePlayerStateCodec.MaximumPositionQuantizationError));
-
             Assert.DoesNotThrow(() => session.PredictAndSend(new PlayerInputCommand { Tick = 26 }, out _));
             Assert.That(session.CurrentState.Tick, Is.EqualTo(26));
         }
@@ -142,37 +200,35 @@ namespace AFPS.Tests.EditMode
         public void ServerSession_WaitsThenUsesBoundedFallbackAndRecoversOnRealInput()
         {
             FakeTransport transport = new FakeTransport();
-            PlayerState initialState = new PlayerState { Tick = 0, IsGrounded = true };
+            PlayerState initialState = new PlayerState
+            {
+                Tick = 0,
+                IsGrounded = true
+            };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
             ServerAuthoritativeMovementSession session = new ServerAuthoritativeMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 16, 2, 1);
-
             Assert.That(session.TryReceiveInputPacket(new ArraySegment<byte>(CreateInputPacket(1, new PlayerInputCommand { Tick = 1, MoveY = 1f, JumpPressed = true })), out _), Is.True);
             Assert.That(session.TryReceiveInputPacket(new ArraySegment<byte>(CreateInputPacket(2, new PlayerInputCommand { Tick = 4, MoveX = 1f })), out _), Is.True);
-
             Assert.That(session.TryAdvance(10, out _, out _), Is.True);
             Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.ReceivedInput));
             Assert.That(session.LastAppliedInput.Tick, Is.EqualTo(1));
-
             Assert.That(session.TryAdvance(11, out _, out _), Is.False);
             Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.WaitingForInput));
             Assert.That(session.MissingInputWaitTicks, Is.EqualTo(1));
             Assert.That(session.TryAdvance(12, out _, out _), Is.False);
             Assert.That(session.MissingInputWaitTicks, Is.EqualTo(2));
-
             Assert.That(session.TryAdvance(13, out AuthoritativePlayerState repeatedState, out _), Is.True);
             Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.RepeatedContinuousInput));
             Assert.That(session.LastAppliedInput.Tick, Is.EqualTo(2));
             Assert.That(session.LastAppliedInput.MoveY, Is.EqualTo(1f));
             Assert.That(session.LastAppliedInput.JumpPressed, Is.False);
             Assert.That(repeatedState.LastProcessedInputTick, Is.EqualTo(2));
-
             Assert.That(session.TryAdvance(14, out AuthoritativePlayerState neutralState, out _), Is.True);
             Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.NeutralFallback));
             Assert.That(session.LastAppliedInput.Tick, Is.EqualTo(3));
             Assert.That(session.LastAppliedInput.MoveX, Is.Zero);
             Assert.That(session.LastAppliedInput.MoveY, Is.Zero);
             Assert.That(neutralState.LastProcessedInputTick, Is.EqualTo(3));
-
             Assert.That(session.TryAdvance(15, out _, out _), Is.True);
             Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.ReceivedInput));
             Assert.That(session.LastAppliedInput.Tick, Is.EqualTo(4));
@@ -185,10 +241,13 @@ namespace AFPS.Tests.EditMode
         public void ServerSession_UsesNeutralFallbackWhenNoPreviousInputExists()
         {
             FakeTransport transport = new FakeTransport();
-            PlayerState initialState = new PlayerState { Tick = 0, IsGrounded = true };
+            PlayerState initialState = new PlayerState
+            {
+                Tick = 0,
+                IsGrounded = true
+            };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
             ServerAuthoritativeMovementSession session = new ServerAuthoritativeMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 16, 0, 5);
-
             Assert.That(session.TryAdvance(1, out AuthoritativePlayerState state, out _), Is.True);
             Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.NeutralFallback));
             Assert.That(session.LastAppliedInput.Tick, Is.EqualTo(1));
@@ -262,7 +321,6 @@ namespace AFPS.Tests.EditMode
             }
 
             public TransportSendResult Send(TransportConnectionId connectionId, TransportDelivery delivery, ArraySegment<byte> payload) => TransportSendResult.Success;
-
             public void Disconnect(TransportConnectionId connectionId)
             {
             }

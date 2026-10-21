@@ -9,7 +9,14 @@ namespace AFPS.Simulation.Characters
         public float GroundAcceleration => GroundAccelerationFixed.ToFloat();
         public float Gravity => GravityFixed.ToFloat();
         public float JumpSpeed => JumpSpeedFixed.ToFloat();
-        public PlayerSimulationConfig(float maxGroundSpeed, float groundAcceleration, float gravity, float jumpSpeed, CharacterCollisionConfig? collision = null)
-            : this(Fix.FromFloat(maxGroundSpeed), Fix.FromFloat(groundAcceleration), Fix.FromFloat(gravity), Fix.FromFloat(jumpSpeed), collision) { }
+
+        public PlayerSimulationConfig(
+            float maxGroundSpeed,
+            float groundAcceleration,
+            float gravity,
+            float jumpSpeed,
+            CharacterCollisionConfig? collision = null) : this(Fix.FromFloat(maxGroundSpeed), Fix.FromFloat(groundAcceleration), Fix.FromFloat(gravity), Fix.FromFloat(jumpSpeed), collision)
+        {
+        }
     }
 }

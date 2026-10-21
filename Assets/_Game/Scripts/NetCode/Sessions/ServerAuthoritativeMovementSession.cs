@@ -83,7 +83,10 @@ namespace AFPS.NetCode.Sessions
             this.tickDeltaTime = SimulationStep.FromSeconds(tickDeltaTime);
             this.maxMissingInputWaitTicks = maxMissingInputWaitTicks;
             this.maxRepeatedMovementTicks = maxRepeatedMovementTicks;
-            if (collisionWorld != null && fixedCollisionWorld != null) throw new ArgumentException("只能指定一种碰撞后端。", nameof(fixedCollisionWorld));
+            if (collisionWorld != null && fixedCollisionWorld != null)
+            {
+                throw new ArgumentException("只能指定一种碰撞后端。", nameof(fixedCollisionWorld));
+            }
             this.collisionWorld = fixedCollisionWorld ?? LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
             this.entityId = entityId;
             if (weaponConfig.HasValue)

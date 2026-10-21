@@ -9,7 +9,11 @@ namespace AFPS.Simulation.Characters
         public static Fix FromSeconds(float seconds)
         {
             Fix value = Fix.FromFloat(seconds);
-            if (value.Raw <= 0) throw new ArgumentOutOfRangeException(nameof(seconds));
+            if (value.Raw <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(seconds));
+            }
+
             return value;
         }
     }

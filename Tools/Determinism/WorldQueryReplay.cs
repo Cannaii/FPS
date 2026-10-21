@@ -6,20 +6,27 @@ using AFPS.Simulation.World;
 internal static class WorldQueryReplay
 {
     private static FixVec3 V(int x, int y, int z) => new FixVec3(Fix.FromInt(x), Fix.FromInt(y), Fix.FromInt(z));
-
     private static int Main()
     {
-        var world = new FixedWorld(new[] {
-            new FixedWorldBox(3, 2, FixedSurface.Solid | FixedSurface.Wall | FixedSurface.Ladder, new FixedAabb(V(3, 0, -1), V(4, 4, 1))),
-            new FixedWorldBox(1, 0, FixedSurface.Solid | FixedSurface.Ground, new FixedAabb(V(-5, -2, -5), V(5, -1, 5))),
-            new FixedWorldBox(2, 1, FixedSurface.Wall | FixedSurface.Grapple, new FixedAabb(V(-2, 0, 3), V(2, 4, 4)))
-        }, new[] { new FixedWorldPlane(4, 0, FixedSurface.Ground, FixedAxis.Y, Fix.Zero) });
+        var world = new FixedWorld(new[] { new FixedWorldBox(3, 2, FixedSurface.Solid | FixedSurface.Wall | FixedSurface.Ladder, new FixedAabb(V(3, 0, -1), V(4, 4, 1))), new FixedWorldBox(1, 0, FixedSurface.Solid | FixedSurface.Ground, new FixedAabb(V(-5, -2, -5), V(5, -1, 5))), new FixedWorldBox(2, 1, FixedSurface.Wall | FixedSurface.Grapple, new FixedAabb(V(-2, 0, 3), V(2, 4, 4))) }, new[] { new FixedWorldPlane(4, 0, FixedSurface.Ground, FixedAxis.Y, Fix.Zero) });
         if (!FixedWorldCodec.TryDeserialize(new ArraySegment<byte>(world.CreateSnapshot()), out FixedWorld restored, out FixedWorldReadError error))
+        {
             throw new InvalidOperationException("Snapshot read failed: " + error);
-        ulong first = Replay(world), second = Replay(restored);
+        }
+
+        ulong first = Replay(world),
+            second = Replay(restored);
         Console.WriteLine($"WorldQueryReplay={first}; Samples=4096; WorldVersion={world.VersionHash}");
-        if (first != second) throw new InvalidOperationException("Snapshot replay diverged.");
-        if (first != 9579028200939387050UL) throw new InvalidOperationException("World query golden hash changed.");
+        if (first != second)
+        {
+            throw new InvalidOperationException("Snapshot replay diverged.");
+        }
+
+        if (first != 9579028200939387050UL)
+        {
+            throw new InvalidOperationException("World query golden hash changed.");
+        }
+
         return 0;
     }
 
@@ -36,6 +43,7 @@ internal static class WorldQueryReplay
             AddHit(ref hash, world.Raycast(origin, direction, Fix.FromInt(20), ~0, (i & 1) == 0 ? FixedSurface.All : FixedSurface.Ladder | FixedSurface.Grapple));
             AddHit(ref hash, world.GroundCheck(origin, Fix.Half, Fix.One, Fix.FromInt(2)));
         }
+
         return hash;
     }
 
@@ -46,14 +54,21 @@ internal static class WorldQueryReplay
         Add(ref hash, hit.Layer);
         Add(ref hash, (int)hit.Surface);
         Add(ref hash, hit.Distance.Raw);
-        Add(ref hash, hit.Point.X.Raw); Add(ref hash, hit.Point.Y.Raw); Add(ref hash, hit.Point.Z.Raw);
-        Add(ref hash, hit.Normal.X.Raw); Add(ref hash, hit.Normal.Y.Raw); Add(ref hash, hit.Normal.Z.Raw);
+        Add(ref hash, hit.Point.X.Raw);
+        Add(ref hash, hit.Point.Y.Raw);
+        Add(ref hash, hit.Point.Z.Raw);
+        Add(ref hash, hit.Normal.X.Raw);
+        Add(ref hash, hit.Normal.Y.Raw);
+        Add(ref hash, hit.Normal.Z.Raw);
         Add(ref hash, hit.StartedInside ? 1 : 0);
     }
 
     private static void Add(ref ulong hash, int value)
     {
         uint bits = unchecked((uint)value);
-        for (int shift = 0; shift < 32; shift += 8) hash = unchecked((hash ^ ((bits >> shift) & 255u)) * 1099511628211UL);
+        for (int shift = 0; shift < 32; shift += 8)
+        {
+            hash = unchecked((hash ^ ((bits >> shift) & 255u)) * 1099511628211UL);
+        }
     }
 }
