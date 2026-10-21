@@ -7,7 +7,7 @@ namespace AFPS.Tests.EditMode
     public sealed class LocalPlayerInputCollectorTests
     {
         [Test]
-        public void AutomationInput_NormalizesMovementAnglesAndConsumesJumpOnce()
+        public void AutomationInput_StoresIndependentGridAxesAndConsumesEdgesOnce()
         {
             GameObject gameObject = new GameObject("LocalPlayerInputCollectorTests");
             try
@@ -17,7 +17,8 @@ namespace AFPS.Tests.EditMode
 
                 var first = collector.ConsumeCommand(42);
                 Assert.That(first.Tick, Is.EqualTo(42));
-                Assert.That(new Vector2(first.MoveX, first.MoveY).magnitude, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(first.MoveXFixed.Raw, Is.EqualTo(65536));
+                Assert.That(first.MoveYFixed.Raw, Is.EqualTo(65536));
                 Assert.That(first.LookYaw, Is.EqualTo(350f).Within(0.0001f));
                 Assert.That(first.LookPitch, Is.EqualTo(89f).Within(0.0001f));
                 Assert.That(first.JumpPressed, Is.True);

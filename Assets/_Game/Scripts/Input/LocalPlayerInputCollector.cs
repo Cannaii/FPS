@@ -62,7 +62,6 @@ namespace AFPS.Input
             Vector2 keyboardMove = ReadKeyboardMove();
             Vector2 gamepadMove = Gamepad.current != null ? ApplyDeadZone(Gamepad.current.leftStick.ReadValue()) : Vector2.zero;
             Vector2 movement = gamepadMove.sqrMagnitude > keyboardMove.sqrMagnitude ? gamepadMove : keyboardMove;
-            movement = Vector2.ClampMagnitude(movement, 1f);
             moveX = movement.x;
             moveY = movement.y;
 
@@ -106,9 +105,9 @@ namespace AFPS.Input
         public void SetAutomationInput(float horizontal, float vertical, float yaw, float pitch, bool jumpPressed, bool firePressed = false)
         {
             automationEnabled = true;
-            Vector2 movement = Vector2.ClampMagnitude(new Vector2(horizontal, vertical), 1f);
-            moveX = movement.x;
-            moveY = movement.y;
+            // 对角归一化由模拟统一处理；采集只按独立轴进入整数网格。
+            moveX = horizontal;
+            moveY = vertical;
             LookYaw = NormalizeYaw(yaw);
             LookPitch = Mathf.Clamp(pitch, -maximumPitch, maximumPitch);
             jumpPressedSinceLastTick |= jumpPressed;

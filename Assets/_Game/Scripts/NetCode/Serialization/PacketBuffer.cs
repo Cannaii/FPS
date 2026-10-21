@@ -44,8 +44,8 @@ namespace AFPS.NetCode.Serialization
                 return false;
             }
 
-            buffer[position++] = (byte)value;
-            buffer[position++] = (byte)(value >> 8);
+            buffer[position++] = unchecked((byte)value);
+            buffer[position++] = unchecked((byte)(value >> 8));
             return true;
         }
 
@@ -56,10 +56,10 @@ namespace AFPS.NetCode.Serialization
                 return false;
             }
 
-            buffer[position++] = (byte)value;
-            buffer[position++] = (byte)(value >> 8);
-            buffer[position++] = (byte)(value >> 16);
-            buffer[position++] = (byte)(value >> 24);
+            buffer[position++] = unchecked((byte)value);
+            buffer[position++] = unchecked((byte)(value >> 8));
+            buffer[position++] = unchecked((byte)(value >> 16));
+            buffer[position++] = unchecked((byte)(value >> 24));
             return true;
         }
 
@@ -67,7 +67,7 @@ namespace AFPS.NetCode.Serialization
 
         public bool TryWriteUInt64(ulong value)
         {
-            return TryWriteUInt32((uint)value) && TryWriteUInt32((uint)(value >> 32));
+            return TryWriteUInt32(unchecked((uint)value)) && TryWriteUInt32((uint)(value >> 32));
         }
     }
 
@@ -136,7 +136,7 @@ namespace AFPS.NetCode.Serialization
                 return false;
             }
 
-            value = (uint)(buffer[position] | buffer[position + 1] << 8 | buffer[position + 2] << 16 | buffer[position + 3] << 24);
+            value = unchecked((uint)(buffer[position] | buffer[position + 1] << 8 | buffer[position + 2] << 16 | buffer[position + 3] << 24));
             position += 4;
             return true;
         }

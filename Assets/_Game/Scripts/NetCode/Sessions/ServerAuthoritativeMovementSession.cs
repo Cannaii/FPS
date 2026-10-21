@@ -139,17 +139,13 @@ namespace AFPS.NetCode.Sessions
             }
 
             bool repeatContinuousInput = hasLastReceivedInput && consecutiveSubstitutedInputTicks < maxRepeatedMovementTicks;
-            command = new PlayerInputCommand
+            command = lastReceivedInput.CreateFallback(substitutedTick, repeatContinuousInput);
+            if (!hasLastReceivedInput)
             {
-                Tick = substitutedTick,
-                MoveX = repeatContinuousInput ? lastReceivedInput.MoveX : 0f,
-                MoveY = repeatContinuousInput ? lastReceivedInput.MoveY : 0f,
-                LookYaw = hasLastReceivedInput ? lastReceivedInput.LookYaw : CurrentState.Yaw,
-                LookPitch = hasLastReceivedInput ? lastReceivedInput.LookPitch : CurrentState.Pitch,
-                JumpPressed = false,
-                FirePressed = false,
-                ShotSequence = 0
-            };
+                // 尚未收到真实输入时只从初始权威状态取朝向；已有命令直接复制整数档位。
+                command.LookYaw = CurrentState.Yaw;
+                command.LookPitch = CurrentState.Pitch;
+            }
             consecutiveSubstitutedInputTicks++;
             LastAdvanceStatus = repeatContinuousInput ? ServerInputAdvanceStatus.RepeatedContinuousInput : ServerInputAdvanceStatus.NeutralFallback;
             return SimulateAndSend(serverWorldTick, command, out authoritativeState, out sendResult);

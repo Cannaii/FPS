@@ -35,14 +35,10 @@ namespace AFPS.NetCode.Messages
         public static int GetPacketSize(int commandCount) => PacketHeader.Size + PayloadHeaderSize + commandCount * BytesPerCommand;
 
         /// <summary>
-        /// 将本地输入转换为与网络解码后完全一致的值。客户端应在预测前调用，避免模拟原始摇杆值而服务器模拟量化值。
+        /// 命令类型已在写入控制量时保证规范整数网格；保留此入口供预测会话统一调用。
         /// </summary>
         public static PlayerInputCommand Canonicalize(PlayerInputCommand command)
         {
-            command.MoveX = DequantizeAxis(QuantizeAxis(command.MoveX));
-            command.MoveY = DequantizeAxis(QuantizeAxis(command.MoveY));
-            command.LookYaw = DequantizeYaw(QuantizeYaw(command.LookYaw));
-            command.LookPitch = DequantizePitch(QuantizePitch(command.LookPitch));
             return command;
         }
 
@@ -82,7 +78,7 @@ namespace AFPS.NetCode.Messages
                     buttons |= FirePressedMask;
                 }
 
-                if (!writer.TryWriteSByte(QuantizeAxis(command.MoveX)) || !writer.TryWriteSByte(QuantizeAxis(command.MoveY)) || !writer.TryWriteByte(buttons) || !writer.TryWriteUInt16(QuantizeYaw(command.LookYaw)) || !writer.TryWriteInt16(QuantizePitch(command.LookPitch)) || !writer.TryWriteUInt32(command.FirePressed ? command.ShotSequence : 0u) || !writer.TryWriteUInt32(command.FirePressed ? command.ShotServerTick : 0u))
+                if (!writer.TryWriteSByte(command.MoveXGrid) || !writer.TryWriteSByte(command.MoveYGrid) || !writer.TryWriteByte(buttons) || !writer.TryWriteUInt16(command.YawCentidegrees) || !writer.TryWriteInt16(command.PitchCentidegrees) || !writer.TryWriteUInt32(command.FirePressed ? command.ShotSequence : 0u) || !writer.TryWriteUInt32(command.FirePressed ? command.ShotServerTick : 0u))
                 {
                     return false;
                 }
@@ -114,33 +110,17 @@ namespace AFPS.NetCode.Messages
                 return false;
             }
 
+            // 先验证整包再写调用者缓冲区。坏包后缀不能留下看似有效的前缀命令。
+            PacketBufferReader validationReader = reader;
             for (int i = 0; i < commandCount; i++)
             {
-                if (!reader.TryReadSByte(out sbyte moveX) || !reader.TryReadSByte(out sbyte moveY) || !reader.TryReadByte(out byte buttons) || !reader.TryReadUInt16(out ushort lookYaw) || !reader.TryReadInt16(out short lookPitch) || !reader.TryReadUInt32(out uint shotSequence) || !reader.TryReadUInt32(out uint shotServerTick))
-                {
-                    batch = default;
-                    return false;
-                }
-
-                bool firePressed = (buttons & FirePressedMask) != 0;
-                if ((buttons & ~KnownButtonsMask) != 0 || (firePressed && shotSequence == 0) || (!firePressed && shotSequence != 0))
-                {
-                    batch = default;
-                    return false;
-                }
-
-                commandBuffer[commandBufferOffset + i] = new PlayerInputCommand
-                {
-                    Tick = unchecked(firstTick + (uint)i),
-                    MoveX = DequantizeAxis(moveX),
-                    MoveY = DequantizeAxis(moveY),
-                    LookYaw = DequantizeYaw(lookYaw),
-                    LookPitch = DequantizePitch(lookPitch),
-                    JumpPressed = (buttons & JumpPressedMask) != 0,
-                    FirePressed = firePressed,
-                    ShotSequence = shotSequence,
-                    ShotServerTick = shotServerTick
-                };
+                if (!TryReadCommand(ref validationReader, unchecked(firstTick + (uint)i), out _)) return false;
+            }
+            if (validationReader.BytesRemaining != 0) return false;
+            for (int i = 0; i < commandCount; i++)
+            {
+                if (!TryReadCommand(ref reader, unchecked(firstTick + (uint)i), out PlayerInputCommand command)) return false;
+                commandBuffer[commandBufferOffset + i] = command;
             }
 
             batch = new InputCommandBatch(firstTick, new ArraySegment<PlayerInputCommand>(commandBuffer, commandBufferOffset, commandCount));
@@ -172,49 +152,19 @@ namespace AFPS.NetCode.Messages
             return true;
         }
 
-        private static sbyte QuantizeAxis(float value)
+        private static bool TryReadCommand(ref PacketBufferReader reader, uint tick, out PlayerInputCommand command)
         {
-            if (float.IsNaN(value))
-            {
-                return 0;
-            }
-
-            float clamped = value < -1f ? -1f : value > 1f ? 1f : value;
-            float scaled = clamped * 127f;
-            int rounded = scaled >= 0f ? (int)(scaled + 0.5f) : (int)(scaled - 0.5f);
-            return (sbyte)rounded;
+            command = default;
+            if (!reader.TryReadSByte(out sbyte moveX) || !reader.TryReadSByte(out sbyte moveY) || !reader.TryReadByte(out byte buttons) || !reader.TryReadUInt16(out ushort yaw) || !reader.TryReadInt16(out short pitch) || !reader.TryReadUInt32(out uint shotSequence) || !reader.TryReadUInt32(out uint shotServerTick)) return false;
+            bool fire = (buttons & FirePressedMask) != 0;
+            if ((buttons & ~KnownButtonsMask) != 0 || fire != (shotSequence != 0) || (!fire && shotServerTick != 0)) return false;
+            if (!command.TrySetEncodedControls(moveX, moveY, yaw, pitch)) return false;
+            command.Tick = tick;
+            command.JumpPressed = (buttons & JumpPressedMask) != 0;
+            command.FirePressed = fire;
+            command.ShotSequence = shotSequence;
+            command.ShotServerTick = shotServerTick;
+            return true;
         }
-
-        private static float DequantizeAxis(sbyte value) => value / 127f;
-
-        private static ushort QuantizeYaw(float value)
-        {
-            if (float.IsNaN(value) || float.IsInfinity(value))
-            {
-                return 0;
-            }
-
-            value %= 360f;
-            if (value < 0f)
-            {
-                value += 360f;
-            }
-
-            return (ushort)System.Math.Round(value / LookAngleResolution);
-        }
-
-        private static short QuantizePitch(float value)
-        {
-            if (float.IsNaN(value) || float.IsInfinity(value))
-            {
-                return 0;
-            }
-
-            return (short)System.Math.Round(System.Math.Max(-89.9f, System.Math.Min(89.9f, value)) / LookAngleResolution);
-        }
-
-        private static float DequantizeYaw(ushort value) => value * LookAngleResolution;
-
-        private static float DequantizePitch(short value) => value * LookAngleResolution;
     }
 }
