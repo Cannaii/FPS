@@ -103,8 +103,23 @@ namespace AFPS.Bootstrap
             double elapsed = now - testStartedAt;
             maximumHeight = Mathf.Max(maximumHeight, localState.Position.y);
             bool aimingAtOpponent = elapsed < 1.5d;
-            float yaw = aimingAtOpponent ? (networkBootstrap.ActiveMode == NetworkLaunchMode.Host ? 90f : 270f) : TestYaw;
-            bool requestFire = networkBootstrap.ActiveMode == NetworkLaunchMode.Host && !fireSent && elapsed >= 0.5d;
+            float yaw = TestYaw;
+            bool hasAimTarget = false;
+            if (aimingAtOpponent)
+            {
+                // 实体按连接到达顺序分配，Host 的本地客户端也可能后到；瞄准实际快照，不假设出生点左右。
+                replicas.CopyEntityIds(remoteEntityIds);
+                foreach (uint entityId in remoteEntityIds)
+                {
+                    if (!replicas.TrySample(entityId,replicas.LatestServerTick,out RemotePlayerRenderState target)) continue;
+                    Vector3 delta = target.Position - localState.Position;
+                    if (delta.x * delta.x + delta.z * delta.z <= 0.0001f) continue;
+                    yaw = Mathf.Repeat(Mathf.Atan2(delta.x,delta.z) * Mathf.Rad2Deg,360f);
+                    hasAimTarget = true;
+                    break;
+                }
+            }
+            bool requestFire = networkBootstrap.ActiveMode == NetworkLaunchMode.Host && hasAimTarget && !fireSent && elapsed >= 0.5d;
             if (requestFire)
             {
                 fireSent = true;
