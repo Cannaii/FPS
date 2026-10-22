@@ -854,30 +854,50 @@ namespace AFPS.NetCode.Sessions
             }
         }
 
-        private bool SendRemoteSnapshot(TransportConnectionId targetConnectionId, in SnapshotCandidate candidate, uint serverWorldTick)
+        private bool SendRemoteSnapshot(
+            TransportConnectionId targetConnectionId,
+            in SnapshotCandidate candidate,
+            uint serverWorldTick)
         {
-            uint sequence = snapshotSequences.TryGetValue(candidate.EntityId, out uint lastSequence) ? unchecked(lastSequence + 1) : 1;
-            RemotePlayerSnapshot snapshot = new RemotePlayerSnapshot(candidate.EntityId, serverWorldTick, candidate.State.Position, Quaternion.Euler(candidate.State.Pitch, candidate.State.Yaw, 0f), candidate.State.Velocity);
+            uint sequence = snapshotSequences.TryGetValue(candidate.EntityId, out uint lastSequence)
+                ? unchecked(lastSequence + 1) : 1;
+            RemotePlayerSnapshot snapshot = new RemotePlayerSnapshot(
+                candidate.EntityId, serverWorldTick, candidate.State.PositionFixed,
+                candidate.State.YawFixedDegrees, candidate.State.PitchFixedDegrees,
+                candidate.State.VelocityFixed);
             Dictionary<uint, RemotePlayerSnapshot> baselines = serverSnapshotBaselines[targetConnectionId];
-            bool sendFull = !baselines.TryGetValue(candidate.EntityId, out RemotePlayerSnapshot baseline) || unchecked(serverWorldTick - baseline.ServerTick) >= fullSnapshotIntervalTicks;
-            RemotePlayerSnapshot canonicalFullBaseline = default;
+            bool sendFull = !baselines.TryGetValue(candidate.EntityId, out RemotePlayerSnapshot baseline)
+                || unchecked(serverWorldTick - baseline.ServerTick) >= fullSnapshotIntervalTicks;
             int packetBytes;
             ArraySegment<byte> packet;
             if (sendFull)
             {
-                if (!RemotePlayerSnapshotCodec.TrySerialize(snapshot, sequence, new ArraySegment<byte>(snapshotBuffer), out packetBytes)) return false;
-                if (!RemotePlayerSnapshotCodec.TryDeserialize(new ArraySegment<byte>(snapshotBuffer, 0, packetBytes), out _, out canonicalFullBaseline)) return false;
+                if (!RemotePlayerSnapshotCodec.TrySerialize(
+                    snapshot, sequence, new ArraySegment<byte>(snapshotBuffer), out packetBytes))
+                {
+                    return false;
+                }
                 packet = new ArraySegment<byte>(snapshotBuffer, 0, packetBytes);
             }
             else
             {
-                if (!RemotePlayerSnapshotDeltaCodec.TrySerialize(snapshot, baseline, sequence, new ArraySegment<byte>(snapshotDeltaBuffer), out packetBytes)) return false;
+                if (!RemotePlayerSnapshotDeltaCodec.TrySerialize(
+                    snapshot, baseline, sequence, new ArraySegment<byte>(snapshotDeltaBuffer), out packetBytes))
+                {
+                    return false;
+                }
                 packet = new ArraySegment<byte>(snapshotDeltaBuffer, 0, packetBytes);
             }
+
             snapshotSequences[candidate.EntityId] = sequence;
-            if (serverTransport.Send(targetConnectionId, TransportDelivery.Unreliable, packet) == TransportSendResult.Success)
+            if (serverTransport.Send(targetConnectionId, TransportDelivery.Unreliable, packet)
+                == TransportSendResult.Success)
             {
-                if (sendFull) baselines[candidate.EntityId] = canonicalFullBaseline;
+                if (sendFull)
+                {
+                    // 全量 Raw 无损，直接保存原值；仅发送成功才推进基线，失败后仍重试全量。
+                    baselines[candidate.EntityId] = snapshot;
+                }
                 Metrics.SnapshotPacketsSent++;
                 Metrics.SnapshotBytesSent += (ulong)packetBytes;
                 return true;
@@ -885,7 +905,6 @@ namespace AFPS.NetCode.Sessions
 
             return false;
         }
-
         private static bool TryReadDeltaEntityId(ArraySegment<byte> packet, out uint entityId)
         {
             entityId = 0;

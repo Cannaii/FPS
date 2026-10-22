@@ -7,6 +7,7 @@ using AFPS.NetCode.Prediction;
 using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Runtime;
 using AFPS.NetCode.Sessions;
+using AFPS.NetCode.SnapshotInterpolation;
 using AFPS.NetCode.StateReplication;
 using AFPS.NetCode.Transport;
 using AFPS.Simulation.Characters;
@@ -16,6 +17,60 @@ namespace AFPS.Tests.EditMode
 {
     public sealed class NetworkMovementSessionManagerTests
     {
+        [Test]
+        public void RemoteSnapshots_PreserveAuthorityRawThroughFullAndDeltaAtLargeCoordinates()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            manager.TryGetServerSession(first, out var authority);
+            manager.TryGetServerSession(second, out var opponent);
+            authority.Teleport(new UnityEngine.Vector3(10000f, 0f, 0f));
+            opponent.Teleport(new UnityEngine.Vector3(10002f, 0f, 0f));
+            transport.SentPackets.Clear();
+            transport.SentConnectionIds.Clear();
+
+            SendTick(manager, first, second, 1, 100,
+                new PlayerInputCommand { MoveX = 1f }, default);
+            RemotePlayerSnapshot baseline = default;
+            // 在一万米处 float 已不能表示每个 Raw；该断言确保测试能捕获服务器生成时的浮点往返。
+            Assert.That(authority.CurrentState.PositionFixed.X.Raw, Is.Not.EqualTo(
+                AFPS.Math.Fix.FromFloat(authority.CurrentState.Position.x).Raw));
+            // 按实体筛选，避免依赖字典的枚举顺序。
+            foreach (var packet in transport.SentPackets)
+            {
+                if (RemotePlayerSnapshotCodec.TryDeserialize(packet, out _, out var snapshot)
+                    && snapshot.EntityId == 1)
+                {
+                    baseline = snapshot;
+                }
+            }
+            Assert.That(baseline.EntityId, Is.EqualTo(1));
+            Assert.That(baseline.PositionFixed, Is.EqualTo(authority.CurrentState.PositionFixed));
+            Assert.That(baseline.VelocityFixed, Is.EqualTo(authority.CurrentState.VelocityFixed));
+
+            transport.SentPackets.Clear();
+            transport.SentConnectionIds.Clear();
+            SendTick(manager, first, second, 2, 101,
+                new PlayerInputCommand { MoveX = 1f }, default);
+            bool found = false;
+            foreach (var packet in transport.SentPackets)
+            {
+                if (RemotePlayerSnapshotDeltaCodec.TryDeserialize(packet, baseline, out _, out var snapshot))
+                {
+                    Assert.That(snapshot.PositionFixed, Is.EqualTo(authority.CurrentState.PositionFixed));
+                    Assert.That(snapshot.VelocityFixed, Is.EqualTo(authority.CurrentState.VelocityFixed));
+                    Assert.That(snapshot.YawFixedDegrees, Is.EqualTo(authority.CurrentState.YawFixedDegrees));
+                    Assert.That(snapshot.PitchFixedDegrees, Is.EqualTo(authority.CurrentState.PitchFixedDegrees));
+                    found = true;
+                }
+            }
+            Assert.That(found, Is.True);
+        }
+
         [Test]
         public void ConnectionLifecycle_CreatesAndRemovesExpectedSessions()
         {

@@ -1,40 +1,50 @@
-using UnityEngine;
+using AFPS.Math;
 
 namespace AFPS.NetCode.SnapshotInterpolation
 {
-    /// <summary>
-    /// 服务器为一个远端玩家生成的世界状态快照。
-    /// ServerTick 属于服务器世界时间；位置单位为米，速度单位为米每秒，旋转为世界空间朝向。
-    /// </summary>
-    public readonly struct RemotePlayerSnapshot
+    /// <summary>远端玩家的规范网络状态；位置米、速度米/秒、观察角度数，均为 Q16.16。</summary>
+    public readonly partial struct RemotePlayerSnapshot
     {
-        /// <summary>
-        /// 服务器分配的实体 ID；0 表示无效实体。
-        /// </summary>
         public readonly uint EntityId;
-
-        /// <summary>
-        /// 服务器生成该快照时已经完成的世界 Tick，允许 uint 自然回绕。
-        /// </summary>
+        /// <summary>已完成的服务器世界 Tick，允许 uint 自然回绕。</summary>
         public readonly uint ServerTick;
-
-        public readonly Vector3 Position;
-        public readonly Quaternion Rotation;
-        public readonly Vector3 Velocity;
-
-        /// <summary>
-        /// 服务器明确要求客户端在该快照处中断插值，例如重生或传送。
-        /// </summary>
+        public readonly FixVec3 PositionFixed;
+        public readonly FixVec3 VelocityFixed;
+        public readonly Fix YawFixedDegrees;
+        public readonly Fix PitchFixedDegrees;
         public readonly bool IsTeleport;
 
-        public RemotePlayerSnapshot(uint entityId, uint serverTick, Vector3 position, Quaternion rotation, Vector3 velocity, bool isTeleport = false)
+        // 与玩家输入的角域一致：Yaw [0,360)，Pitch [-89.9,89.9]；边界采用有理数向零截断。
+        internal const int FullTurnRaw = 360 * 65536;
+        internal const int MaximumPitchRaw = 899 * 65536 / 10;
+        internal bool IsValid => EntityId != 0
+            && YawFixedDegrees.Raw >= 0 && YawFixedDegrees.Raw < FullTurnRaw
+            && PitchFixedDegrees.Raw >= -MaximumPitchRaw
+            && PitchFixedDegrees.Raw <= MaximumPitchRaw;
+
+        public RemotePlayerSnapshot(
+            uint entityId,
+            uint serverTick,
+            FixVec3 position,
+            Fix yawDegrees,
+            Fix pitchDegrees,
+            FixVec3 velocity,
+            bool isTeleport = false)
         {
             EntityId = entityId;
             ServerTick = serverTick;
-            Position = position;
-            Rotation = rotation;
-            Velocity = velocity;
+            PositionFixed = position;
+            VelocityFixed = velocity;
+            YawFixedDegrees = yawDegrees;
+            PitchFixedDegrees = pitchDegrees;
             IsTeleport = isTeleport;
         }
+
+        public bool RawEquals(in RemotePlayerSnapshot other) =>
+            EntityId == other.EntityId && ServerTick == other.ServerTick
+            && PositionFixed == other.PositionFixed && VelocityFixed == other.VelocityFixed
+            && YawFixedDegrees == other.YawFixedDegrees
+            && PitchFixedDegrees == other.PitchFixedDegrees
+            && IsTeleport == other.IsTeleport;
     }
 }

@@ -29,14 +29,14 @@ namespace AFPS.Tests.EditMode
         }
 
         [Test]
-        public void DeltaSnapshot_DetectsChangesAcrossQuantizationBoundaryBelowOneResolution()
+        public void DeltaSnapshot_PreservesChangesBelowLegacyMillimetreResolution()
         {
             RemotePlayerSnapshot baseline = new RemotePlayerSnapshot(2, 10, Vector3.zero, Quaternion.identity, Vector3.zero);
             RemotePlayerSnapshot current = new RemotePlayerSnapshot(2, 11, new Vector3(0.0006f, 0f, 0f), Quaternion.identity, Vector3.zero);
             byte[] packet = new byte[RemotePlayerSnapshotDeltaCodec.MaximumPacketSize];
             Assert.That(RemotePlayerSnapshotDeltaCodec.TrySerialize(current, baseline, 1, new ArraySegment<byte>(packet), out int bytes), Is.True);
             Assert.That(RemotePlayerSnapshotDeltaCodec.TryDeserialize(new ArraySegment<byte>(packet, 0, bytes), baseline, out _, out RemotePlayerSnapshot decoded), Is.True);
-            Assert.That(decoded.Position.x, Is.EqualTo(0.001f).Within(0.00001f));
+            Assert.That(decoded.PositionFixed, Is.EqualTo(current.PositionFixed));
         }
 
         [Test]
@@ -50,8 +50,8 @@ namespace AFPS.Tests.EditMode
             Assert.That(header.Sequence, Is.EqualTo(99));
             Assert.That(decoded.EntityId, Is.EqualTo(source.EntityId));
             Assert.That(decoded.ServerTick, Is.EqualTo(source.ServerTick));
-            Assert.That(Vector3.Distance(decoded.Position, source.Position), Is.LessThanOrEqualTo(RemotePlayerSnapshotCodec.MaximumPositionQuantizationError));
-            Assert.That(Vector3.Distance(decoded.Velocity, source.Velocity), Is.LessThanOrEqualTo(RemotePlayerSnapshotCodec.MaximumVelocityQuantizationError));
+            Assert.That(decoded.PositionFixed, Is.EqualTo(source.PositionFixed));
+            Assert.That(decoded.VelocityFixed, Is.EqualTo(source.VelocityFixed));
             Assert.That(Quaternion.Angle(decoded.Rotation, source.Rotation), Is.LessThan(0.03f));
             Assert.That(decoded.IsTeleport, Is.True);
         }

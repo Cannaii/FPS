@@ -3,9 +3,13 @@ param(
     [switch]$IncludeWorld,
     [switch]$IncludeInput,
     [switch]$IncludeMovement,
-    [switch]$IncludeCollision
+    [switch]$IncludeCollision,
+    [switch]$IncludeReplication
 )
 $ErrorActionPreference = 'Stop'
+if ($IncludeReplication) {
+    $IncludeInput = $true
+}
 if ($IncludeCollision) {
     $IncludeMovement = $true
     $IncludeWorld = $true
@@ -24,7 +28,7 @@ if ($null -eq $taskNUnitPackage) {
 }
 $taskNUnit = Join-Path $taskNUnitPackage.FullName 'net35/unity-custom/nunit.framework.dll'
 $taskSources = @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Math') -Filter '*.cs').FullName)
-$taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests') -Filter 'Fix*Tests.cs' | Where-Object { $_.Name -notin @('FixedWorldTests.cs', 'FixedPlayerSimulationTests.cs') }).FullName)
+$taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests') -Filter 'Fix*Tests.cs' | Where-Object { $_.Name -notin @('FixedWorldTests.cs', 'FixedPlayerSimulationTests.cs', 'FixedRemoteSnapshotTests.cs') }).FullName)
 if ($IncludeWorld) {
     $taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Simulation/World') -Filter '*.cs').FullName)
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/FixedWorldTests.cs'
@@ -50,6 +54,12 @@ if ($IncludeCollision) {
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/SimulationWorldContextTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/CapsuleWorldTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/TriangleWorldTests.cs'
+}
+if ($IncludeReplication) {
+    # Exclude UnityFacade so DTO and Raw codecs compile without engine references in checked mode.
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/SnapshotInterpolation/RemotePlayerSnapshot.cs'
+    $taskSources += @('RemotePlayerSnapshotCodec.cs', 'RemotePlayerSnapshotDeltaCodec.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Messages/' + $_) }
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/FixedRemoteSnapshotTests.cs'
 }
 $taskSources += Join-Path $PSScriptRoot 'MathTestRunner.cs'
 $taskCompilerArguments = @('-nologo', '-langversion:9', '-checked+', '-optimize+', '-target:exe', ('-out:' + (Join-Path $taskOutputDirectory 'VerifyMono.exe')))
