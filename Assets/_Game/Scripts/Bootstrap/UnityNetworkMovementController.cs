@@ -1,6 +1,6 @@
 using System;
 using AFPS.Core.Tick;
-using AFPS.Bootstrap.Physics;
+using AFPS.Math;
 using AFPS.Input;
 using AFPS.NetCode.Messages;
 using AFPS.NetCode.Match;
@@ -15,7 +15,6 @@ using AFPS.Presentation.Weapons;
 using AFPS.Simulation.Characters;
 using AFPS.Simulation.Characters.Collision;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 namespace AFPS.Bootstrap
 {
@@ -57,8 +56,9 @@ namespace AFPS.Bootstrap
         [SerializeField, Min(0f)] private float deathmatchRespawnSeconds = 3f;
         [SerializeField, Min(0.05f)] private float deathmatchReplicationIntervalSeconds = 0.25f;
         [Header("Predictable Character Collision")]
+        [Tooltip("所有网络角色共用的规范世界快照；缺失或损坏时禁止启动。")]
+        [SerializeField] private TextAsset fixedWorldSnapshot;
         [SerializeField] private LayerMask collisionLayers = ~0;
-        [SerializeField] private bool collideWithTriggers;
         [SerializeField, Min(0.01f)] private float capsuleRadius = 0.5f;
         [SerializeField, Min(0.02f)] private float capsuleHeight = 2f;
         [SerializeField, Min(0f)] private float collisionSkinWidth = 0.01f;
@@ -75,6 +75,48 @@ namespace AFPS.Bootstrap
         private double latestRemoteSnapshotReceiveTime;
         private DeathmatchHud deathmatchHud;
         private bool weaponViewWasActive;
+        private SimulationWorldContext preparedWorld;
+        private ClientPredictedMovementSession presentedClientSession;
+        private ConnectionAdmissionStatus observedAdmissionStatus;
+
+        public string ConnectionStatusMessage { get; private set; }
+
+        public bool CanEnterGame => initialized
+            && sessionManager.ClientAdmissionStatus == ConnectionAdmissionStatus.Admitted
+            && sessionManager.RemotePlayers != null
+            && sessionManager.RemotePlayers.LocalEntityId != 0;
+
+        /// <summary>启动传输前检查快照和配置；三个网络角色使用完全相同的加载入口。</summary>
+        public bool TryPrepareSimulation(out string error)
+        {
+            preparedWorld = null;
+            if (fixedWorldSnapshot == null || tickRunner == null)
+            {
+                error = "Missing baked simulation world or TickRunner.";
+                return false;
+            }
+
+            try
+            {
+                CharacterCollisionConfig collision = new CharacterCollisionConfig(
+                    capsuleRadius, capsuleHeight, collisionSkinWidth,
+                    groundProbeDistance, stepHeight, maxSlopeAngle, maxSlideIterations);
+                PlayerSimulationConfig configuration = new PlayerSimulationConfig(
+                    maxGroundSpeed, groundAcceleration, gravity, jumpSpeed, collision);
+                preparedWorld = SimulationWorldContext.Load(
+                    new ArraySegment<byte>(fixedWorldSnapshot.bytes), configuration,
+                    Fix.FromFloat(tickRunner.TickDeltaTime), collisionLayers.value);
+                error = null;
+                return true;
+            }
+            catch (Exception exception) when (exception is ArgumentException
+                || exception is FormatException || exception is OverflowException)
+            {
+                // 配置或资源错误必须显式暴露；禁止退回 PhysX/平地而绕过世界指纹。
+                error = "Invalid simulation world: " + exception.Message;
+                return false;
+            }
+        }
 
         /// <summary>
         /// 当前连接事件所创建的会话管理器，供运行时诊断读取。
@@ -114,24 +156,29 @@ namespace AFPS.Bootstrap
                 return;
             }
 
-            CharacterCollisionConfig collisionConfig;
-            try
+            if (preparedWorld == null && !TryPrepareSimulation(out string preparationError))
             {
-                collisionConfig = new CharacterCollisionConfig(capsuleRadius, capsuleHeight, collisionSkinWidth, groundProbeDistance, stepHeight, maxSlopeAngle, maxSlideIterations);
-            }
-            catch (ArgumentException exception)
-            {
-                Debug.LogError($"角色碰撞配置无效：{exception.Message}", this);
+                Debug.LogError(preparationError, this);
                 enabled = false;
                 return;
             }
 
-            PlayerSimulationConfig config = new PlayerSimulationConfig(maxGroundSpeed, groundAcceleration, gravity, jumpSpeed, collisionConfig);
-            PlayerState serverInitialState = new PlayerState { Tick = 0, Position = serverSpawnPosition, Velocity = Vector3.zero, IsGrounded = true };
-            PlayerState clientInitialState = new PlayerState { Tick = 0, Position = hasLocalClient ? playerView.InitialPosition : serverSpawnPosition, Velocity = Vector3.zero, Yaw = hasLocalClient ? playerView.InitialYaw : 0f, IsGrounded = true };
-            QueryTriggerInteraction triggerInteraction = collideWithTriggers ? QueryTriggerInteraction.Collide : QueryTriggerInteraction.Ignore;
-            ICharacterCollisionWorld collisionWorld = new UnityPhysicsCharacterCollisionWorld(gameObject.scene.GetPhysicsScene(), collisionLayers.value, triggerInteraction);
-
+            PlayerSimulationConfig config = preparedWorld.Configuration;
+            PlayerState serverInitialState = new PlayerState
+            {
+                Tick = 0,
+                Position = serverSpawnPosition,
+                Velocity = Vector3.zero,
+                IsGrounded = true
+            };
+            PlayerState clientInitialState = new PlayerState
+            {
+                Tick = 0,
+                Position = hasLocalClient ? playerView.InitialPosition : serverSpawnPosition,
+                Velocity = Vector3.zero,
+                Yaw = hasLocalClient ? playerView.InitialYaw : 0f,
+                IsGrounded = true
+            };
             if (hasLocalClient)
             {
                 if (localPlayerCollider == null)
@@ -147,7 +194,23 @@ namespace AFPS.Bootstrap
 
             try
             {
-                sessionManager = new NetworkMovementSessionManager(networkBootstrap.Runtime.ServerTransport, networkBootstrap.Runtime.ClientTransport, serverInitialState, clientInitialState, config, tickRunner.TickDeltaTime, predictionHistoryCapacity, inputRedundancyCount, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks, positionErrorThreshold, velocityErrorThreshold, collisionWorld, serverSpawnSpacing, remoteSnapshotCapacity, remoteInterpolationDelayTicks, remoteMaxExtrapolationTicks, remoteTeleportDistance, deathmatchKillLimit: deathmatchKillLimit, deathmatchDurationSeconds: deathmatchDurationSeconds, deathmatchRespawnSeconds: deathmatchRespawnSeconds, deathmatchReplicationIntervalSeconds: deathmatchReplicationIntervalSeconds);
+                sessionManager = new NetworkMovementSessionManager(
+                    networkBootstrap.Runtime.ServerTransport,
+                    networkBootstrap.Runtime.ClientTransport,
+                    serverInitialState, clientInitialState, config, tickRunner.TickDeltaTime,
+                    predictionHistoryCapacity, inputRedundancyCount, serverInputWindowCapacity,
+                    maxMissingInputWaitTicks, maxRepeatedMovementTicks,
+                    positionErrorThreshold, velocityErrorThreshold,
+                    serverSpawnSpacing: serverSpawnSpacing,
+                    remoteSnapshotCapacity: remoteSnapshotCapacity,
+                    remoteInterpolationDelayTicks: remoteInterpolationDelayTicks,
+                    remoteMaxExtrapolationTicks: remoteMaxExtrapolationTicks,
+                    remoteTeleportDistance: remoteTeleportDistance,
+                    deathmatchKillLimit: deathmatchKillLimit,
+                    deathmatchDurationSeconds: deathmatchDurationSeconds,
+                    deathmatchRespawnSeconds: deathmatchRespawnSeconds,
+                    deathmatchReplicationIntervalSeconds: deathmatchReplicationIntervalSeconds,
+                    simulationWorld: preparedWorld);
             }
             catch (ArgumentException exception)
             {
@@ -205,6 +268,7 @@ namespace AFPS.Bootstrap
                 weaponViewWasActive = firstPersonWeaponView != null && firstPersonWeaponView.gameObject.activeSelf;
             }
 
+            Debug.Log($"AFPS 定点世界已装配：{preparedWorld.Identity.WorldHash}，配置={preparedWorld.Identity.ConfigurationHash}。", this);
             initialized = true;
             if (hasLocalClient && NetworkSmokeTestDriver.IsRequested)
             {
@@ -229,6 +293,7 @@ namespace AFPS.Bootstrap
 
         private void LateUpdate()
         {
+            RefreshClientAdmission();
             if (initialized && playerView != null && sessionManager.ClientSession != null)
             {
                 playerView.Render(tickRunner.TickAlpha, tickRunner.TickDeltaTime, Time.unscaledDeltaTime);
@@ -290,6 +355,7 @@ namespace AFPS.Bootstrap
             }
 
             sessionManager.AdvanceServerSessions(serverWorldTick);
+            RefreshClientAdmission();
         }
 
         private void HandleTransportEvent(NetworkTransportSide side, GameTransportEvent transportEvent, ArraySegment<byte> payload)
@@ -298,11 +364,6 @@ namespace AFPS.Bootstrap
             {
                 case TransportEventType.Connected:
                     sessionManager.HandleConnected(side, transportEvent.ConnectionId);
-                    if (side == NetworkTransportSide.Client && playerView != null)
-                    {
-                        playerView.SnapToState(sessionManager.ClientSession.CurrentState);
-                        inputCollector.SetLookAngles(sessionManager.ClientSession.CurrentState.Yaw, sessionManager.ClientSession.CurrentState.Pitch);
-                    }
                     break;
                 case TransportEventType.Disconnected:
                     sessionManager.HandleDisconnected(side, transportEvent.ConnectionId);
@@ -311,11 +372,64 @@ namespace AFPS.Bootstrap
                     HandleData(side, transportEvent.ConnectionId, payload);
                     break;
             }
+            RefreshClientAdmission();
+        }
+
+        private void RefreshClientAdmission()
+        {
+            if (!initialized)
+            {
+                return;
+            }
+
+            ClientPredictedMovementSession client = sessionManager.ClientSession;
+            // 传输 Connected 早于世界准入，直到预测会话真正建立才初始化视图，且只初始化一次。
+            if (client != presentedClientSession)
+            {
+                presentedClientSession = client;
+                if (client != null && playerView != null)
+                {
+                    playerView.SnapToState(client.CurrentState);
+                    inputCollector.SetLookAngles(client.CurrentState.Yaw, client.CurrentState.Pitch);
+                }
+            }
+
+            ConnectionAdmissionStatus status = sessionManager.ClientAdmissionStatus;
+            if (status == observedAdmissionStatus)
+            {
+                return;
+            }
+
+            ConnectionAdmissionStatus previousStatus = observedAdmissionStatus;
+            observedAdmissionStatus = status;
+            // 失败原因保留到下一次握手，避免紧接着到达的 Disconnected 将诊断覆盖。
+            if (status == ConnectionAdmissionStatus.Disconnected
+                && previousStatus >= ConnectionAdmissionStatus.AlgorithmMismatch)
+            {
+                return;
+            }
+
+            ConnectionStatusMessage = status switch
+            {
+                ConnectionAdmissionStatus.AwaitingHandshake => "Checking simulation world...",
+                ConnectionAdmissionStatus.Admitted => "World accepted. Waiting for player assignment...",
+                ConnectionAdmissionStatus.AlgorithmMismatch => "Connection rejected: simulation algorithm mismatch.",
+                ConnectionAdmissionStatus.WorldMismatch => "Connection rejected: map snapshot mismatch.",
+                ConnectionAdmissionStatus.ConfigurationMismatch => "Connection rejected: movement configuration mismatch.",
+                ConnectionAdmissionStatus.TimedOut => "Connection rejected: admission timed out.",
+                ConnectionAdmissionStatus.SessionCreationFailed => "Connection rejected: player session creation failed.",
+                _ => "Connection lost. Restart the game to try again."
+            };
+            Debug.Log($"AFPS 准入状态：{status}；{ConnectionStatusMessage}；服务器身份={sessionManager.ExpectedServerIdentity}", this);
         }
 
         private void HandleData(NetworkTransportSide side, TransportConnectionId connectionId, ArraySegment<byte> payload)
         {
-            if (!sessionManager.TryHandleData(side, connectionId, payload, out ReconciliationResult reconciliation) || side != NetworkTransportSide.Client || !PacketHeaderCodec.TryRead(payload, out PacketHeader header) || header.MessageType != NetworkMessageType.AuthoritativePlayerState)
+            bool handled = sessionManager.TryHandleData(side, connectionId, payload, out ReconciliationResult reconciliation);
+            RefreshClientAdmission();
+            if (!handled || side != NetworkTransportSide.Client || sessionManager.ClientSession == null
+                || !PacketHeaderCodec.TryRead(payload, out PacketHeader header)
+                || header.MessageType != NetworkMessageType.AuthoritativePlayerState)
             {
                 return;
             }
@@ -361,6 +475,11 @@ namespace AFPS.Bootstrap
 
         private bool IsLocalGameplayActive()
         {
+            if (!CanEnterGame)
+            {
+                return false;
+            }
+
             DeathmatchState match = sessionManager.ClientDeathmatchState;
             if (match == null)
             {

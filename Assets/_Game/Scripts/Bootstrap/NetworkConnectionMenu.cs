@@ -1,9 +1,8 @@
-using System;
 using System.Net;
 using System.Net.Sockets;
 using AFPS.Input;
 using AFPS.NetCode.Runtime;
-using AFPS.NetCode.Transport;
+using AFPS.NetCode.Sessions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -30,6 +29,7 @@ namespace AFPS.Bootstrap
         private Button joinButton;
         private Button enterButton;
         private bool initialized;
+        private string localAddress;
 
         public void Initialize(UnityNetworkBootstrap owner)
         {
@@ -40,7 +40,7 @@ namespace AFPS.Bootstrap
 
             bootstrap = owner;
             initialized = true;
-            bootstrap.TransportEventReceived += HandleTransportEvent;
+            localAddress = GetLocalIpv4Address();
             inputCollector = FindObjectOfType<LocalPlayerInputCollector>(true);
             if (inputCollector != null)
             {
@@ -53,11 +53,34 @@ namespace AFPS.Bootstrap
             BuildMenu();
         }
 
-        private void OnDestroy()
+        private void Update()
         {
-            if (bootstrap != null)
+            if (bootstrap == null || bootstrap.Runtime == null)
             {
-                bootstrap.TransportEventReceived -= HandleTransportEvent;
+                return;
+            }
+
+            UnityNetworkMovementController movement = bootstrap.GetComponent<UnityNetworkMovementController>();
+            if (movement == null || movement.SessionManager == null)
+            {
+                return;
+            }
+
+            bool ready = movement.CanEnterGame;
+            enterButton.gameObject.SetActive(ready);
+            if (ready)
+            {
+                string message = bootstrap.ActiveMode == NetworkLaunchMode.Host
+                    ? $"Room at {localAddress}:{portInput.text}. World verified."
+                    : "World verified. Ready to enter.";
+                SetStatus(message, false);
+            }
+            else if (!string.IsNullOrEmpty(movement.ConnectionStatusMessage))
+            {
+                ConnectionAdmissionStatus status = movement.SessionManager.ClientAdmissionStatus;
+                bool failed = status != ConnectionAdmissionStatus.AwaitingHandshake
+                    && status != ConnectionAdmissionStatus.Admitted;
+                SetStatus(movement.ConnectionStatusMessage, failed);
             }
         }
 
@@ -77,35 +100,16 @@ namespace AFPS.Bootstrap
                 SetButtonsInteractable(true);
                 return;
             }
-
-            if (mode == NetworkLaunchMode.Host)
-            {
-                SetStatus($"Room ready at {GetLocalIpv4Address()}:{options.Port}", false);
-                enterButton.gameObject.SetActive(true);
-            }
-        }
-
-        private void HandleTransportEvent(NetworkTransportSide side, GameTransportEvent transportEvent, ArraySegment<byte> payload)
-        {
-            if (side != NetworkTransportSide.Client)
-            {
-                return;
-            }
-
-            if (transportEvent.Type == TransportEventType.Connected)
-            {
-                SetStatus("Connected. Ready to enter.", false);
-                enterButton.gameObject.SetActive(true);
-            }
-            else if (transportEvent.Type == TransportEventType.Disconnected)
-            {
-                SetStatus("Connection lost. Restart the game to try again.", true);
-                enterButton.gameObject.SetActive(false);
-            }
         }
 
         private void EnterGame()
         {
+            UnityNetworkMovementController movement = bootstrap.GetComponent<UnityNetworkMovementController>();
+            if (movement == null || !movement.CanEnterGame)
+            {
+                return;
+            }
+
             if (inputCollector != null)
             {
                 inputCollector.enabled = true;
@@ -146,7 +150,7 @@ namespace AFPS.Bootstrap
 
             hostButton = CreateButton(panel, "Host Button", "HOST GAME", new Vector2(-135f, -91f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Host));
             joinButton = CreateButton(panel, "Join Button", "JOIN GAME", new Vector2(135f, -91f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Client));
-            statusText = CreateText(panel, $"Local address: {GetLocalIpv4Address()}", 18f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, -159f), new Vector2(560f, 54f), new Color(0.66f, 0.75f, 0.84f));
+            statusText = CreateText(panel, $"Local address: {localAddress}", 18f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, -159f), new Vector2(560f, 54f), new Color(0.66f, 0.75f, 0.84f));
             statusText.enableWordWrapping = true;
             enterButton = CreateButton(panel, "Enter Button", "ENTER GAME", new Vector2(0f, -224f), new Vector2(520f, 58f), EnterGame);
             enterButton.gameObject.SetActive(false);

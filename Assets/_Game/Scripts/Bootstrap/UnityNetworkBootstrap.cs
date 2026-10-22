@@ -230,6 +230,12 @@ namespace AFPS.Bootstrap
                 return false;
             }
 
+            UnityNetworkMovementController movement = GetComponent<UnityNetworkMovementController>();
+            if (movement != null && !movement.TryPrepareSimulation(out error))
+            {
+                return false;
+            }
+
             if (options.Port == 0)
             {
                 error = "UDP port must be from 1 to 65535.";

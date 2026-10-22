@@ -126,7 +126,10 @@ namespace AFPS.Bootstrap
                 }
             }
 
-            bool requestFire = networkBootstrap.ActiveMode == NetworkLaunchMode.Host && hasAimTarget && !fireSent && elapsed >= 0.5d;
+            // 新会话中首个实体只发射一次；同时覆盖 Host 和纯 Dedicated Server 的客户端组合。
+            // 只选一个射手，避免双方同时射击时最后收到的结果互相覆盖，影响命中验收。
+            bool requestFire = replicas.LocalEntityId == 1 && hasAimTarget
+                && !fireSent && elapsed >= 0.5d;
             if (requestFire)
             {
                 fireSent = true;

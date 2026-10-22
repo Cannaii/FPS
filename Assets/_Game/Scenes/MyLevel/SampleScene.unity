@@ -226,7 +226,7 @@ MonoBehaviour:
   collisionLayers:
     serializedVersion: 2
     m_Bits: 256
-  collideWithTriggers: 0
+  fixedWorldSnapshot: {fileID: 4900000, guid: 9c18d25c7d09c284ab244bfd4fc4a45a, type: 3}
   capsuleRadius: 0.5
   capsuleHeight: 2
   collisionSkinWidth: 0.01
