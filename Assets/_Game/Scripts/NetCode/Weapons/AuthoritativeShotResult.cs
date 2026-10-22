@@ -1,25 +1,31 @@
-using UnityEngine;
+﻿using AFPS.Math;
 
 namespace AFPS.NetCode.Weapons
 {
-    /// <summary>服务器对一次已接受射击的最终命中、弹药与生命值裁决。</summary>
-    public readonly struct AuthoritativeShotResult
+    /// <summary>权威命中结果；生命值为 Q16.16，命中点为米，尚未迁移的网络边界负责转换。</summary>
+    public readonly partial struct AuthoritativeShotResult
     {
         public readonly AuthoritativeShot Shot;
         public readonly int RemainingAmmo;
         public readonly bool DidHit;
         public readonly uint TargetEntityId;
-        public readonly float TargetHealth;
-        public readonly Vector3 HitPoint;
+        public readonly Fix TargetHealthFixed;
+        public readonly FixVec3 HitPointFixed;
 
-        public AuthoritativeShotResult(in AuthoritativeShot shot, int remainingAmmo, bool didHit, uint targetEntityId, float targetHealth, Vector3 hitPoint)
+        public AuthoritativeShotResult(
+            in AuthoritativeShot shot,
+            int remainingAmmo,
+            bool didHit,
+            uint targetEntityId,
+            Fix targetHealth,
+            FixVec3 hitPoint)
         {
             Shot = shot;
             RemainingAmmo = remainingAmmo;
             DidHit = didHit;
             TargetEntityId = targetEntityId;
-            TargetHealth = targetHealth;
-            HitPoint = hitPoint;
+            TargetHealthFixed = targetHealth;
+            HitPointFixed = hitPoint;
         }
     }
 }

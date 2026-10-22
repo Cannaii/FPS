@@ -29,7 +29,7 @@ namespace AFPS.NetCode.Sessions
         private readonly Dictionary<TransportConnectionId, ServerAuthoritativeMovementSession> serverSessions = new Dictionary<TransportConnectionId, ServerAuthoritativeMovementSession>();
         private readonly Dictionary<TransportConnectionId, uint> serverEntityIds = new Dictionary<TransportConnectionId, uint>();
         private readonly Dictionary<uint, uint> snapshotSequences = new Dictionary<uint, uint>();
-        private readonly Dictionary<uint, float> serverHealth = new Dictionary<uint, float>();
+        private readonly Dictionary<uint, Fix> serverHealth = new Dictionary<uint, Fix>();
         private readonly Dictionary<uint, ushort> serverKills = new Dictionary<uint, ushort>();
         private readonly Dictionary<uint, ushort> serverDeaths = new Dictionary<uint, ushort>();
         private readonly Dictionary<uint, uint> serverRespawnTicks = new Dictionary<uint, uint>();
@@ -47,6 +47,8 @@ namespace AFPS.NetCode.Sessions
         private readonly PlayerState clientInitialState;
         private readonly PlayerSimulationConfig simulationConfig;
         private readonly float tickDeltaTime;
+        // 弹丸与移动使用同一规范步长（秒），构造边界只转换一次。
+        private readonly Fix tickDeltaTimeFixed;
         private readonly int predictionHistoryCapacity;
         private readonly int inputRedundancyCount;
         private readonly int serverInputWindowCapacity;
@@ -232,6 +234,7 @@ namespace AFPS.NetCode.Sessions
             this.clientInitialState = clientInitialState;
             this.simulationConfig = simulationConfig;
             this.tickDeltaTime = tickDeltaTime;
+            tickDeltaTimeFixed = SimulationStep.FromSeconds(tickDeltaTime);
             this.predictionHistoryCapacity = predictionHistoryCapacity;
             this.inputRedundancyCount = inputRedundancyCount;
             this.serverInputWindowCapacity = serverInputWindowCapacity;
@@ -317,7 +320,7 @@ namespace AFPS.NetCode.Sessions
                     serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks,
                     collisionWorld, entityId, weaponConfig, WorldContext?.CollisionWorld));
                 serverEntityIds.Add(connectionId, entityId);
-                serverHealth.Add(entityId, 100f);
+                serverHealth.Add(entityId, Fix.FromInt(100));
                 serverKills.Add(entityId, 0);
                 serverDeaths.Add(entityId, 0);
                 rewindHistories.Add(entityId, new RewindHitboxHistory((int)maximumRewindTicks + 2));
@@ -520,11 +523,18 @@ namespace AFPS.NetCode.Sessions
 
         public bool TryGetServerEntityId(TransportConnectionId connectionId, out uint entityId) => serverEntityIds.TryGetValue(connectionId, out entityId);
 
-        public bool TryGetServerHealth(uint entityId, out float health) => serverHealth.TryGetValue(entityId, out health);
+        public bool TryGetServerHealthFixed(uint entityId, out Fix health) => serverHealth.TryGetValue(entityId, out health);
+
+        public bool TryGetServerHealth(uint entityId, out float health)
+        {
+            bool found = serverHealth.TryGetValue(entityId, out Fix fixedHealth);
+            health = fixedHealth.ToFloat();
+            return found;
+        }
 
         public bool TryGetServerDeathmatchPlayer(uint entityId, out DeathmatchPlayerState state)
         {
-            if (!serverHealth.TryGetValue(entityId, out float health))
+            if (!serverHealth.ContainsKey(entityId))
             {
                 state = default;
                 return false;
@@ -552,43 +562,54 @@ namespace AFPS.NetCode.Sessions
                 if (shot.FireMode == WeaponFireMode.Projectile)
                 {
                     projectileSimulation.Spawn(shot, fireResult.RemainingAmmo);
-                    BroadcastShotResult(new AuthoritativeShotResult(shot, fireResult.RemainingAmmo, false, 0, 0f, shot.Origin + shot.Direction * shot.Range));
+                    BroadcastShotResult(new AuthoritativeShotResult(
+                        shot, fireResult.RemainingAmmo, false, 0, Fix.Zero,
+                        ServerHitscanResolver.PointAtDistance(
+                            shot.OriginFixed, shot.DirectionFixed, shot.RangeFixed.Raw)));
                     continue;
                 }
 
                 ServerCombatTarget target = default;
-                Vector3 hitPoint = shot.Origin + shot.Direction * shot.Range;
+                FixVec3 hitPoint = ServerHitscanResolver.PointAtDistance(
+                    shot.OriginFixed, shot.DirectionFixed, shot.RangeFixed.Raw);
                 BuildCombatTargets(shot.RewindTick, serverWorldTick);
                 long rewindStarted = Stopwatch.GetTimestamp();
-                bool didHit = shot.FireMode == WeaponFireMode.Hitscan && ServerHitscanResolver.TryResolve(shot, combatTargets, out target, out hitPoint);
+                bool didHit = shot.FireMode == WeaponFireMode.Hitscan
+                    && ServerHitscanResolver.TryResolveFixed(shot, combatTargets, out target, out hitPoint);
                 Metrics.RewindQueries++;
                 Metrics.LastRewindMicroseconds = ElapsedMicroseconds(rewindStarted);
                 uint targetEntityId = 0;
-                float targetHealth = 0f;
+                Fix targetHealth = Fix.Zero;
                 if (didHit)
                 {
                     targetEntityId = target.EntityId;
-                    targetHealth = ApplyDamage(shot.EntityId, targetEntityId, shot.Damage, serverWorldTick);
+                    targetHealth = ApplyDamage(shot.EntityId, targetEntityId, shot.DamageFixed, serverWorldTick);
                     for (int targetIndex = 0; targetIndex < combatTargets.Count; targetIndex++)
                     {
                         if (combatTargets[targetIndex].EntityId == targetEntityId)
                         {
-                            combatTargets[targetIndex] = new ServerCombatTarget(targetEntityId, target.Position, target.Radius, target.Height, targetHealth);
+                            combatTargets[targetIndex] = new ServerCombatTarget(
+                                targetEntityId, target.PositionFixed,
+                                target.RadiusFixed, target.HeightFixed, targetHealth);
                             break;
                         }
                     }
                 }
-                BroadcastShotResult(new AuthoritativeShotResult(shot, fireResult.RemainingAmmo, didHit, targetEntityId, targetHealth, hitPoint));
+                BroadcastShotResult(new AuthoritativeShotResult(
+                    shot, fireResult.RemainingAmmo, didHit, targetEntityId, targetHealth, hitPoint));
             }
 
             BuildCombatTargets(serverWorldTick, serverWorldTick);
             projectileImpacts.Clear();
-            projectileSimulation.Advance(tickDeltaTime, combatTargets, projectileImpacts);
+            projectileSimulation.Advance(tickDeltaTimeFixed, combatTargets, projectileImpacts);
             for (int i = 0; i < projectileImpacts.Count; i++)
             {
                 AuthoritativeShotResult impact = projectileImpacts[i];
-                float targetHealth = ApplyDamage(impact.Shot.EntityId, impact.TargetEntityId, impact.Shot.Damage, serverWorldTick);
-                BroadcastShotResult(new AuthoritativeShotResult(impact.Shot, impact.RemainingAmmo, true, impact.TargetEntityId, targetHealth, impact.HitPoint));
+                Fix targetHealth = ApplyDamage(
+                    impact.Shot.EntityId, impact.TargetEntityId, impact.Shot.DamageFixed, serverWorldTick);
+                BroadcastShotResult(new AuthoritativeShotResult(
+                    impact.Shot, impact.RemainingAmmo, true,
+                    impact.TargetEntityId, targetHealth, impact.HitPointFixed));
             }
         }
 
@@ -601,7 +622,9 @@ namespace AFPS.NetCode.Sessions
                 {
                     continue;
                 }
-                ServerCombatTarget target = new ServerCombatTarget(entityId, pair.Value.CurrentState.Position, 0.5f, 2f, serverHealth[entityId]);
+                // 沿用战斗 Hitbox 常量：半径 0.5 米、高 2 米；不是移动胶囊的动态姿态配置。
+                ServerCombatTarget target = new ServerCombatTarget(
+                    entityId, pair.Value.CurrentState.PositionFixed, Fix.Half, Fix.FromInt(2), serverHealth[entityId]);
                 rewindHistories[entityId].Record(serverWorldTick, target);
             }
         }
@@ -617,7 +640,10 @@ namespace AFPS.NetCode.Sessions
                 }
                 if (pair.Value.TryGetAtOrBefore(requestedTick, currentTick, maximumRewindTicks, out ServerCombatTarget historical, out _))
                 {
-                    combatTargets.Add(new ServerCombatTarget(pair.Key, historical.Position, historical.Radius, historical.Height, serverHealth[pair.Key]));
+                    // 回溯几何，但用当前生命值过滤死亡目标，不能把历史血量写回当前会话。
+                    combatTargets.Add(new ServerCombatTarget(
+                        pair.Key, historical.PositionFixed,
+                        historical.RadiusFixed, historical.HeightFixed, serverHealth[pair.Key]));
                 }
             }
         }
@@ -652,7 +678,7 @@ namespace AFPS.NetCode.Sessions
                 }
 
                 serverRespawnTicks.Remove(entityId);
-                serverHealth[entityId] = 100f;
+                serverHealth[entityId] = Fix.FromInt(100);
                 foreach (KeyValuePair<TransportConnectionId, uint> pair in serverEntityIds)
                 {
                     if (pair.Value == entityId && serverSessions.TryGetValue(pair.Key, out ServerAuthoritativeMovementSession session))
@@ -672,17 +698,17 @@ namespace AFPS.NetCode.Sessions
             }
         }
 
-        private float ApplyDamage(uint attackerEntityId, uint targetEntityId, float damage, uint serverWorldTick)
+        private Fix ApplyDamage(uint attackerEntityId, uint targetEntityId, Fix damage, uint serverWorldTick)
         {
             if (deathmatchPhase != DeathmatchPhase.Playing || !IsServerPlayerAlive(targetEntityId))
             {
-                return serverHealth.TryGetValue(targetEntityId, out float existingHealth) ? existingHealth : 0f;
+                return serverHealth.TryGetValue(targetEntityId, out Fix existingHealth) ? existingHealth : Fix.Zero;
             }
 
-            float targetHealth = Mathf.Max(0f, serverHealth[targetEntityId] - damage);
+            Fix targetHealth = ServerCombatHealth.ApplyDamage(serverHealth[targetEntityId], damage);
             serverHealth[targetEntityId] = targetHealth;
             deathmatchStateDirty = true;
-            if (targetHealth > 0f)
+            if (targetHealth.Raw > 0)
             {
                 return targetHealth;
             }
@@ -703,7 +729,7 @@ namespace AFPS.NetCode.Sessions
 
         private bool IsServerPlayerAlive(uint entityId)
         {
-            return serverHealth.TryGetValue(entityId, out float health) && health > 0f && !serverRespawnTicks.ContainsKey(entityId);
+            return serverHealth.TryGetValue(entityId, out Fix health) && health.Raw > 0 && !serverRespawnTicks.ContainsKey(entityId);
         }
 
         private void FinishDeathmatch(uint winnerEntityId)
@@ -789,7 +815,7 @@ namespace AFPS.NetCode.Sessions
 
             return new DeathmatchPlayerState(
                 entityId,
-                (ushort)Mathf.Clamp(Mathf.RoundToInt(serverHealth[entityId]), 0, ushort.MaxValue),
+                ServerCombatHealth.ToDisplayHealth(serverHealth[entityId]),
                 serverKills[entityId],
                 serverDeaths[entityId],
                 (ushort)Mathf.Min(ushort.MaxValue, respawnTicks),

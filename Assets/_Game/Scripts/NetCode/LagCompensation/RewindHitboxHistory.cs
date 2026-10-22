@@ -15,7 +15,10 @@ namespace AFPS.NetCode.LagCompensation
 
         public RewindHitboxHistory(int capacity)
         {
-            if (capacity <= 0) throw new ArgumentOutOfRangeException(nameof(capacity));
+            if (capacity <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(capacity));
+            }
             ticks = new uint[capacity];
             targets = new ServerCombatTarget[capacity];
         }
@@ -23,9 +26,13 @@ namespace AFPS.NetCode.LagCompensation
         public void Record(uint serverTick, in ServerCombatTarget target)
         {
             ticks[nextIndex] = serverTick;
+            // 值类型保存完整 Raw 快照，不经 Unity/float，也不引用可变玩家状态。
             targets[nextIndex] = target;
             nextIndex = (nextIndex + 1) % ticks.Length;
-            if (count < ticks.Length) count++;
+            if (count < ticks.Length)
+            {
+                count++;
+            }
         }
 
         public bool TryGetAtOrBefore(uint requestedTick, uint currentTick, uint maximumRewindTicks, out ServerCombatTarget target, out uint sampledTick)

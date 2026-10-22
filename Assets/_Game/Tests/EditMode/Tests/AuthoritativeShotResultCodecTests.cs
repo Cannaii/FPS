@@ -13,6 +13,9 @@ namespace AFPS.Tests.EditMode
         [TestCase(24, int.MaxValue)]
         [TestCase(28, int.MinValue)]
         [TestCase(32, int.MaxValue)]
+        [TestCase(42, int.MaxValue)]
+        [TestCase(46, int.MinValue)]
+        [TestCase(50, int.MaxValue)]
         [TestCase(56, int.MaxValue)]
         [TestCase(60, int.MaxValue)]
         public void Result_RejectsLegacyMillimetresOutsideFixedDomainWithoutThrowing(int payloadOffset, int value)

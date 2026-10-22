@@ -12,6 +12,7 @@ using AFPS.NetCode.SnapshotInterpolation;
 using AFPS.NetCode.StateReplication;
 using AFPS.NetCode.Transport;
 using AFPS.Simulation.Characters;
+using AFPS.Simulation.Weapons;
 using NUnit.Framework;
 
 namespace AFPS.Tests.EditMode
@@ -307,6 +308,36 @@ namespace AFPS.Tests.EditMode
             Assert.That(manager.Metrics.RewindQueries, Is.EqualTo(1));
             Assert.That(manager.Metrics.ShotResultsSent, Is.EqualTo(2));
             Assert.That(manager.Metrics.LastRewindMicroseconds, Is.GreaterThanOrEqualTo(0));
+        }
+
+        [Test]
+        public void AuthoritativeHitscan_PreservesFractionalDamageInServerHealthAcrossTicks()
+        {
+            FakeTransport transport = new FakeTransport(TransportRole.Server);
+            Fix damage = Fix.FromRaw(1310721); // 20 生命值再加 1 Raw；不能被旧结果协议的 0.01 精度反写。
+            WeaponSimulationConfig weapon = new WeaponSimulationConfig(1, WeaponFireMode.Hitscan,
+                30, 5, damage, Fix.FromInt(200), Fix.Zero, Fix.FromRaw(104858));
+            NetworkMovementSessionManager manager = CreateManager(transport, null, weaponConfig: weapon);
+            TransportConnectionId shooter = new TransportConnectionId(10);
+            TransportConnectionId target = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, shooter);
+            manager.HandleConnected(NetworkTransportSide.Server, target);
+            manager.TryGetServerEntityId(target, out uint targetId);
+            for (uint tick = 1; tick <= 6; tick++)
+            {
+                SendTick(manager, shooter, target, tick, 99 + tick,
+                    new PlayerInputCommand
+                    {
+                        LookYaw = 90f,
+                        FirePressed = tick == 1 || tick == 6,
+                        ShotSequence = tick == 1 ? 1u : tick == 6 ? 2u : 0u
+                    }, default);
+            }
+            Assert.That(manager.TryGetServerHealthFixed(targetId, out Fix health), Is.True);
+            Assert.That(health.Raw, Is.EqualTo(6553600 - 2 * damage.Raw));
+            Assert.That(FindLastShotResult(transport, out var result), Is.True);
+            Assert.That(result.DidHit, Is.True);
+            Assert.That(result.TargetEntityId, Is.EqualTo(targetId));
         }
 
         [Test]
@@ -610,7 +641,8 @@ namespace AFPS.Tests.EditMode
             int deathmatchKillLimit = 10,
             float deathmatchRespawnSeconds = 3f,
             PlayerState? spawnState = null,
-            float spawnSpacing = 2.5f)
+            float spawnSpacing = 2.5f,
+            WeaponSimulationConfig? weaponConfig = null)
         {
             PlayerState initialState = spawnState ?? new PlayerState { Tick = 0, IsGrounded = true };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
@@ -620,6 +652,7 @@ namespace AFPS.Tests.EditMode
                 AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold,
                 AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold,
                 serverSpawnSpacing: spawnSpacing,
+                weaponConfig: weaponConfig,
                 maximumRewindTicks: maximumRewindTicks,
                 interestRadius: interestRadius,
                 snapshotBudgetPerClientPerTick: snapshotBudget,

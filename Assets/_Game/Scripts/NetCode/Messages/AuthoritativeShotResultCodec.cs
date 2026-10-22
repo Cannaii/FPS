@@ -159,6 +159,7 @@ namespace AFPS.NetCode.Messages
                     damage * ScalarResolution,
                     range * PositionResolution,
                     projectileSpeed * PositionResolution);
+                result = new AuthoritativeShotResult(shot, ammo, didHit, targetId, health * ScalarResolution, hitPoint);
             }
             catch (OverflowException)
             {
@@ -166,7 +167,6 @@ namespace AFPS.NetCode.Messages
                 // 协议 Raw 化前仍保留原量化布局，不能将这里视作无损定点传输。
                 return false;
             }
-            result = new AuthoritativeShotResult(shot, ammo, didHit, targetId, health * ScalarResolution, hitPoint);
             return true;
         }
 

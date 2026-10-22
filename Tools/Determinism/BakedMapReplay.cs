@@ -18,12 +18,18 @@ internal static class BakedMapReplay
         {
             throw new Exception("Shot generation fingerprint changed");
         }
+        ulong combatHash = DeterministicCombatScenario.Run();
+        Console.WriteLine($"CombatTicks=512; CombatRawHash={combatHash}");
+        if (combatHash != DeterministicCombatScenario.ExpectedHash)
+        {
+            throw new Exception("Combat simulation fingerprint changed");
+        }
         if (hash != 7359184500043852174UL)
         {
             throw new Exception("Regression fingerprint changed");
         }
 
-        if (context.Identity.AlgorithmVersion != 4 || context.Identity.ConfigurationHash != 2351933728679746851UL)
+        if (context.Identity.AlgorithmVersion != 5 || context.Identity.ConfigurationHash != 2351933728679746851UL)
         {
             throw new Exception("World compatibility fingerprint changed");
         }
