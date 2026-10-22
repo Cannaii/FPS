@@ -210,6 +210,7 @@ namespace AFPS.Bootstrap
                     remoteInterpolationDelayTicks: remoteInterpolationDelayTicks,
                     remoteMaxExtrapolationTicks: remoteMaxExtrapolationTicks,
                     remoteTeleportDistance: remoteTeleportDistance,
+                    weaponConfig: preparedWorld.WeaponConfiguration,
                     deathmatchKillLimit: deathmatchKillLimit,
                     deathmatchDurationSeconds: deathmatchDurationSeconds,
                     deathmatchRespawnSeconds: deathmatchRespawnSeconds,

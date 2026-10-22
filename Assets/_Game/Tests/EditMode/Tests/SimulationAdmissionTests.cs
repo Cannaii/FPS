@@ -9,12 +9,31 @@ using AFPS.NetCode.Sessions;
 using AFPS.NetCode.Transport;
 using AFPS.Simulation.Characters;
 using AFPS.Simulation.World;
+using AFPS.Simulation.Weapons;
 using NUnit.Framework;
 
 namespace AFPS.Tests.EditMode
 {
     public sealed class SimulationAdmissionTests
     {
+        [Test]
+        public void WeaponDifferenceOfOneRawRejectsAdmissionBeforeEntityAssignment()
+        {
+            var rifle = WeaponSimulationConfig.DefaultRifle;
+            var changed = new WeaponSimulationConfig(rifle.WeaponId, rifle.FireMode,
+                rifle.MagazineCapacity, rifle.FireIntervalTicks, rifle.DamageFixed + Fix.Epsilon,
+                rifle.RangeFixed, rifle.ProjectileSpeedFixed, rifle.EyeHeightFixed);
+            var pair = new Pair(clientWeapon: changed);
+            pair.Connect();
+            pair.Flush();
+            Assert.That(pair.Client.ClientAdmissionStatus, Is.EqualTo(ConnectionAdmissionStatus.ConfigurationMismatch));
+            Assert.That(pair.Server.ServerSessionCount, Is.Zero);
+            Assert.That(pair.Client.ClientSession, Is.Null);
+            Assert.That(pair.ServerTransport.Sent.FindAll(
+                packet => packet.Type == NetworkMessageType.PlayerSessionAssignment), Is.Empty);
+            Assert.That(pair.Client.ExpectedServerIdentity, Is.EqualTo(pair.Server.WorldContext.Identity));
+        }
+
         [Test]
         public void ReadyGatesEntityCreationAndUsesVerifiedCollisionWorld()
         {
@@ -327,6 +346,13 @@ namespace AFPS.Tests.EditMode
             Assert.Throws<ArgumentException>(() => new NetworkMovementSessionManager(transport, null, initial, initial,
                 context.Configuration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
                 interestRadius: 149f, simulationWorld: context));
+            var rifle = WeaponSimulationConfig.DefaultRifle;
+            var changedWeapon = new WeaponSimulationConfig(rifle.WeaponId, rifle.FireMode,
+                rifle.MagazineCapacity, rifle.FireIntervalTicks, rifle.DamageFixed + Fix.Epsilon,
+                rifle.RangeFixed, rifle.ProjectileSpeedFixed, rifle.EyeHeightFixed);
+            Assert.Throws<ArgumentException>(() => new NetworkMovementSessionManager(transport, null, initial, initial,
+                context.Configuration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
+                weaponConfig: changedWeapon, simulationWorld: context));
             Assert.Throws<ArgumentOutOfRangeException>(() => CreateManager(transport, null, context, timeout: 0));
             Assert.Throws<ArgumentOutOfRangeException>(() => CreateManager(transport, null, context, retry: 8));
         }
@@ -359,7 +385,8 @@ namespace AFPS.Tests.EditMode
         {
             PlayerState initial = InitialState();
             var manager = new NetworkMovementSessionManager(server, client, initial, initial, context.Configuration,
-                0.02f, 64, 3, 16, 2, 2, 0, 0, simulationWorld: context,
+                0.02f, 64, 3, 16, 2, 2, 0, 0,
+                weaponConfig: context.WeaponConfiguration, simulationWorld: context,
                 admissionTimeoutTicks: timeout, admissionRetryTicks: retry);
             if (initializeClock)
             {
@@ -399,10 +426,18 @@ namespace AFPS.Tests.EditMode
             internal readonly NetworkMovementSessionManager Server;
             internal readonly NetworkMovementSessionManager Client;
 
-            internal Pair(SimulationCompatibility mismatch = SimulationCompatibility.Compatible)
+            internal Pair(
+                SimulationCompatibility mismatch = SimulationCompatibility.Compatible,
+                WeaponSimulationConfig? clientWeapon = null)
             {
                 Server = CreateManager(ServerTransport, null, Context());
-                Client = CreateManager(null, ClientTransport, Context(mismatch));
+                var context = Context(mismatch);
+                if (clientWeapon.HasValue)
+                {
+                    context = new SimulationWorldContext(context.World, context.Configuration,
+                        context.TickDeltaTime, context.CollisionLayerMask, context.SessionSpatial, clientWeapon.Value);
+                }
+                Client = CreateManager(null, ClientTransport, context);
             }
 
             internal void Connect()

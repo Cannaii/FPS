@@ -241,6 +241,11 @@ namespace AFPS.NetCode.Sessions
             this.velocityErrorThreshold = velocityErrorThreshold;
             sessionSpatial = new SimulationSessionSpatialConfig(
                 serverInitialState.PositionFixed, Fix.FromFloat(serverSpawnSpacing), Fix.FromFloat(interestRadius));
+            this.weaponConfig = weaponConfig ?? WeaponSimulationConfig.DefaultRifle;
+            if (!this.weaponConfig.IsValid)
+            {
+                throw new ArgumentException("武器配置无效。", nameof(weaponConfig));
+            }
             // 指纹与实际后端必须绑定，不能声明一个世界却继续使用另一个 PhysX 世界。
             WorldContext = simulationWorld;
             if (simulationWorld != null)
@@ -251,19 +256,15 @@ namespace AFPS.NetCode.Sessions
                 }
 
                 var actual = new SimulationWorldContext(simulationWorld.World, simulationConfig,
-                    SimulationStep.FromSeconds(tickDeltaTime), simulationWorld.CollisionLayerMask, sessionSpatial);
+                    SimulationStep.FromSeconds(tickDeltaTime), simulationWorld.CollisionLayerMask,
+                    sessionSpatial, this.weaponConfig);
                 if (!simulationWorld.Identity.Equals(actual.Identity))
                 {
-                    throw new ArgumentException("会话配置、步长或空间约定与世界上下文不一致。", nameof(simulationWorld));
+                    throw new ArgumentException("移动、空间或武器配置与世界上下文不一致。", nameof(simulationWorld));
                 }
             }
 
             this.collisionWorld = simulationWorld == null ? collisionWorld ?? FlatGroundCollisionWorld.Instance : null;
-            this.weaponConfig = weaponConfig ?? WeaponSimulationConfig.DefaultRifle;
-            if (!this.weaponConfig.IsValid)
-            {
-                throw new ArgumentException("武器配置无效。", nameof(weaponConfig));
-            }
             this.maximumRewindTicks = maximumRewindTicks;
             this.snapshotBudgetPerClientPerTick = snapshotBudgetPerClientPerTick;
             this.fullSnapshotIntervalTicks = fullSnapshotIntervalTicks;

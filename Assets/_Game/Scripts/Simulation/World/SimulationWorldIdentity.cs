@@ -6,14 +6,14 @@ namespace AFPS.Simulation.World
     public readonly struct SimulationWorldIdentity : IEquatable<SimulationWorldIdentity>
     {
         // 改变积分顺序、舍入、三角 LUT 或接触裁决时必须升级；代码排版与注释不升级。
-        // v2：出生/复活沿 Raw 偏移，兴趣范围使用整数球面判定和稳定实体排序。
-        public const uint CurrentAlgorithmVersion = 2;
+        // v3：武器参数统一 Q16.16，射击起点偏移等消费规范 Raw 后的数值。
+        public const uint CurrentAlgorithmVersion = 3;
 
         /// <summary>模拟和查询的算法语义版本；零保留为未初始化状态。</summary>
         public readonly uint AlgorithmVersion;
         /// <summary>规范 FixedWorld 快照的内容指纹，包含几何与表面元数据。</summary>
         public readonly ulong WorldHash;
-        /// <summary>当前移动/碰撞配置、固定步长和碰撞层掩码的 Raw 指纹。</summary>
+        /// <summary>移动/碰撞、步长/层掩码、会话空间和武器规则的规范 Raw 指纹。</summary>
         public readonly ulong ConfigurationHash;
 
         public SimulationWorldIdentity(uint algorithmVersion, ulong worldHash, ulong configurationHash)

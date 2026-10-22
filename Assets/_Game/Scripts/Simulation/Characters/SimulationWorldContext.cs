@@ -2,16 +2,18 @@ using System;
 using AFPS.Math;
 using AFPS.Simulation.World;
 using AFPS.Simulation.Characters.Collision;
+using AFPS.Simulation.Weapons;
 
 namespace AFPS.Simulation.Characters
 {
-    /// <summary>一次装配不可变世界、移动配置和碰撞后端，供预测、权威及引擎外重放共用。</summary>
+    /// <summary>绑定不可变世界、移动/空间/武器配置及碰撞后端，供预测、权威与引擎外重放共用。</summary>
     public sealed class SimulationWorldContext
     {
         public FixedWorld World { get; }
         public FixedCharacterCollisionWorld CollisionWorld { get; }
         public PlayerSimulationConfig Configuration { get; }
         public SimulationSessionSpatialConfig SessionSpatial { get; }
+        public WeaponSimulationConfig WeaponConfiguration { get; }
 
         /// <summary>每个模拟 Tick 的秒数，Q16.16；50Hz 的规范值为 1311 Raw。</summary>
         public Fix TickDeltaTime { get; }
@@ -26,7 +28,8 @@ namespace AFPS.Simulation.Characters
             in PlayerSimulationConfig configuration,
             Fix tickDeltaTime,
             int collisionLayerMask = ~0,
-            SimulationSessionSpatialConfig? sessionSpatial = null)
+            SimulationSessionSpatialConfig? sessionSpatial = null,
+            WeaponSimulationConfig? weaponConfiguration = null)
         {
             World = world ?? throw new ArgumentNullException(nameof(world));
             if (tickDeltaTime.Raw <= 0)
@@ -51,13 +54,19 @@ namespace AFPS.Simulation.Characters
             {
                 throw new ArgumentOutOfRangeException(nameof(sessionSpatial));
             }
+            WeaponConfiguration = weaponConfiguration ?? WeaponSimulationConfig.DefaultRifle;
+            if (!WeaponConfiguration.IsValid)
+            {
+                throw new ArgumentException("武器配置无效。", nameof(weaponConfiguration));
+            }
             TickDeltaTime = tickDeltaTime;
             CollisionLayerMask = collisionLayerMask;
             CollisionWorld = new FixedCharacterCollisionWorld(world, collisionLayerMask);
             Identity = new SimulationWorldIdentity(
                 SimulationWorldIdentity.CurrentAlgorithmVersion,
                 world.VersionHash,
-                ComputeConfigurationHash(configuration, tickDeltaTime, collisionLayerMask, SessionSpatial));
+                ComputeConfigurationHash(configuration, tickDeltaTime, collisionLayerMask,
+                    SessionSpatial, WeaponConfiguration));
         }
 
         /// <summary>只接受完整规范快照；加载失败必须阻止装配，不能悄悄退回平地或 PhysX。</summary>
@@ -66,26 +75,29 @@ namespace AFPS.Simulation.Characters
             in PlayerSimulationConfig configuration,
             Fix tickDeltaTime,
             int collisionLayerMask = ~0,
-            SimulationSessionSpatialConfig? sessionSpatial = null)
+            SimulationSessionSpatialConfig? sessionSpatial = null,
+            WeaponSimulationConfig? weaponConfiguration = null)
         {
             if (!FixedWorldCodec.TryDeserialize(snapshot, out FixedWorld world, out FixedWorldReadError error))
             {
                 throw new FormatException("确定性世界快照加载失败：" + error);
             }
 
-            return new SimulationWorldContext(world, configuration, tickDeltaTime, collisionLayerMask, sessionSpatial);
+            return new SimulationWorldContext(world, configuration, tickDeltaTime,
+                collisionLayerMask, sessionSpatial, weaponConfiguration);
         }
 
         private static ulong ComputeConfigurationHash(
             in PlayerSimulationConfig configuration,
             Fix tickDeltaTime,
             int collisionLayerMask,
-            in SimulationSessionSpatialConfig sessionSpatial)
+            in SimulationSessionSpatialConfig sessionSpatial,
+            in WeaponSimulationConfig weapon)
         {
-            // AFC2 增加会话空间配置；固定顺序的小端 int32，不能使用浮点字符串或本机字节序。
+            // AFC3 追加武器规则；固定顺序的小端 int32，不能使用浮点字符串或本机字节序。
             // 新增会改变模拟结果的参数时必须纳入字段，并升级域版本及黄金值。
             ulong hash = 14695981039346656037UL;
-            Add(ref hash, 0x32434641);
+            Add(ref hash, 0x33434641);
             Add(ref hash, tickDeltaTime.Raw);
             Add(ref hash, collisionLayerMask);
             Add(ref hash, configuration.MaxGroundSpeedFixed.Raw);
@@ -108,6 +120,14 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, sessionSpatial.SpawnOrigin.Z.Raw);
             Add(ref hash, sessionSpatial.SpawnSpacing.Raw);
             Add(ref hash, sessionSpatial.InterestRadius.Raw);
+            Add(ref hash, weapon.WeaponId);
+            Add(ref hash, (int)weapon.FireMode);
+            Add(ref hash, weapon.MagazineCapacity);
+            Add(ref hash, unchecked((int)weapon.FireIntervalTicks));
+            Add(ref hash, weapon.DamageFixed.Raw);
+            Add(ref hash, weapon.RangeFixed.Raw);
+            Add(ref hash, weapon.ProjectileSpeedFixed.Raw);
+            Add(ref hash, weapon.EyeHeightFixed.Raw);
             return hash;
         }
 
