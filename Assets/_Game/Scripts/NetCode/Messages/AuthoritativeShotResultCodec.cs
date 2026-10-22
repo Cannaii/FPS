@@ -145,17 +145,27 @@ namespace AFPS.NetCode.Messages
             direction.Normalize();
             Vector3 origin = new Vector3(ox, oy, oz) * PositionResolution;
             Vector3 hitPoint = new Vector3(hx, hy, hz) * PositionResolution;
-            AuthoritativeShot shot = new AuthoritativeShot(
-                entityId,
-                shotSequence,
-                serverTick,
-                weaponId,
-                fireMode,
-                origin,
-                direction,
-                damage * ScalarResolution,
-                range * PositionResolution,
-                projectileSpeed * PositionResolution);
+            AuthoritativeShot shot;
+            try
+            {
+                shot = new AuthoritativeShot(
+                    entityId,
+                    shotSequence,
+                    serverTick,
+                    weaponId,
+                    fireMode,
+                    origin,
+                    direction,
+                    damage * ScalarResolution,
+                    range * PositionResolution,
+                    projectileSpeed * PositionResolution);
+            }
+            catch (OverflowException)
+            {
+                // 旧毫米协议可表达比 Q16.16 更大的坐标/射程；拒绝越域包，不向网络循环抛异常。
+                // 协议 Raw 化前仍保留原量化布局，不能将这里视作无损定点传输。
+                return false;
+            }
             result = new AuthoritativeShotResult(shot, ammo, didHit, targetId, health * ScalarResolution, hitPoint);
             return true;
         }

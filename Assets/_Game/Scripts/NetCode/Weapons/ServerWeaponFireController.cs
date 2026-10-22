@@ -1,7 +1,7 @@
+using AFPS.Math;
 using AFPS.NetCode.Protocol;
 using AFPS.Simulation.Characters;
 using AFPS.Simulation.Weapons;
-using UnityEngine;
 
 namespace AFPS.NetCode.Weapons
 {
@@ -33,7 +33,11 @@ namespace AFPS.NetCode.Weapons
 
         public void Reload() => Ammo = config.MagazineCapacity;
 
-        public WeaponFireResult Process(uint serverTick, uint entityId, in PlayerInputCommand command, in PlayerState authoritativeState)
+        public WeaponFireResult Process(
+            uint serverTick,
+            uint entityId,
+            in PlayerInputCommand command,
+            in PlayerState authoritativeState)
         {
             if (!command.FirePressed)
             {
@@ -50,6 +54,7 @@ namespace AFPS.NetCode.Weapons
                 return Reject(WeaponFireRejectReason.DuplicateOrOldSequence);
             }
 
+            // 即使后续验证失败也消费序号，避免同一请求反复尝试；失败不消耗弹药或冷却。
             hasObservedSequence = true;
             lastObservedSequence = command.ShotSequence;
             if (!equipped)
@@ -67,13 +72,24 @@ namespace AFPS.NetCode.Weapons
                 return Reject(WeaponFireRejectReason.EmptyMagazine);
             }
 
-            if (!TryGetAimDirection(authoritativeState.Yaw, authoritativeState.Pitch, out Vector3 direction))
+            if (!WeaponAim.TryGetDirection(authoritativeState.YawFixedDegrees,
+                authoritativeState.PitchFixedDegrees, out FixVec3 direction))
             {
                 return Reject(WeaponFireRejectReason.InvalidAim);
             }
 
-            Vector3 origin = authoritativeState.Position + Vector3.up * config.EyeHeight;
-            AuthoritativeShot shot = new AuthoritativeShot(entityId, command.ShotSequence, serverTick, config, origin, direction, command.ShotServerTick);
+            // 眼高相加使用宽 Raw，避免大坐标经 float 丢失低位；越界时不扣弹、不启动冷却。
+            long originY = (long)authoritativeState.PositionFixed.Y.Raw + config.EyeHeightFixed.Raw;
+            if (originY > int.MaxValue || originY < int.MinValue)
+            {
+                return Reject(WeaponFireRejectReason.InvalidOrigin);
+            }
+
+            FixVec3 origin = new FixVec3(authoritativeState.PositionFixed.X,
+                Fix.FromRaw((int)originY), authoritativeState.PositionFixed.Z);
+            AuthoritativeShot shot = new AuthoritativeShot(
+                entityId, command.ShotSequence, serverTick, config,
+                origin, direction, command.ShotServerTick);
             Ammo--;
             hasAcceptedShot = true;
             lastAcceptedServerTick = serverTick;
@@ -84,18 +100,6 @@ namespace AFPS.NetCode.Weapons
         {
             AuthoritativeShot noShot = default;
             return new WeaponFireResult(false, reason, Ammo, noShot);
-        }
-
-        private static bool TryGetAimDirection(float yaw, float pitch, out Vector3 direction)
-        {
-            direction = default;
-            if (float.IsNaN(yaw) || float.IsInfinity(yaw) || float.IsNaN(pitch) || float.IsInfinity(pitch) || pitch < -89.9f || pitch > 89.9f)
-            {
-                return false;
-            }
-
-            direction = Quaternion.Euler(pitch, yaw, 0f) * Vector3.forward;
-            return direction.sqrMagnitude > 0.999f && direction.sqrMagnitude < 1.001f;
         }
     }
 }

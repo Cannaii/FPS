@@ -1,10 +1,10 @@
+﻿using AFPS.Math;
 using AFPS.Simulation.Weapons;
-using UnityEngine;
 
 namespace AFPS.NetCode.Weapons
 {
-    /// <summary>由服务器接受射击请求后生成的唯一权威射击描述。</summary>
-    public readonly struct AuthoritativeShot
+    /// <summary>权威射击的定点描述；坐标/射程为米，弹速为米/秒，伤害为生命值。</summary>
+    public readonly partial struct AuthoritativeShot
     {
         public readonly uint EntityId;
         public readonly uint ShotSequence;
@@ -12,40 +12,52 @@ namespace AFPS.NetCode.Weapons
         public readonly uint RewindTick;
         public readonly ushort WeaponId;
         public readonly WeaponFireMode FireMode;
-        public readonly Vector3 Origin;
-        public readonly Vector3 Direction;
-        public readonly float Damage;
-        public readonly float Range;
-        public readonly float ProjectileSpeed;
+        public readonly FixVec3 OriginFixed;
+        /// <summary>世界空间归一化方向；生成端负责归一化，DTO 不重复舍入。</summary>
+        public readonly FixVec3 DirectionFixed;
+        public readonly Fix DamageFixed;
+        public readonly Fix RangeFixed;
+        public readonly Fix ProjectileSpeedFixed;
 
-        public AuthoritativeShot(uint entityId, uint shotSequence, uint serverTick, in WeaponSimulationConfig config, Vector3 origin, Vector3 direction, uint rewindTick = 0)
+        public AuthoritativeShot(
+            uint entityId,
+            uint shotSequence,
+            uint serverTick,
+            in WeaponSimulationConfig config,
+            FixVec3 origin,
+            FixVec3 direction,
+            uint rewindTick = 0)
+            : this(entityId, shotSequence, serverTick, config.WeaponId, config.FireMode,
+                origin, direction, config.DamageFixed, config.RangeFixed,
+                config.ProjectileSpeedFixed, rewindTick)
         {
-            EntityId = entityId;
-            ShotSequence = shotSequence;
-            ServerTick = serverTick;
-            RewindTick = rewindTick == 0 ? serverTick : rewindTick;
-            WeaponId = config.WeaponId;
-            FireMode = config.FireMode;
-            Origin = origin;
-            Direction = direction;
-            Damage = config.Damage;
-            Range = config.Range;
-            ProjectileSpeed = config.ProjectileSpeed;
         }
 
-        public AuthoritativeShot(uint entityId, uint shotSequence, uint serverTick, ushort weaponId, WeaponFireMode fireMode, Vector3 origin, Vector3 direction, float damage, float range, float projectileSpeed, uint rewindTick = 0)
+        public AuthoritativeShot(
+            uint entityId,
+            uint shotSequence,
+            uint serverTick,
+            ushort weaponId,
+            WeaponFireMode fireMode,
+            FixVec3 origin,
+            FixVec3 direction,
+            Fix damage,
+            Fix range,
+            Fix projectileSpeed,
+            uint rewindTick = 0)
         {
             EntityId = entityId;
             ShotSequence = shotSequence;
             ServerTick = serverTick;
+            // 保留旧请求语义：零表示使用接收请求的服务器 Tick；非零由回溯窗口另行验证。
             RewindTick = rewindTick == 0 ? serverTick : rewindTick;
             WeaponId = weaponId;
             FireMode = fireMode;
-            Origin = origin;
-            Direction = direction;
-            Damage = damage;
-            Range = range;
-            ProjectileSpeed = projectileSpeed;
+            OriginFixed = origin;
+            DirectionFixed = direction;
+            DamageFixed = damage;
+            RangeFixed = range;
+            ProjectileSpeedFixed = projectileSpeed;
         }
     }
 }

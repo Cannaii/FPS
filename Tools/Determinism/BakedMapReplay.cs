@@ -12,12 +12,18 @@ internal static class BakedMapReplay
         ulong hash = DeterministicMapReplayScenario.Run(context, out int contacts);
         Console.WriteLine($"BakedMapReplay={hash}; Sweeps=4096; Ticks=8192; Contacts={contacts}; World={context.Identity.WorldHash}");
         Console.WriteLine($"Algorithm={context.Identity.AlgorithmVersion}; Configuration={context.Identity.ConfigurationHash}");
+        ulong shotHash = DeterministicShotGenerationScenario.Run();
+        Console.WriteLine($"AuthoritativeShots=4096; ShotRawHash={shotHash}");
+        if (shotHash != DeterministicShotGenerationScenario.ExpectedHash)
+        {
+            throw new Exception("Shot generation fingerprint changed");
+        }
         if (hash != 7359184500043852174UL)
         {
             throw new Exception("Regression fingerprint changed");
         }
 
-        if (context.Identity.AlgorithmVersion != 3 || context.Identity.ConfigurationHash != 2351933728679746851UL)
+        if (context.Identity.AlgorithmVersion != 4 || context.Identity.ConfigurationHash != 2351933728679746851UL)
         {
             throw new Exception("World compatibility fingerprint changed");
         }

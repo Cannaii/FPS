@@ -1,5 +1,6 @@
 using System;
 using AFPS.NetCode.Messages;
+using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Weapons;
 using AFPS.Simulation.Weapons;
 using NUnit.Framework;
@@ -9,6 +10,30 @@ namespace AFPS.Tests.EditMode
 {
     public sealed class AuthoritativeShotResultCodecTests
     {
+        [TestCase(24, int.MaxValue)]
+        [TestCase(28, int.MinValue)]
+        [TestCase(32, int.MaxValue)]
+        [TestCase(56, int.MaxValue)]
+        [TestCase(60, int.MaxValue)]
+        public void Result_RejectsLegacyMillimetresOutsideFixedDomainWithoutThrowing(int payloadOffset, int value)
+        {
+            AuthoritativeShot shot = new AuthoritativeShot(1, 1, 1, 1, WeaponFireMode.Hitscan,
+                Vector3.zero, Vector3.forward, 20f, 100f, 0f);
+            AuthoritativeShotResult source = new AuthoritativeShotResult(shot, 29, false, 0, 100f, Vector3.forward);
+            byte[] packet = new byte[AuthoritativeShotResultCodec.PacketSize];
+            Assert.That(AuthoritativeShotResultCodec.TrySerialize(source, 1,
+                new ArraySegment<byte>(packet), out _), Is.True);
+            // 显式小端写坏一个旧协议字段，不依赖宿主机端序。
+            uint bits = unchecked((uint)value);
+            for (int index = 0; index < 4; index++)
+            {
+                packet[PacketHeader.Size + payloadOffset + index] = unchecked((byte)(bits >> (index * 8)));
+            }
+            Assert.That(AuthoritativeShotResultCodec.TryDeserialize(new ArraySegment<byte>(packet),
+                out _, out AuthoritativeShotResult decoded), Is.False);
+            Assert.That(decoded.Shot.EntityId, Is.Zero);
+        }
+
         [Test]
         public void Result_RoundTripsAuthoritativeShotHitAmmoAndHealth()
         {
