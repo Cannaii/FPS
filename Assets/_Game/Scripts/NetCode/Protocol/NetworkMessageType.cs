@@ -15,6 +15,9 @@ namespace AFPS.NetCode.Protocol
         PlayerDespawn = 7,
         AuthoritativeShotResult = 8,
         RemotePlayerSnapshotDelta = 9,
-        DeathmatchState = 10
+        DeathmatchState = 10,
+        SimulationHello = 11,
+        SimulationWelcome = 12,
+        SimulationReady = 13
     }
 }

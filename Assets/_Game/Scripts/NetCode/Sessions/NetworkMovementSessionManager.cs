@@ -23,7 +23,7 @@ namespace AFPS.NetCode.Sessions
     /// 根据传输连接生命周期维护一个客户端预测会话和每连接一个服务器权威会话。
     /// 调用方仍然是传输事件的唯一消费者，并在回调有效期内把数据包交给本类。
     /// </summary>
-    public sealed class NetworkMovementSessionManager
+    public sealed partial class NetworkMovementSessionManager
     {
         private readonly Dictionary<TransportConnectionId, ServerAuthoritativeMovementSession> serverSessions = new Dictionary<TransportConnectionId, ServerAuthoritativeMovementSession>();
         private readonly Dictionary<TransportConnectionId, uint> serverEntityIds = new Dictionary<TransportConnectionId, uint>();
@@ -127,7 +127,39 @@ namespace AFPS.NetCode.Sessions
             }
         }
 
-        public NetworkMovementSessionManager(IGameTransport serverTransport, IGameTransport clientTransport, in PlayerState serverInitialState, in PlayerState clientInitialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int predictionHistoryCapacity, int inputRedundancyCount, int serverInputWindowCapacity, int maxMissingInputWaitTicks, int maxRepeatedMovementTicks, float positionErrorThreshold, float velocityErrorThreshold, ICharacterCollisionWorld collisionWorld = null, float serverSpawnSpacing = 2.5f, int remoteSnapshotCapacity = 32, double remoteInterpolationDelayTicks = 2.0, double remoteMaxExtrapolationTicks = 2.0, float remoteTeleportDistance = 5f, WeaponSimulationConfig? weaponConfig = null, uint maximumRewindTicks = 10, float interestRadius = 150f, int snapshotBudgetPerClientPerTick = 32, uint fullSnapshotIntervalTicks = 10, int deathmatchKillLimit = 10, float deathmatchDurationSeconds = 300f, float deathmatchRespawnSeconds = 3f, float deathmatchReplicationIntervalSeconds = 0.25f)
+        public NetworkMovementSessionManager(
+            IGameTransport serverTransport,
+            IGameTransport clientTransport,
+            in PlayerState serverInitialState,
+            in PlayerState clientInitialState,
+            in PlayerSimulationConfig simulationConfig,
+            float tickDeltaTime,
+            int predictionHistoryCapacity,
+            int inputRedundancyCount,
+            int serverInputWindowCapacity,
+            int maxMissingInputWaitTicks,
+            int maxRepeatedMovementTicks,
+            float positionErrorThreshold,
+            float velocityErrorThreshold,
+            ICharacterCollisionWorld collisionWorld = null,
+            float serverSpawnSpacing = 2.5f,
+            int remoteSnapshotCapacity = 32,
+            double remoteInterpolationDelayTicks = 2.0,
+            double remoteMaxExtrapolationTicks = 2.0,
+            float remoteTeleportDistance = 5f,
+            WeaponSimulationConfig? weaponConfig = null,
+            uint maximumRewindTicks = 10,
+            float interestRadius = 150f,
+            int snapshotBudgetPerClientPerTick = 32,
+            uint fullSnapshotIntervalTicks = 10,
+            int deathmatchKillLimit = 10,
+            float deathmatchDurationSeconds = 300f,
+            float deathmatchRespawnSeconds = 3f,
+            float deathmatchReplicationIntervalSeconds = 0.25f,
+            SimulationWorldContext simulationWorld = null,
+            // 本地模拟 Tick；50Hz 默认等待 5 秒，每 0.5 秒重试，等待连接期间也必须推进时钟。
+            uint admissionTimeoutTicks = 250,
+            uint admissionRetryTicks = 25)
         {
             if (serverTransport == null && clientTransport == null)
             {
@@ -200,7 +232,24 @@ namespace AFPS.NetCode.Sessions
             this.maxRepeatedMovementTicks = maxRepeatedMovementTicks;
             this.positionErrorThreshold = positionErrorThreshold;
             this.velocityErrorThreshold = velocityErrorThreshold;
-            this.collisionWorld = collisionWorld ?? FlatGroundCollisionWorld.Instance;
+            // 指纹与实际后端必须绑定，不能声明一个世界却继续使用另一个 PhysX 世界。
+            WorldContext = simulationWorld;
+            if (simulationWorld != null)
+            {
+                if (collisionWorld != null)
+                {
+                    throw new ArgumentException("定点世界不能与旧碰撞后端同时指定。", nameof(collisionWorld));
+                }
+
+                var actual = new SimulationWorldContext(simulationWorld.World, simulationConfig,
+                    SimulationStep.FromSeconds(tickDeltaTime), simulationWorld.CollisionLayerMask);
+                if (!simulationWorld.Identity.Equals(actual.Identity))
+                {
+                    throw new ArgumentException("会话配置或步长与世界上下文不一致。", nameof(simulationWorld));
+                }
+            }
+
+            this.collisionWorld = simulationWorld == null ? collisionWorld ?? FlatGroundCollisionWorld.Instance : null;
             this.serverSpawnSpacing = Mathf.Max(0f, serverSpawnSpacing);
             this.weaponConfig = weaponConfig ?? WeaponSimulationConfig.DefaultRifle;
             if (!this.weaponConfig.IsValid)
@@ -219,12 +268,20 @@ namespace AFPS.NetCode.Sessions
             {
                 RemotePlayers = new RemotePlayerReplicaSet(remoteSnapshotCapacity, tickDeltaTime, remoteInterpolationDelayTicks, remoteMaxExtrapolationTicks, remoteTeleportDistance);
             }
+
+            if (simulationWorld != null)
+            {
+                admission = new SimulationSessionAdmission(simulationWorld.Identity, serverTransport, clientTransport,
+                    CreateConnectedSession, RemoveConnectedSession,
+                    () => RemotePlayers != null && RemotePlayers.LocalEntityId != 0,
+                    ResendSessionAssignment, admissionTimeoutTicks, admissionRetryTicks);
+            }
         }
 
         /// <summary>
-        /// 连接建立时创建对应会话。客户端输入 Tick 从零开始，不依赖本地世界 Tick 的当前值。
+        /// 准入后创建对应会话。客户端输入 Tick 从零开始，不依赖本地世界 Tick 的当前值。
         /// </summary>
-        public bool HandleConnected(NetworkTransportSide side, TransportConnectionId connectionId)
+        private bool CreateConnectedSession(NetworkTransportSide side, TransportConnectionId connectionId)
         {
             if (!connectionId.IsValid)
             {
@@ -241,7 +298,10 @@ namespace AFPS.NetCode.Sessions
                 uint entityId = AllocateEntityId();
                 PlayerState spawnedState = serverInitialState;
                 spawnedState.Position += Vector3.right * (entityId - 1) * serverSpawnSpacing;
-                serverSessions.Add(connectionId, new ServerAuthoritativeMovementSession(serverTransport, connectionId, spawnedState, simulationConfig, tickDeltaTime, serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks, collisionWorld, entityId, weaponConfig));
+                serverSessions.Add(connectionId, new ServerAuthoritativeMovementSession(
+                    serverTransport, connectionId, spawnedState, simulationConfig, tickDeltaTime,
+                    serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks,
+                    collisionWorld, entityId, weaponConfig, WorldContext?.CollisionWorld));
                 serverEntityIds.Add(connectionId, entityId);
                 serverHealth.Add(entityId, 100f);
                 serverKills.Add(entityId, 0);
@@ -260,7 +320,10 @@ namespace AFPS.NetCode.Sessions
             }
 
             clientConnectionId = connectionId;
-            ClientSession = new ClientPredictedMovementSession(clientTransport, connectionId, clientInitialState, simulationConfig, tickDeltaTime, predictionHistoryCapacity, inputRedundancyCount, positionErrorThreshold, velocityErrorThreshold, collisionWorld);
+            ClientSession = new ClientPredictedMovementSession(
+                clientTransport, connectionId, clientInitialState, simulationConfig, tickDeltaTime,
+                predictionHistoryCapacity, inputRedundancyCount, positionErrorThreshold, velocityErrorThreshold,
+                collisionWorld, WorldContext?.CollisionWorld);
             RemotePlayers?.Clear();
             clientSnapshotBaselines.Clear();
             ClientDeathmatchState = null;
@@ -272,7 +335,7 @@ namespace AFPS.NetCode.Sessions
         /// <summary>
         /// 断开连接时丢弃对应会话及其序号、输入窗口和预测历史。
         /// </summary>
-        public bool HandleDisconnected(NetworkTransportSide side, TransportConnectionId connectionId)
+        private bool RemoveConnectedSession(NetworkTransportSide side, TransportConnectionId connectionId)
         {
             if (side == NetworkTransportSide.Server)
             {
@@ -321,7 +384,7 @@ namespace AFPS.NetCode.Sessions
         /// <summary>
         /// 按包头消息类型把输入包交给服务器会话，或把权威状态交给客户端会话。
         /// </summary>
-        public bool TryHandleData(NetworkTransportSide side, TransportConnectionId connectionId, ArraySegment<byte> packet, out ReconciliationResult reconciliationResult)
+        private bool HandleSessionData(NetworkTransportSide side, TransportConnectionId connectionId, ArraySegment<byte> packet, out ReconciliationResult reconciliationResult)
         {
             reconciliationResult = default;
             if (!PacketHeaderCodec.TryRead(packet, out PacketHeader header))
@@ -407,6 +470,8 @@ namespace AFPS.NetCode.Sessions
         public int AdvanceServerSessions(uint serverWorldTick)
         {
             long tickStarted = Stopwatch.GetTimestamp();
+            // 普通 Client 也调用此入口推进准入时钟；等待握手时不存在预测会话。
+            admission?.Advance(serverWorldTick);
             latestServerWorldTick = serverWorldTick;
             int advancedCount = 0;
             UpdateDeathmatchBeforeSimulation(serverWorldTick);
