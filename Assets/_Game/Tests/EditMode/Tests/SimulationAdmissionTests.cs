@@ -321,6 +321,12 @@ namespace AFPS.Tests.EditMode
             Assert.Throws<ArgumentException>(() => new NetworkMovementSessionManager(transport, null, initial, initial,
                 context.Configuration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
                 collisionWorld: AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance, simulationWorld: context));
+            Assert.Throws<ArgumentException>(() => new NetworkMovementSessionManager(transport, null, initial, initial,
+                context.Configuration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
+                serverSpawnSpacing: 3f, simulationWorld: context));
+            Assert.Throws<ArgumentException>(() => new NetworkMovementSessionManager(transport, null, initial, initial,
+                context.Configuration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
+                interestRadius: 149f, simulationWorld: context));
             Assert.Throws<ArgumentOutOfRangeException>(() => CreateManager(transport, null, context, timeout: 0));
             Assert.Throws<ArgumentOutOfRangeException>(() => CreateManager(transport, null, context, retry: 8));
         }
@@ -338,7 +344,9 @@ namespace AFPS.Tests.EditMode
             var configuration = new PlayerSimulationConfig(
                 Fix.FromInt(mismatch == SimulationCompatibility.ConfigurationMismatch ? 7 : 6),
                 Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
-            return new SimulationWorldContext(world, configuration, SimulationStep.Step50Hz);
+            var spatial = new SimulationSessionSpatialConfig(
+                InitialState().PositionFixed, Fix.FromRatio(5, 2), Fix.FromInt(150));
+            return new SimulationWorldContext(world, configuration, SimulationStep.Step50Hz, sessionSpatial: spatial);
         }
 
         internal static NetworkMovementSessionManager CreateManager(

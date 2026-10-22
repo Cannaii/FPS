@@ -68,9 +68,15 @@ namespace AFPS.NetCode.Sessions
 
         public void Teleport(UnityEngine.Vector3 position)
         {
+            Teleport(new FixVec3(Fix.FromFloat(position.x), Fix.FromFloat(position.y), Fix.FromFloat(position.z)));
+        }
+
+        /// <summary>权威传送/复活入口；只替换空间状态，保留输入 Tick 和朝向以继续原输入序列。</summary>
+        public void Teleport(FixVec3 position)
+        {
             PlayerState state = CurrentState;
-            state.Position = position;
-            state.Velocity = UnityEngine.Vector3.zero;
+            state.PositionFixed = position;
+            state.VelocityFixed = FixVec3.Zero;
             state.IsGrounded = true;
             CurrentState = state;
         }

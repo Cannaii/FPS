@@ -21,6 +21,7 @@ $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Core/Collection
 $taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Simulation/World') -Filter '*.cs').FullName)
 $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Simulation/Characters/Collision/FixedCharacterCollisionWorld.cs'
 $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Simulation/Characters/SimulationWorldContext.cs'
+$taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Simulation/Characters/SimulationSessionSpatialConfig.cs'
 $taskSources += Join-Path $PSScriptRoot 'BakedMapReplay.cs'
 $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicMapReplayScenario.cs'
 $taskArguments = @('-nologo', '-langversion:9', '-checked+', '-optimize+', '-target:exe', ('-out:' + (Join-Path $taskOutput 'BakedMapReplay.exe')))

@@ -11,6 +11,7 @@ namespace AFPS.Simulation.Characters
         public FixedWorld World { get; }
         public FixedCharacterCollisionWorld CollisionWorld { get; }
         public PlayerSimulationConfig Configuration { get; }
+        public SimulationSessionSpatialConfig SessionSpatial { get; }
 
         /// <summary>每个模拟 Tick 的秒数，Q16.16；50Hz 的规范值为 1311 Raw。</summary>
         public Fix TickDeltaTime { get; }
@@ -24,7 +25,8 @@ namespace AFPS.Simulation.Characters
             FixedWorld world,
             in PlayerSimulationConfig configuration,
             Fix tickDeltaTime,
-            int collisionLayerMask = ~0)
+            int collisionLayerMask = ~0,
+            SimulationSessionSpatialConfig? sessionSpatial = null)
         {
             World = world ?? throw new ArgumentNullException(nameof(world));
             if (tickDeltaTime.Raw <= 0)
@@ -44,13 +46,18 @@ namespace AFPS.Simulation.Characters
                 collision.MaxSlideIterations);
 
             Configuration = configuration;
+            SessionSpatial = sessionSpatial ?? SimulationSessionSpatialConfig.Default;
+            if (!SessionSpatial.IsValid)
+            {
+                throw new ArgumentOutOfRangeException(nameof(sessionSpatial));
+            }
             TickDeltaTime = tickDeltaTime;
             CollisionLayerMask = collisionLayerMask;
             CollisionWorld = new FixedCharacterCollisionWorld(world, collisionLayerMask);
             Identity = new SimulationWorldIdentity(
                 SimulationWorldIdentity.CurrentAlgorithmVersion,
                 world.VersionHash,
-                ComputeConfigurationHash(configuration, tickDeltaTime, collisionLayerMask));
+                ComputeConfigurationHash(configuration, tickDeltaTime, collisionLayerMask, SessionSpatial));
         }
 
         /// <summary>只接受完整规范快照；加载失败必须阻止装配，不能悄悄退回平地或 PhysX。</summary>
@@ -58,25 +65,27 @@ namespace AFPS.Simulation.Characters
             ArraySegment<byte> snapshot,
             in PlayerSimulationConfig configuration,
             Fix tickDeltaTime,
-            int collisionLayerMask = ~0)
+            int collisionLayerMask = ~0,
+            SimulationSessionSpatialConfig? sessionSpatial = null)
         {
             if (!FixedWorldCodec.TryDeserialize(snapshot, out FixedWorld world, out FixedWorldReadError error))
             {
                 throw new FormatException("确定性世界快照加载失败：" + error);
             }
 
-            return new SimulationWorldContext(world, configuration, tickDeltaTime, collisionLayerMask);
+            return new SimulationWorldContext(world, configuration, tickDeltaTime, collisionLayerMask, sessionSpatial);
         }
 
         private static ulong ComputeConfigurationHash(
             in PlayerSimulationConfig configuration,
             Fix tickDeltaTime,
-            int collisionLayerMask)
+            int collisionLayerMask,
+            in SimulationSessionSpatialConfig sessionSpatial)
         {
-            // AFC1 域标识 + 固定字段顺序的小端 int32，不能使用对象哈希、浮点字符串或本机字节序。
+            // AFC2 增加会话空间配置；固定顺序的小端 int32，不能使用浮点字符串或本机字节序。
             // 新增会改变模拟结果的参数时必须纳入字段，并升级域版本及黄金值。
             ulong hash = 14695981039346656037UL;
-            Add(ref hash, 0x31434641);
+            Add(ref hash, 0x32434641);
             Add(ref hash, tickDeltaTime.Raw);
             Add(ref hash, collisionLayerMask);
             Add(ref hash, configuration.MaxGroundSpeedFixed.Raw);
@@ -94,6 +103,11 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, collision.MinimumGroundNormalYFixed.Raw);
             Add(ref hash, collision.MinimumMoveDistanceFixed.Raw);
             Add(ref hash, collision.MaxSlideIterations);
+            Add(ref hash, sessionSpatial.SpawnOrigin.X.Raw);
+            Add(ref hash, sessionSpatial.SpawnOrigin.Y.Raw);
+            Add(ref hash, sessionSpatial.SpawnOrigin.Z.Raw);
+            Add(ref hash, sessionSpatial.SpawnSpacing.Raw);
+            Add(ref hash, sessionSpatial.InterestRadius.Raw);
             return hash;
         }
 

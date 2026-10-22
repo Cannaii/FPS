@@ -6,7 +6,8 @@ namespace AFPS.Simulation.World
     public readonly struct SimulationWorldIdentity : IEquatable<SimulationWorldIdentity>
     {
         // 改变积分顺序、舍入、三角 LUT 或接触裁决时必须升级；代码排版与注释不升级。
-        public const uint CurrentAlgorithmVersion = 1;
+        // v2：出生/复活沿 Raw 偏移，兴趣范围使用整数球面判定和稳定实体排序。
+        public const uint CurrentAlgorithmVersion = 2;
 
         /// <summary>模拟和查询的算法语义版本；零保留为未初始化状态。</summary>
         public readonly uint AlgorithmVersion;

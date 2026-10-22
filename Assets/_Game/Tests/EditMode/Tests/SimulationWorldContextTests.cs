@@ -23,7 +23,12 @@ namespace AFPS.Tests.EditMode
             Slope,
             SlideIterations,
             TickDeltaTime,
-            LayerMask
+            LayerMask,
+            SpawnX,
+            SpawnY,
+            SpawnZ,
+            SpawnSpacing,
+            InterestRadius
         }
 
         [TestCase(Setting.Speed)]
@@ -39,17 +44,40 @@ namespace AFPS.Tests.EditMode
         [TestCase(Setting.SlideIterations)]
         [TestCase(Setting.TickDeltaTime)]
         [TestCase(Setting.LayerMask)]
+        [TestCase(Setting.SpawnX)]
+        [TestCase(Setting.SpawnY)]
+        [TestCase(Setting.SpawnZ)]
+        [TestCase(Setting.SpawnSpacing)]
+        [TestCase(Setting.InterestRadius)]
         public void EverySimulationSettingChangesCompatibilityIdentity(Setting changed)
         {
             FixedWorld world = CreateWorld();
             var baseline = new SimulationWorldContext(world, CreateConfiguration(), SimulationStep.Step50Hz);
             Fix dt = changed == Setting.TickDeltaTime ? SimulationStep.Step50Hz + Fix.Epsilon : SimulationStep.Step50Hz;
             int mask = changed == Setting.LayerMask ? ~1 : ~0;
-            var variant = new SimulationWorldContext(world, CreateConfiguration(changed), dt, mask);
+            var spatial = new SimulationSessionSpatialConfig(
+                new FixVec3(Fix.FromRaw(changed == Setting.SpawnX ? 1 : 0),
+                    Fix.FromRaw(changed == Setting.SpawnY ? 1 : 0),
+                    Fix.FromRaw(changed == Setting.SpawnZ ? 1 : 0)),
+                Fix.FromRaw(163840 + (changed == Setting.SpawnSpacing ? 1 : 0)),
+                Fix.FromRaw(9830400 + (changed == Setting.InterestRadius ? 1 : 0)));
+            var variant = new SimulationWorldContext(world, CreateConfiguration(changed), dt, mask, spatial);
 
             Assert.That(variant.Identity.WorldHash, Is.EqualTo(baseline.Identity.WorldHash));
             Assert.That(variant.Identity.ConfigurationHash, Is.Not.EqualTo(baseline.Identity.ConfigurationHash));
             Assert.That(variant.Identity.Equals(baseline.Identity), Is.False);
+        }
+
+        [Test]
+        public void DefaultAndLayerEightMasksHaveAfc2GoldenFingerprints()
+        {
+            var configuration = new PlayerSimulationConfig(
+                Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
+            var defaultContext = new SimulationWorldContext(CreateWorld(), configuration, SimulationStep.Step50Hz);
+            var sceneContext = new SimulationWorldContext(CreateWorld(), configuration, SimulationStep.Step50Hz, 256);
+            Assert.That(defaultContext.Identity.AlgorithmVersion, Is.EqualTo(2));
+            Assert.That(defaultContext.Identity.ConfigurationHash, Is.EqualTo(7343262100820051599UL));
+            Assert.That(sceneContext.Identity.ConfigurationHash, Is.EqualTo(18365585889164000556UL));
         }
 
         [Test]
@@ -118,6 +146,9 @@ namespace AFPS.Tests.EditMode
             Assert.Throws<ArgumentOutOfRangeException>(() => new SimulationWorldContext(
                 CreateWorld(), default, SimulationStep.Step50Hz));
             Assert.Throws<ArgumentOutOfRangeException>(() => new SimulationWorldIdentity(0, 0, 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new SimulationWorldContext(
+                CreateWorld(), CreateConfiguration(), SimulationStep.Step50Hz,
+                sessionSpatial: default(SimulationSessionSpatialConfig)));
         }
 
         private static FixedWorld CreateWorld(Fix height = default)

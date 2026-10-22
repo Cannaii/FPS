@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using AFPS.Math;
 using AFPS.NetCode.InputReplication;
 using AFPS.NetCode.LagCompensation;
 using AFPS.NetCode.Match;
@@ -54,10 +55,9 @@ namespace AFPS.NetCode.Sessions
         private readonly float positionErrorThreshold;
         private readonly float velocityErrorThreshold;
         private readonly ICharacterCollisionWorld collisionWorld;
-        private readonly float serverSpawnSpacing;
+        private readonly SimulationSessionSpatialConfig sessionSpatial;
         private readonly WeaponSimulationConfig weaponConfig;
         private readonly uint maximumRewindTicks;
-        private readonly float interestRadiusSquared;
         private readonly int snapshotBudgetPerClientPerTick;
         private readonly uint fullSnapshotIntervalTicks;
         private readonly List<SnapshotCandidate> snapshotCandidates = new List<SnapshotCandidate>();
@@ -117,9 +117,9 @@ namespace AFPS.NetCode.Sessions
         {
             public readonly uint EntityId;
             public readonly PlayerState State;
-            public readonly float DistanceSquared;
+            public readonly ulong DistanceSquared;
 
-            public SnapshotCandidate(uint entityId, in PlayerState state, float distanceSquared)
+            public SnapshotCandidate(uint entityId, in PlayerState state, ulong distanceSquared)
             {
                 EntityId = entityId;
                 State = state;
@@ -211,7 +211,14 @@ namespace AFPS.NetCode.Sessions
                 throw new ArgumentOutOfRangeException(nameof(maximumRewindTicks), "最大回溯窗口不能超过 2048 Tick。");
             }
 
-            if (interestRadius <= 0f || float.IsNaN(interestRadius) || float.IsInfinity(interestRadius)) throw new ArgumentOutOfRangeException(nameof(interestRadius));
+            if (interestRadius <= 0f || float.IsNaN(interestRadius) || float.IsInfinity(interestRadius))
+            {
+                throw new ArgumentOutOfRangeException(nameof(interestRadius));
+            }
+            if (serverSpawnSpacing < 0f || float.IsNaN(serverSpawnSpacing) || float.IsInfinity(serverSpawnSpacing))
+            {
+                throw new ArgumentOutOfRangeException(nameof(serverSpawnSpacing));
+            }
             if (snapshotBudgetPerClientPerTick <= 0) throw new ArgumentOutOfRangeException(nameof(snapshotBudgetPerClientPerTick));
             if (fullSnapshotIntervalTicks == 0) throw new ArgumentOutOfRangeException(nameof(fullSnapshotIntervalTicks));
             if (deathmatchKillLimit <= 0) throw new ArgumentOutOfRangeException(nameof(deathmatchKillLimit));
@@ -232,6 +239,8 @@ namespace AFPS.NetCode.Sessions
             this.maxRepeatedMovementTicks = maxRepeatedMovementTicks;
             this.positionErrorThreshold = positionErrorThreshold;
             this.velocityErrorThreshold = velocityErrorThreshold;
+            sessionSpatial = new SimulationSessionSpatialConfig(
+                serverInitialState.PositionFixed, Fix.FromFloat(serverSpawnSpacing), Fix.FromFloat(interestRadius));
             // 指纹与实际后端必须绑定，不能声明一个世界却继续使用另一个 PhysX 世界。
             WorldContext = simulationWorld;
             if (simulationWorld != null)
@@ -242,22 +251,20 @@ namespace AFPS.NetCode.Sessions
                 }
 
                 var actual = new SimulationWorldContext(simulationWorld.World, simulationConfig,
-                    SimulationStep.FromSeconds(tickDeltaTime), simulationWorld.CollisionLayerMask);
+                    SimulationStep.FromSeconds(tickDeltaTime), simulationWorld.CollisionLayerMask, sessionSpatial);
                 if (!simulationWorld.Identity.Equals(actual.Identity))
                 {
-                    throw new ArgumentException("会话配置或步长与世界上下文不一致。", nameof(simulationWorld));
+                    throw new ArgumentException("会话配置、步长或空间约定与世界上下文不一致。", nameof(simulationWorld));
                 }
             }
 
             this.collisionWorld = simulationWorld == null ? collisionWorld ?? FlatGroundCollisionWorld.Instance : null;
-            this.serverSpawnSpacing = Mathf.Max(0f, serverSpawnSpacing);
             this.weaponConfig = weaponConfig ?? WeaponSimulationConfig.DefaultRifle;
             if (!this.weaponConfig.IsValid)
             {
                 throw new ArgumentException("武器配置无效。", nameof(weaponConfig));
             }
             this.maximumRewindTicks = maximumRewindTicks;
-            interestRadiusSquared = interestRadius * interestRadius;
             this.snapshotBudgetPerClientPerTick = snapshotBudgetPerClientPerTick;
             this.fullSnapshotIntervalTicks = fullSnapshotIntervalTicks;
             this.deathmatchKillLimit = deathmatchKillLimit;
@@ -295,9 +302,15 @@ namespace AFPS.NetCode.Sessions
                     return false;
                 }
 
-                uint entityId = AllocateEntityId();
+                uint entityId = nextEntityId;
+                // 越域出生点在分配实体和建立会话前拒绝，不能留下半个玩家或消耗实体序号。
+                if (!sessionSpatial.TryGetSpawnPosition(entityId, out FixVec3 spawnPosition))
+                {
+                    return false;
+                }
+                AllocateEntityId();
                 PlayerState spawnedState = serverInitialState;
-                spawnedState.Position += Vector3.right * (entityId - 1) * serverSpawnSpacing;
+                spawnedState.PositionFixed = spawnPosition;
                 serverSessions.Add(connectionId, new ServerAuthoritativeMovementSession(
                     serverTransport, connectionId, spawnedState, simulationConfig, tickDeltaTime,
                     serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks,
@@ -643,7 +656,8 @@ namespace AFPS.NetCode.Sessions
                 {
                     if (pair.Value == entityId && serverSessions.TryGetValue(pair.Key, out ServerAuthoritativeMovementSession session))
                     {
-                        session.Teleport(serverInitialState.Position + Vector3.right * (entityId - 1) * serverSpawnSpacing);
+                        // 空间配置不可变，且该实体已在准入时通过坐标域校验，复活复用同一个出生位置。
+                        session.Teleport(sessionSpatial.GetSpawnPosition(entityId));
                         break;
                     }
                 }
@@ -812,12 +826,15 @@ namespace AFPS.NetCode.Sessions
             {
                 snapshotCandidates.Clear();
                 interestedEntityIds.Clear();
-                Vector3 observerPosition = targetPair.Value.CurrentState.Position;
+                FixVec3 observerPosition = targetPair.Value.CurrentState.PositionFixed;
                 foreach (KeyValuePair<TransportConnectionId, ServerAuthoritativeMovementSession> ownerPair in serverSessions)
                 {
-                    if (ownerPair.Key == targetPair.Key) continue;
-                    float distanceSquared = (ownerPair.Value.CurrentState.Position - observerPosition).sqrMagnitude;
-                    if (distanceSquared <= interestRadiusSquared)
+                    if (ownerPair.Key == targetPair.Key)
+                    {
+                        continue;
+                    }
+                    if (sessionSpatial.TryMeasureInterestDistance(
+                        observerPosition, ownerPair.Value.CurrentState.PositionFixed, out ulong distanceSquared))
                     {
                         uint entityId = serverEntityIds[ownerPair.Key];
                         interestedEntityIds.Add(entityId);
@@ -829,7 +846,10 @@ namespace AFPS.NetCode.Sessions
                 noLongerVisibleEntityIds.Clear();
                 foreach (uint entityId in visibleEntities)
                 {
-                    if (!interestedEntityIds.Contains(entityId)) noLongerVisibleEntityIds.Add(entityId);
+                    if (!interestedEntityIds.Contains(entityId))
+                    {
+                        noLongerVisibleEntityIds.Add(entityId);
+                    }
                 }
 
                 for (int i = 0; i < noLongerVisibleEntityIds.Count; i++)
@@ -842,8 +862,13 @@ namespace AFPS.NetCode.Sessions
                     }
                 }
 
-                snapshotCandidates.Sort((left, right) => left.DistanceSquared.CompareTo(right.DistanceSquared));
-                int count = Mathf.Min(snapshotBudgetPerClientPerTick, snapshotCandidates.Count);
+                // 预算截断前给等距离实体唯一顺序，避免字典插入顺序决定谁能收到快照。
+                snapshotCandidates.Sort((left, right) =>
+                {
+                    int comparison = left.DistanceSquared.CompareTo(right.DistanceSquared);
+                    return comparison != 0 ? comparison : left.EntityId.CompareTo(right.EntityId);
+                });
+                int count = System.Math.Min(snapshotBudgetPerClientPerTick, snapshotCandidates.Count);
                 for (int i = 0; i < count; i++)
                 {
                     if (SendRemoteSnapshot(targetPair.Key, snapshotCandidates[i], serverWorldTick))

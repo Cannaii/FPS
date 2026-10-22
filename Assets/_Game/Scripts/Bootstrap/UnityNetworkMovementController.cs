@@ -103,9 +103,13 @@ namespace AFPS.Bootstrap
                     groundProbeDistance, stepHeight, maxSlopeAngle, maxSlideIterations);
                 PlayerSimulationConfig configuration = new PlayerSimulationConfig(
                     maxGroundSpeed, groundAcceleration, gravity, jumpSpeed, collision);
+                var spatial = new SimulationSessionSpatialConfig(
+                    new FixVec3(Fix.FromFloat(serverSpawnPosition.x),
+                        Fix.FromFloat(serverSpawnPosition.y), Fix.FromFloat(serverSpawnPosition.z)),
+                    Fix.FromFloat(serverSpawnSpacing), SimulationSessionSpatialConfig.Default.InterestRadius);
                 preparedWorld = SimulationWorldContext.Load(
                     new ArraySegment<byte>(fixedWorldSnapshot.bytes), configuration,
-                    Fix.FromFloat(tickRunner.TickDeltaTime), collisionLayers.value);
+                    Fix.FromFloat(tickRunner.TickDeltaTime), collisionLayers.value, spatial);
                 error = null;
                 return true;
             }

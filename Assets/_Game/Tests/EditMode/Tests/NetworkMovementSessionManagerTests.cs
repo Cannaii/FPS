@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AFPS.Math;
 using AFPS.NetCode.InputReplication;
 using AFPS.NetCode.Messages;
 using AFPS.NetCode.Match;
@@ -17,6 +18,97 @@ namespace AFPS.Tests.EditMode
 {
     public sealed class NetworkMovementSessionManagerTests
     {
+        [Test]
+        public void SpawnAndTeleport_PreserveRawCoordinatesTickAndLook()
+        {
+            var initial = new PlayerState
+            {
+                Tick = 77,
+                PositionFixed = new FixVec3(Fix.FromRaw(655360001), Fix.Zero, Fix.FromRaw(987654321)),
+                VelocityFixed = FixVec3.One,
+                YawFixedDegrees = Fix.FromRaw(1234567),
+                PitchFixedDegrees = Fix.FromRaw(-123456),
+                IsGrounded = true
+            };
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, spawnState: initial, spawnSpacing: 1f / 65536f);
+            var first = new TransportConnectionId(1);
+            var second = new TransportConnectionId(2);
+            Assert.That(manager.HandleConnected(NetworkTransportSide.Server, first), Is.True);
+            Assert.That(manager.HandleConnected(NetworkTransportSide.Server, second), Is.True);
+            manager.TryGetServerSession(first, out var firstSession);
+            manager.TryGetServerSession(second, out var secondSession);
+            Assert.That(firstSession.CurrentState.PositionFixed, Is.EqualTo(initial.PositionFixed));
+            Assert.That(secondSession.CurrentState.PositionFixed.X.Raw, Is.EqualTo(655360002));
+            Assert.That(secondSession.CurrentState.PositionFixed.Z.Raw, Is.EqualTo(987654321));
+            var destination = new FixVec3(Fix.FromRaw(-655360001), Fix.FromRaw(12345), Fix.FromRaw(456789));
+            firstSession.Teleport(destination);
+            Assert.That(firstSession.CurrentState.PositionFixed, Is.EqualTo(destination));
+            Assert.That(firstSession.CurrentState.Tick, Is.EqualTo(initial.Tick));
+            Assert.That(firstSession.CurrentState.YawFixedDegrees, Is.EqualTo(initial.YawFixedDegrees));
+            Assert.That(firstSession.CurrentState.PitchFixedDegrees, Is.EqualTo(initial.PitchFixedDegrees));
+            Assert.That(firstSession.CurrentState.VelocityFixed, Is.EqualTo(FixVec3.Zero));
+        }
+
+        [Test]
+        public void UnrepresentableSpawn_DoesNotCreateOrAssignPartialPlayer()
+        {
+            var initial = new PlayerState { PositionFixed = new FixVec3(Fix.MaxValue, Fix.Zero, Fix.Zero) };
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, spawnState: initial, spawnSpacing: 1f / 65536f);
+            Assert.That(manager.HandleConnected(NetworkTransportSide.Server, new TransportConnectionId(1)), Is.True);
+            int sentBefore = transport.SentPackets.Count;
+            var rejected = new TransportConnectionId(2);
+            Assert.That(manager.HandleConnected(NetworkTransportSide.Server, rejected), Is.False);
+            Assert.That(manager.HandleConnected(NetworkTransportSide.Server, rejected), Is.False);
+            Assert.That(manager.ServerSessionCount, Is.EqualTo(1));
+            Assert.That(manager.TryGetServerEntityId(rejected, out _), Is.False);
+            Assert.That(transport.SentPackets.Count, Is.EqualTo(sentBefore));
+        }
+
+        [Test]
+        public void EqualDistanceBudget_SelectsLowestEntityId()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, snapshotBudget: 1);
+            var observer = new TransportConnectionId(1);
+            for (uint id = 1; id <= 24; id++)
+            {
+                var connection = new TransportConnectionId(id);
+                manager.HandleConnected(NetworkTransportSide.Server, connection);
+                manager.TryGetServerSession(connection, out var session);
+                session.Teleport(FixVec3.Zero);
+            }
+            transport.SentPackets.Clear();
+            transport.SentConnectionIds.Clear();
+            manager.AdvanceServerSessions(100);
+            Assert.That(ContainsFullSnapshotFor(transport, observer, 2), Is.True);
+            Assert.That(ContainsFullSnapshotFor(transport, observer, 3), Is.False);
+            Assert.That(manager.Metrics.SnapshotPacketsSent, Is.EqualTo(24));
+        }
+
+        [Test]
+        public void InterestRadius_RejectsOneRawOutsideBoundaryAtLargeCoordinates()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, interestRadius: 1f);
+            var observer = new TransportConnectionId(1);
+            var target = new TransportConnectionId(2);
+            manager.HandleConnected(NetworkTransportSide.Server, observer);
+            manager.HandleConnected(NetworkTransportSide.Server, target);
+            manager.TryGetServerSession(observer, out var observerSession);
+            manager.TryGetServerSession(target, out var targetSession);
+            observerSession.Teleport(new FixVec3(Fix.FromInt(10000), Fix.Zero, Fix.Zero));
+            targetSession.Teleport(new FixVec3(Fix.FromRaw(655425537), Fix.Zero, Fix.Zero));
+            transport.SentPackets.Clear();
+            transport.SentConnectionIds.Clear();
+            manager.AdvanceServerSessions(100);
+            Assert.That(ContainsFullSnapshotFor(transport, observer, 2), Is.False);
+            targetSession.Teleport(new FixVec3(Fix.FromRaw(655425536), Fix.Zero, Fix.Zero));
+            manager.AdvanceServerSessions(101);
+            Assert.That(ContainsFullSnapshotFor(transport, observer, 2), Is.True);
+        }
+
         [Test]
         public void RemoteSnapshots_PreserveAuthorityRawThroughFullAndDeltaAtLargeCoordinates()
         {
@@ -240,11 +332,18 @@ namespace AFPS.Tests.EditMode
             Assert.That(actual.GetPlayer(1).IsAlive, Is.False);
         }
 
-        [Test]
-        public void Deathmatch_KillUpdatesScoreThenRespawnsTarget()
+        [TestCase(0)]
+        [TestCase(655360001)]
+        public void Deathmatch_KillUpdatesScoreThenRespawnsTarget(int originRaw)
         {
             FakeTransport transport = new FakeTransport(TransportRole.Server);
-            NetworkMovementSessionManager manager = CreateManager(transport, null, deathmatchRespawnSeconds: 0.04f);
+            var initial = new PlayerState
+            {
+                PositionFixed = new FixVec3(Fix.FromRaw(originRaw), Fix.Zero, Fix.Zero),
+                IsGrounded = true
+            };
+            NetworkMovementSessionManager manager = CreateManager(
+                transport, null, deathmatchRespawnSeconds: 0.04f, spawnState: initial);
             TransportConnectionId shooter = new TransportConnectionId(10);
             TransportConnectionId target = new TransportConnectionId(20);
             manager.HandleConnected(NetworkTransportSide.Server, shooter);
@@ -267,6 +366,8 @@ namespace AFPS.Tests.EditMode
             Assert.That(manager.TryGetServerDeathmatchPlayer(targetEntity, out DeathmatchPlayerState respawnedState), Is.True);
             Assert.That(respawnedState.IsAlive, Is.True);
             Assert.That(respawnedState.Health, Is.EqualTo(100));
+            Assert.That(manager.TryGetServerSession(target, out var respawnedSession), Is.True);
+            Assert.That(respawnedSession.CurrentState.PositionFixed.X.Raw, Is.EqualTo(originRaw + 163840));
         }
 
         [Test]
@@ -500,13 +601,31 @@ namespace AFPS.Tests.EditMode
             Assert.That(manager.Metrics.LastServerTickMicroseconds, Is.LessThan(1000000), "64 玩家测试 Tick 不应超过一秒的安全上限。");
         }
 
-        private static NetworkMovementSessionManager CreateManager(IGameTransport serverTransport, IGameTransport clientTransport, uint maximumRewindTicks = 10, float interestRadius = 150f, int snapshotBudget = 32, int deathmatchKillLimit = 10, float deathmatchRespawnSeconds = 3f)
+        private static NetworkMovementSessionManager CreateManager(
+            IGameTransport serverTransport,
+            IGameTransport clientTransport,
+            uint maximumRewindTicks = 10,
+            float interestRadius = 150f,
+            int snapshotBudget = 32,
+            int deathmatchKillLimit = 10,
+            float deathmatchRespawnSeconds = 3f,
+            PlayerState? spawnState = null,
+            float spawnSpacing = 2.5f)
         {
-            PlayerState initialState = new PlayerState { Tick = 0, IsGrounded = true };
+            PlayerState initialState = spawnState ?? new PlayerState { Tick = 0, IsGrounded = true };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-            return new NetworkMovementSessionManager(serverTransport, clientTransport, initialState, initialState, config, 0.02f, 64, 3, 16, 2, 2, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold, maximumRewindTicks: maximumRewindTicks, interestRadius: interestRadius, snapshotBudgetPerClientPerTick: snapshotBudget, deathmatchKillLimit: deathmatchKillLimit, deathmatchRespawnSeconds: deathmatchRespawnSeconds);
+            return new NetworkMovementSessionManager(
+                serverTransport, clientTransport, initialState, initialState, config,
+                0.02f, 64, 3, 16, 2, 2,
+                AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold,
+                AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold,
+                serverSpawnSpacing: spawnSpacing,
+                maximumRewindTicks: maximumRewindTicks,
+                interestRadius: interestRadius,
+                snapshotBudgetPerClientPerTick: snapshotBudget,
+                deathmatchKillLimit: deathmatchKillLimit,
+                deathmatchRespawnSeconds: deathmatchRespawnSeconds);
         }
-
         private static void SendTick(NetworkMovementSessionManager manager, TransportConnectionId shooter, TransportConnectionId target, uint inputTick, uint serverTick, PlayerInputCommand shooterCommand, PlayerInputCommand targetCommand)
         {
             shooterCommand.Tick = inputTick;
