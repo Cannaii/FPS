@@ -113,6 +113,10 @@ namespace AFPS.NetCode.Sessions
 
         public uint DeathmatchStateVersion { get; private set; }
 
+        public ClientWeaponPrediction ClientWeapon { get; } = new ClientWeaponPrediction();
+        private bool hasWeaponStateSequence;
+        private uint lastWeaponStateSequence;
+
         public NetworkRuntimeMetrics Metrics { get; } = new NetworkRuntimeMetrics();
 
         private readonly struct SnapshotCandidate
@@ -339,6 +343,8 @@ namespace AFPS.NetCode.Sessions
                 return false;
             }
 
+            ClientWeapon.Clear();
+            hasWeaponStateSequence = false;
             clientConnectionId = connectionId;
             ResetClientTimeSync(connectionId);
             ClientSession = new ClientPredictedMovementSession(
@@ -393,6 +399,8 @@ namespace AFPS.NetCode.Sessions
                 return false;
             }
 
+            ClientWeapon.Clear();
+            hasWeaponStateSequence = false;
             clientConnectionId = default;
             ResetClientTimeSync(default);
             ClientSession = null;
@@ -434,6 +442,18 @@ namespace AFPS.NetCode.Sessions
 
             switch (header.MessageType)
             {
+                case NetworkMessageType.AuthoritativeWeaponState:
+                    if (!AuthoritativeWeaponStateCodec.TryDeserialize(packet, out var weaponHeader, out var weaponState)
+                        || RemotePlayers == null || weaponState.EntityId != RemotePlayers.LocalEntityId
+                        || weaponState.Capacity != weaponConfig.MagazineCapacity
+                        || (hasWeaponStateSequence && !SequenceMath.IsNewer(weaponHeader.Sequence, lastWeaponStateSequence))
+                        || !ClientWeapon.Apply(weaponState))
+                    {
+                        return false;
+                    }
+                    lastWeaponStateSequence = weaponHeader.Sequence;
+                    hasWeaponStateSequence = true;
+                    return true;
                 case NetworkMessageType.TimeSyncResponse:
                     return ReceiveTimeSync(packet);
                 case NetworkMessageType.AuthoritativePlayerState:
@@ -493,6 +513,7 @@ namespace AFPS.NetCode.Sessions
             }
 
             state = ClientSession.PredictAndSend(command, out sendResult);
+            ClientWeapon.Observe(command);
             return true;
         }
 

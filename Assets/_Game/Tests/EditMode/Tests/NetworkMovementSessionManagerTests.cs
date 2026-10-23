@@ -733,6 +733,72 @@ namespace AFPS.Tests.EditMode
             Assert.That(session.LastWeaponFireResult.Accepted, Is.True);
             Assert.That(session.LastWeaponFireResult.RemainingAmmo, Is.EqualTo(29));
         }
+        [Test]
+        public void WeaponState_PrivateReplicationAcknowledgesPredictionAndReloadCompletion()
+        {
+            var serverTransport = new FakeTransport(TransportRole.Server);
+            var clientTransport = new FakeTransport(TransportRole.Client);
+            var manager = CreateManager(serverTransport, clientTransport);
+            var shooter = new TransportConnectionId(10);
+            var other = new TransportConnectionId(20);
+            var client = new TransportConnectionId(30);
+            manager.HandleConnected(NetworkTransportSide.Server, shooter);
+            manager.HandleConnected(NetworkTransportSide.Server, other);
+            manager.HandleConnected(NetworkTransportSide.Client, client);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, client,
+                serverTransport.SentPackets[0], out _), Is.True);
+            int snapshots = 0;
+            for (uint tick = 1; tick <= 103; tick++)
+            {
+                var command = new PlayerInputCommand
+                {
+                    Tick = tick,
+                    FirePressed = tick == 2,
+                    ShotSequence = tick == 2 ? 1u : 0u,
+                    ReloadPressed = tick == 3
+                };
+                Assert.That(manager.TryPredictAndSend(command, out _, out _), Is.True);
+                if (tick == 2)
+                {
+                    Assert.That(manager.ClientWeapon.Ammo, Is.EqualTo(29));
+                }
+                if (tick == 3)
+                {
+                    Assert.That(manager.ClientWeapon.IsReloading, Is.True);
+                    Assert.That(manager.ClientWeapon.CanFire, Is.False);
+                }
+                serverTransport.SentPackets.Clear();
+                serverTransport.SentConnectionIds.Clear();
+                Assert.That(manager.TryHandleData(NetworkTransportSide.Server, shooter,
+                    clientTransport.SentPackets[clientTransport.SentPackets.Count - 1], out _), Is.True);
+                manager.TryHandleData(NetworkTransportSide.Server, other,
+                    CreateInputPacket(new PlayerInputCommand { Tick = tick }), out _);
+                manager.AdvanceServerSessions(99 + tick);
+                for (int index = 0; index < serverTransport.SentPackets.Count; index++)
+                {
+                    var packet = serverTransport.SentPackets[index];
+                    if (!AuthoritativeWeaponStateCodec.TryDeserialize(packet, out _, out var state))
+                    {
+                        continue;
+                    }
+                    if (serverTransport.SentConnectionIds[index] != shooter)
+                    {
+                        Assert.That(state.EntityId, Is.EqualTo(2));
+                        continue;
+                    }
+                    snapshots++;
+                    Assert.That(state.EntityId, Is.EqualTo(1));
+                    Assert.That(manager.TryHandleData(NetworkTransportSide.Client, client, packet, out _), Is.True);
+                    Assert.That(manager.TryHandleData(NetworkTransportSide.Client, client, packet, out _), Is.False);
+                }
+            }
+            Assert.That(manager.ClientWeapon.Ammo, Is.EqualTo(30));
+            Assert.That(manager.ClientWeapon.IsReloading, Is.False);
+            Assert.That(manager.ClientWeapon.CanFire, Is.True);
+            Assert.That(snapshots, Is.LessThan(25));
+            manager.HandleDisconnected(NetworkTransportSide.Client, client);
+            Assert.That(manager.ClientWeapon.HasState, Is.False);
+        }
         private static NetworkMovementSessionManager CreateManager(
             IGameTransport serverTransport,
             IGameTransport clientTransport,

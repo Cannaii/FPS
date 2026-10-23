@@ -27,6 +27,12 @@ namespace AFPS.NetCode.Sessions
         private readonly IFixedCharacterCollisionWorld collisionWorld;
         private readonly uint entityId;
         private readonly ServerWeaponFireController weaponFireController;
+        private readonly IGameTransport weaponTransport;
+        private readonly TransportConnectionId weaponConnection;
+        private readonly byte[] weaponStateBuffer = new byte[AuthoritativeWeaponStateCodec.PacketSize];
+        private bool hasSentWeaponState;
+        private AuthoritativeWeaponState lastSentWeaponState;
+        private uint weaponStateSequence;
         private bool hasAdvancedServerTick;
         private bool hasLastReceivedInput;
         private uint lastServerTick;
@@ -108,6 +114,8 @@ namespace AFPS.NetCode.Sessions
             }
             this.collisionWorld = fixedCollisionWorld ?? LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
             this.entityId = entityId;
+            weaponTransport = transport;
+            weaponConnection = clientConnectionId;
             if (weaponConfig.HasValue)
             {
                 weaponFireController = new ServerWeaponFireController(weaponConfig.Value);
@@ -197,9 +205,37 @@ namespace AFPS.NetCode.Sessions
             CurrentState = PlayerSimulation.Simulate(CurrentState, appliedCommand, simulationConfig, tickDeltaTime, collisionWorld);
             weaponFireController?.SetEquipped(GameplayEnabled && WeaponEnabled);
             LastWeaponFireResult = weaponFireController != null ? weaponFireController.Process(serverWorldTick, entityId, appliedCommand, CurrentState) : default;
+            SendWeaponState(serverWorldTick, command);
             authoritativeState = new AuthoritativePlayerState(serverWorldTick, appliedCommand.Tick, CurrentState);
             stateSender.TrySend(authoritativeState, out sendResult);
             return true;
+        }
+        private void SendWeaponState(uint serverTick, in PlayerInputCommand command)
+        {
+            if (weaponFireController == null || entityId == 0)
+            {
+                return;
+            }
+            var state = new AuthoritativeWeaponState(entityId, serverTick, command.Tick,
+                weaponFireController.Ammo, weaponFireController.Capacity,
+                weaponFireController.RemainingReloadTicks(serverTick), weaponFireController.IsEquipped);
+            // 动作结算（包括拒绝）必须确认；空闲基线每 10 Tick 更新，避免每帧可靠包积压。
+            if (hasSentWeaponState && !command.FirePressed && !command.ReloadPressed
+                && state.Ammo == lastSentWeaponState.Ammo && state.IsReloading == lastSentWeaponState.IsReloading
+                && state.IsEquipped == lastSentWeaponState.IsEquipped
+                && unchecked(serverTick - lastSentWeaponState.ServerTick) < 10)
+            {
+                return;
+            }
+            if (AuthoritativeWeaponStateCodec.TrySerialize(state, weaponStateSequence,
+                new ArraySegment<byte>(weaponStateBuffer), out int count)
+                && weaponTransport.Send(weaponConnection, TransportDelivery.ReliableSequenced,
+                    new ArraySegment<byte>(weaponStateBuffer, 0, count)) == TransportSendResult.Success)
+            {
+                lastSentWeaponState = state;
+                hasSentWeaponState = true;
+                weaponStateSequence = unchecked(weaponStateSequence + 1);
+            }
         }
     }
 }

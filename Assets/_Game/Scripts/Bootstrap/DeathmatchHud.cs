@@ -47,6 +47,16 @@ namespace AFPS.Bootstrap
                 ? $"   RTT {sessionManager.Metrics.LastNetworkRoundTripMilliseconds:F1} ms"
                 : "   RTT --";
 
+            if (sessionManager.ClientWeapon.HasState)
+            {
+                statusText.text += $"   AMMO {sessionManager.ClientWeapon.Ammo}/{sessionManager.ClientWeapon.State.Capacity}";
+                if (sessionManager.ClientWeapon.IsReloading)
+                {
+                    statusText.text += sessionManager.ClientWeapon.State.IsReloading
+                        ? $"   RELOADING {sessionManager.ClientWeapon.State.ReloadTicksRemaining * tickDeltaTime:F1}s"
+                        : "   RELOADING...";
+                }
+            }
             scoreBuilder.Clear();
             scoreBuilder.AppendLine("DEATHMATCH");
             for (int i = 0; i < match.PlayerCount; i++)
@@ -85,7 +95,7 @@ namespace AFPS.Bootstrap
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
 
-            statusText = CreateText(root.transform, "", 28f, TextAlignmentOptions.Top, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -22f), new Vector2(900f, 60f));
+            statusText = CreateText(root.transform, "", 28f, TextAlignmentOptions.Top, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -22f), new Vector2(1500f, 60f));
             scoreText = CreateText(root.transform, "", 23f, TextAlignmentOptions.TopLeft, Vector2.one, Vector2.one, new Vector2(-220f, -28f), new Vector2(400f, 360f));
             centerText = CreateText(root.transform, "", 38f, TextAlignmentOptions.Center, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900f, 160f));
         }

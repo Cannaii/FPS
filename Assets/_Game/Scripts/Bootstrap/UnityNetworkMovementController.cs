@@ -347,6 +347,14 @@ namespace AFPS.Bootstrap
                     command.ReloadPressed = false;
                     command.ShotSequence = 0;
                 }
+                // 换弹优先；只限制本地动作与表现，最终弹量/许可始终由权威快照确认。
+                command.ReloadPressed &= sessionManager.ClientWeapon.CanReload;
+                if (command.FirePressed && (command.ReloadPressed || !sessionManager.ClientWeapon.CanFire))
+                {
+                    command.FirePressed = false;
+                    command.ShotSequence = 0;
+                    command.ShotServerTick = 0;
+                }
                 if (command.FirePressed)
                 {
                     command.ShotServerTick = sessionManager.RemotePlayers != null && sessionManager.RemotePlayers.LatestServerTick != 0 ? sessionManager.RemotePlayers.LatestServerTick : serverWorldTick;

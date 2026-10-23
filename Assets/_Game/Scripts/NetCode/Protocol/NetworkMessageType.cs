@@ -18,6 +18,7 @@ namespace AFPS.NetCode.Protocol
         DeathmatchState = 10,
         SimulationHello = 11,
         SimulationWelcome = 12,
-        SimulationReady = 13
+        SimulationReady = 13,
+        AuthoritativeWeaponState = 14
     }
 }

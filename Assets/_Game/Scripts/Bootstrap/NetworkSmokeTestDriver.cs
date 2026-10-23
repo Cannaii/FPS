@@ -32,6 +32,7 @@ namespace AFPS.Bootstrap
         private bool postReloadFireSent;
         private bool authoritativeHitObserved;
         private bool reloadVerified;
+        private bool ownerReloadObserved;
         private bool automaticFireVerified;
         private Vector3 initialPosition;
         private float maximumHeight;
@@ -112,6 +113,7 @@ namespace AFPS.Bootstrap
                 reloadVerified |= shotResult.Shot.ShotSequence == 2 && shotResult.RemainingAmmo == 29;
                 automaticFireVerified |= shotResult.Shot.ShotSequence >= 4;
             }
+            ownerReloadObserved |= manager.ClientWeapon.HasState && manager.ClientWeapon.State.IsReloading;
             bool aimingAtOpponent = elapsed < 1.5d;
             float yaw = TestYaw;
             bool hasAimTarget = false;
@@ -191,10 +193,13 @@ namespace AFPS.Bootstrap
             bool turned = Mathf.Abs(Mathf.DeltaAngle(localState.Yaw, TestYaw)) <= 1f;
             bool receivedShotResult = manager.ShotResultVersion != initialShotResultVersion;
             bool authoritativeHit = receivedShotResult && authoritativeHitObserved;
+            bool weaponSynced = manager.ClientWeapon.HasState
+                && manager.ClientWeapon.Ammo == manager.ClientWeapon.State.Ammo
+                && (replicas.LocalEntityId != 1 || ownerReloadObserved);
             bool timeSynced = manager.HasTimeSync && manager.Metrics.TimeSyncResponsesReceived >= 2;
             bool passed = hasAssignment && hasRemote && sampledRemote && moved && jumped && turned
-                && authoritativeHit && timeSynced && reloadVerified && automaticFireVerified;
-            string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0} remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned} sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} timeSynced={timeSynced} reloadVerified={reloadVerified} autoFire={automaticFireVerified} rttMs={manager.Metrics.LastNetworkRoundTripMilliseconds:F3} position={localState.Position}";
+                && authoritativeHit && timeSynced && reloadVerified && automaticFireVerified && weaponSynced;
+            string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0} remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned} sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} timeSynced={timeSynced} reloadVerified={reloadVerified} autoFire={automaticFireVerified} weaponSynced={weaponSynced} rttMs={manager.Metrics.LastNetworkRoundTripMilliseconds:F3} position={localState.Position}";
             Finish(passed, details);
         }
 
