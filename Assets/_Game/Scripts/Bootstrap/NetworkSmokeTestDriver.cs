@@ -197,9 +197,12 @@ namespace AFPS.Bootstrap
                 && manager.ClientWeapon.Ammo == manager.ClientWeapon.State.Ammo
                 && (replicas.LocalEntityId != 1 || ownerReloadObserved);
             bool timeSynced = manager.HasTimeSync && manager.Metrics.TimeSyncResponsesReceived >= 2;
+            bool shotPresented = movementController.PresentedShotResultCount > 0
+                && (replicas.LocalEntityId != 1 || movementController.ConfirmedLocalHitCount > 0);
             bool passed = hasAssignment && hasRemote && sampledRemote && moved && jumped && turned
-                && authoritativeHit && timeSynced && reloadVerified && automaticFireVerified && weaponSynced;
+                && authoritativeHit && timeSynced && reloadVerified && automaticFireVerified && weaponSynced && shotPresented;
             string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0} remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned} sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} timeSynced={timeSynced} reloadVerified={reloadVerified} autoFire={automaticFireVerified} weaponSynced={weaponSynced} rttMs={manager.Metrics.LastNetworkRoundTripMilliseconds:F3} position={localState.Position}";
+            details += $" shotPresented={shotPresented} presentedCount={movementController.PresentedShotResultCount}";
             Finish(passed, details);
         }
 

@@ -74,6 +74,7 @@ namespace AFPS.Bootstrap
         private uint latestRemoteServerTick;
         private double latestRemoteSnapshotReceiveTime;
         private DeathmatchHud deathmatchHud;
+        private ShotResultView shotResultView;
         private bool weaponViewWasActive;
         private SimulationWorldContext preparedWorld;
         private ClientPredictedMovementSession presentedClientSession;
@@ -126,6 +127,8 @@ namespace AFPS.Bootstrap
         /// 当前连接事件所创建的会话管理器，供运行时诊断读取。
         /// </summary>
         public NetworkMovementSessionManager SessionManager => sessionManager;
+        public ulong PresentedShotResultCount => shotResultView != null ? shotResultView.ConsumedResultCount : 0;
+        public ulong ConfirmedLocalHitCount => shotResultView != null ? shotResultView.LocalHitConfirmationCount : 0;
 
         private void Start()
         {
@@ -270,7 +273,12 @@ namespace AFPS.Bootstrap
                 {
                     deathmatchHud = gameObject.AddComponent<DeathmatchHud>();
                 }
-                deathmatchHud.Configure(sessionManager, tickRunner.TickDeltaTime);
+                shotResultView = GetComponent<ShotResultView>();
+                if (shotResultView == null)
+                {
+                    shotResultView = gameObject.AddComponent<ShotResultView>();
+                }
+                deathmatchHud.Configure(sessionManager, tickRunner.TickDeltaTime, shotResultView);
                 weaponViewWasActive = firstPersonWeaponView != null && firstPersonWeaponView.gameObject.activeSelf;
             }
 
@@ -301,6 +309,7 @@ namespace AFPS.Bootstrap
         {
             UpdateTimeSync();
             RefreshClientAdmission();
+            ConsumeShotResults();
             if (initialized && playerView != null && sessionManager.ClientSession != null)
             {
                 playerView.Render(tickRunner.TickAlpha, tickRunner.TickDeltaTime, Time.unscaledDeltaTime);
@@ -323,6 +332,26 @@ namespace AFPS.Bootstrap
                 }
 
                 RenderRemotePlayers();
+            }
+        }
+
+        private void ConsumeShotResults()
+        {
+            if (!initialized || shotResultView == null)
+            {
+                return;
+            }
+
+            shotResultView.Advance(Time.unscaledDeltaTime);
+            uint localEntityId = sessionManager.RemotePlayers != null ? sessionManager.RemotePlayers.LocalEntityId : 0;
+            if (sessionManager.ClientSession == null || localEntityId == 0)
+            {
+                return;
+            }
+            // 每帧排空队列，而非只读取 LastReceivedShotResult，避免同时命中/连发覆盖反馈。
+            while (sessionManager.TryDequeueShotPresentation(out var result))
+            {
+                shotResultView.Consume(result, localEntityId);
             }
         }
 
@@ -412,6 +441,10 @@ namespace AFPS.Bootstrap
             if (client != presentedClientSession)
             {
                 presentedClientSession = client;
+                if (shotResultView != null)
+                {
+                    shotResultView.Clear();
+                }
                 if (client != null && playerView != null)
                 {
                     playerView.SnapToState(client.CurrentState);

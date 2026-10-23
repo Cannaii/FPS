@@ -344,6 +344,7 @@ namespace AFPS.NetCode.Sessions
             }
 
             ClientWeapon.Clear();
+            ResetClientShotResults();
             hasWeaponStateSequence = false;
             clientConnectionId = connectionId;
             ResetClientTimeSync(connectionId);
@@ -404,6 +405,7 @@ namespace AFPS.NetCode.Sessions
             }
 
             ClientWeapon.Clear();
+            ResetClientShotResults();
             hasWeaponStateSequence = false;
             clientConnectionId = default;
             ResetClientTimeSync(default);
@@ -487,6 +489,7 @@ namespace AFPS.NetCode.Sessions
                     lastReceivedShotResultSequence = shotHeader.Sequence;
                     LastReceivedShotResult = shotResult;
                     ShotResultVersion = unchecked(ShotResultVersion + 1);
+                    EnqueueShotPresentation(shotResult);
                     return true;
                 case NetworkMessageType.DeathmatchState:
                     if (!DeathmatchStateCodec.TryDeserialize(packet, out PacketHeader matchHeader, out DeathmatchState matchState) || (hasReceivedDeathmatchSequence && !SequenceMath.IsNewer(matchHeader.Sequence, lastReceivedDeathmatchSequence)))

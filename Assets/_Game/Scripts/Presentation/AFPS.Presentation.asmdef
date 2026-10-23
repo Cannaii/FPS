@@ -2,6 +2,7 @@
     "name": "AFPS.Presentation",
     "rootNamespace": "AFPS.Presentation",
     "references": [
+        "AFPS.Math",
         "AFPS.Simulation",
         "AFPS.NetCode"
     ],

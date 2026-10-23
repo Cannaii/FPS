@@ -1,6 +1,7 @@
 using System.Text;
 using AFPS.NetCode.Match;
 using AFPS.NetCode.Sessions;
+using AFPS.Presentation.Weapons;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,11 +17,14 @@ namespace AFPS.Bootstrap
         private TextMeshProUGUI statusText;
         private TextMeshProUGUI scoreText;
         private TextMeshProUGUI centerText;
+        private TextMeshProUGUI hitMarkerText;
+        private ShotResultView shotResults;
 
-        public void Configure(NetworkMovementSessionManager manager, float tickSeconds)
+        public void Configure(NetworkMovementSessionManager manager, float tickSeconds, ShotResultView results = null)
         {
             sessionManager = manager;
             tickDeltaTime = tickSeconds;
+            shotResults = results;
             EnsureUi();
         }
 
@@ -33,8 +37,20 @@ namespace AFPS.Bootstrap
 
             DeathmatchState match = sessionManager.ClientDeathmatchState;
             bool visible = match != null;
-            if (canvas != null) canvas.enabled = visible;
-            if (!visible) return;
+            if (canvas != null)
+            {
+                canvas.enabled = visible;
+            }
+            if (!visible)
+            {
+                return;
+            }
+
+            bool confirmedHit = shotResults != null && shotResults.HitMarkerVisible;
+            hitMarkerText.text = confirmedHit ? "X" : string.Empty;
+            hitMarkerText.color = confirmedHit && shotResults.LastHitWasKill
+                ? new Color(1f, 0.25f, 0.2f)
+                : Color.white;
 
             uint localEntityId = sessionManager.RemotePlayers != null ? sessionManager.RemotePlayers.LocalEntityId : 0;
             match.TryGetPlayer(localEntityId, out DeathmatchPlayerState local);
@@ -85,7 +101,10 @@ namespace AFPS.Bootstrap
 
         private void EnsureUi()
         {
-            if (canvas != null) return;
+            if (canvas != null)
+            {
+                return;
+            }
             GameObject root = new GameObject("Deathmatch HUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
             root.transform.SetParent(transform, false);
             canvas = root.GetComponent<Canvas>();
@@ -98,6 +117,8 @@ namespace AFPS.Bootstrap
             statusText = CreateText(root.transform, "", 28f, TextAlignmentOptions.Top, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -22f), new Vector2(1500f, 60f));
             scoreText = CreateText(root.transform, "", 23f, TextAlignmentOptions.TopLeft, Vector2.one, Vector2.one, new Vector2(-220f, -28f), new Vector2(400f, 360f));
             centerText = CreateText(root.transform, "", 38f, TextAlignmentOptions.Center, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900f, 160f));
+            hitMarkerText = CreateText(root.transform, "", 26f, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(50f, 50f));
         }
 
         private static TextMeshProUGUI CreateText(Transform parent, string value, float size, TextAlignmentOptions alignment, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, Vector2 dimensions)

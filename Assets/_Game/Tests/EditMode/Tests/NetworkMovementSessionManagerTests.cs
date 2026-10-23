@@ -11,6 +11,7 @@ using AFPS.NetCode.Sessions;
 using AFPS.NetCode.SnapshotInterpolation;
 using AFPS.NetCode.StateReplication;
 using AFPS.NetCode.Transport;
+using AFPS.NetCode.Weapons;
 using AFPS.Simulation.Characters;
 using AFPS.Simulation.Weapons;
 using NUnit.Framework;
@@ -1160,6 +1161,101 @@ namespace AFPS.Tests.EditMode
                 FindPacket(transport, NetworkMessageType.DeathmatchState, true), out _, out var state), Is.True);
             Assert.That(state.Phase, Is.EqualTo(DeathmatchPhase.Finished));
             Assert.That(state.RemainingTicks, Is.Zero);
+        }
+
+        [Test]
+        public void ShotPresentation_DrainsBurstInOrderAndRejectsDuplicateOrWrongConnection()
+        {
+            var transport = new FakeTransport(TransportRole.Client);
+            var manager = CreateManager(null, transport);
+            var connection = new TransportConnectionId(30);
+            manager.HandleConnected(NetworkTransportSide.Client, connection);
+            var first = CreateShotPresentationPacket(10, 1);
+            var second = CreateShotPresentationPacket(11, 2);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, new TransportConnectionId(99), first, out _), Is.False);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, connection, first, out _), Is.True);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, connection, first, out _), Is.False);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, connection, second, out _), Is.True);
+            Assert.That(manager.ShotResultVersion, Is.EqualTo(2));
+            Assert.That(manager.LastReceivedShotResult.Shot.ShotSequence, Is.EqualTo(2));
+            Assert.That(manager.TryDequeueShotPresentation(out var result), Is.True);
+            Assert.That(result.Shot.ShotSequence, Is.EqualTo(1));
+            Assert.That(manager.TryDequeueShotPresentation(out result), Is.True);
+            Assert.That(result.Shot.ShotSequence, Is.EqualTo(2));
+            Assert.That(manager.TryDequeueShotPresentation(out _), Is.False);
+        }
+
+        [Test]
+        public void ShotPresentation_BoundsBacklogAndCountsDroppedOldestResults()
+        {
+            var manager = CreateManager(null, new FakeTransport(TransportRole.Client));
+            var connection = new TransportConnectionId(30);
+            manager.HandleConnected(NetworkTransportSide.Client, connection);
+            uint total = NetworkMovementSessionManager.ShotPresentationCapacity + 3u;
+            for (uint i = 1; i <= total; i++)
+            {
+                Assert.That(manager.TryHandleData(NetworkTransportSide.Client, connection,
+                    CreateShotPresentationPacket(i, i), out _), Is.True);
+            }
+            Assert.That(manager.PendingShotPresentationCount, Is.EqualTo(NetworkMovementSessionManager.ShotPresentationCapacity));
+            Assert.That(manager.DroppedShotPresentationCount, Is.EqualTo(3));
+            for (uint sequence = 4; sequence <= total; sequence++)
+            {
+                Assert.That(manager.TryDequeueShotPresentation(out var result), Is.True);
+                Assert.That(result.Shot.ShotSequence, Is.EqualTo(sequence));
+            }
+            Assert.That(manager.TryDequeueShotPresentation(out _), Is.False);
+        }
+
+        [Test]
+        public void ShotPresentation_ReconnectClearsBacklogAndAcceptsNewServerSequence()
+        {
+            var manager = CreateManager(null, new FakeTransport(TransportRole.Client));
+            var oldConnection = new TransportConnectionId(30);
+            var newConnection = new TransportConnectionId(31);
+            manager.HandleConnected(NetworkTransportSide.Client, oldConnection);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, oldConnection,
+                CreateShotPresentationPacket(500, 1), out _), Is.True);
+            Assert.That(manager.HandleDisconnected(NetworkTransportSide.Client, oldConnection), Is.True);
+            Assert.That(manager.PendingShotPresentationCount, Is.Zero);
+            Assert.That(manager.ShotResultVersion, Is.Zero);
+            Assert.That(manager.LastReceivedShotResult.Shot.EntityId, Is.Zero);
+            manager.HandleConnected(NetworkTransportSide.Client, newConnection);
+            var packet = CreateShotPresentationPacket(1, 2);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, oldConnection, packet, out _), Is.False);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, newConnection, packet, out _), Is.True);
+            Assert.That(manager.TryDequeueShotPresentation(out var result), Is.True);
+            Assert.That(result.Shot.ShotSequence, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ShotPresentation_SupportsPacketSequenceWrapAndRejectsMalformedResult()
+        {
+            var manager = CreateManager(null, new FakeTransport(TransportRole.Client));
+            var connection = new TransportConnectionId(30);
+            manager.HandleConnected(NetworkTransportSide.Client, connection);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, connection,
+                CreateShotPresentationPacket(uint.MaxValue, 1), out _), Is.True);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, connection,
+                CreateShotPresentationPacket(0, 2), out _), Is.True);
+            var packet = CreateShotPresentationPacket(1, 3);
+            var truncated = new ArraySegment<byte>(packet.Array, packet.Offset, packet.Count - 1);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, connection, truncated, out _), Is.False);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Client, connection,
+                CreateShotPresentationPacket(uint.MaxValue, 1), out _), Is.False);
+            Assert.That(manager.PendingShotPresentationCount, Is.EqualTo(2));
+        }
+
+        private static ArraySegment<byte> CreateShotPresentationPacket(uint packetSequence, uint shotSequence)
+        {
+            var shot = new AuthoritativeShot(1, shotSequence, 100, WeaponSimulationConfig.DefaultRifle,
+                new FixVec3(Fix.Zero, Fix.One, Fix.Zero), FixVec3.Forward, 100);
+            var result = new AuthoritativeShotResult(shot, 29, true, 2, Fix.FromInt(80),
+                new FixVec3(Fix.Zero, Fix.One, Fix.FromInt(5)));
+            var bytes = new byte[AuthoritativeShotResultCodec.PacketSize];
+            Assert.That(AuthoritativeShotResultCodec.TrySerialize(result, packetSequence,
+                new ArraySegment<byte>(bytes), out _), Is.True);
+            return new ArraySegment<byte>(bytes);
         }
 
         private static NetworkMovementSessionManager CreateManager(
