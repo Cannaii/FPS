@@ -448,6 +448,8 @@ namespace AFPS.NetCode.Sessions
 
             switch (header.MessageType)
             {
+                case NetworkMessageType.ShotRejection:
+                    return ReceiveShotRejection(packet);
                 case NetworkMessageType.AuthoritativeWeaponState:
                     if (!AuthoritativeWeaponStateCodec.TryDeserialize(packet, out var weaponHeader, out var weaponState)
                         || RemotePlayers == null || weaponState.EntityId != RemotePlayers.LocalEntityId

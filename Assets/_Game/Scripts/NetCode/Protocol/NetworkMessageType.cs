@@ -19,6 +19,7 @@ namespace AFPS.NetCode.Protocol
         SimulationHello = 11,
         SimulationWelcome = 12,
         SimulationReady = 13,
-        AuthoritativeWeaponState = 14
+        AuthoritativeWeaponState = 14,
+        ShotRejection = 15
     }
 }

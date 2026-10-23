@@ -32,6 +32,7 @@ namespace AFPS.Presentation.Weapons
         {
             ConsumedResultCount++;
             ConsumeProjectile(result, estimatedServerTick, tickDeltaSeconds);
+            ConsumeDamage(result, localEntityId);
             Vector3 end = result.HitPoint;
             if (result.Shot.FireMode == WeaponFireMode.Hitscan)
             {
@@ -62,6 +63,7 @@ namespace AFPS.Presentation.Weapons
         {
             float elapsed = Mathf.Max(0f, unscaledDeltaSeconds);
             AdvanceProjectiles(elapsed);
+            AdvanceFeedback(elapsed);
             hitMarkerRemaining = Mathf.Max(0f, hitMarkerRemaining - elapsed);
             for (int i = 0; i < lines.Length; i++)
             {
@@ -80,6 +82,7 @@ namespace AFPS.Presentation.Weapons
             ConsumedResultCount = 0;
             LocalHitConfirmationCount = 0;
             ClearProjectiles();
+            ClearFeedback();
             for (int i = 0; i < lines.Length; i++)
             {
                 remainingSeconds[i] = 0f;

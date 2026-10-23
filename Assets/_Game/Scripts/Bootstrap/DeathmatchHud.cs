@@ -2,6 +2,7 @@ using System.Text;
 using AFPS.NetCode.Match;
 using AFPS.NetCode.Sessions;
 using AFPS.Presentation.Weapons;
+using AFPS.NetCode.Weapons;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,6 +20,9 @@ namespace AFPS.Bootstrap
         private TextMeshProUGUI centerText;
         private TextMeshProUGUI hitMarkerText;
         private ShotResultView shotResults;
+        private TextMeshProUGUI rejectionText;
+        private TextMeshProUGUI damageDirectionText;
+        private Image damageFlash;
 
         public void Configure(NetworkMovementSessionManager manager, float tickSeconds, ShotResultView results = null)
         {
@@ -51,6 +55,7 @@ namespace AFPS.Bootstrap
             hitMarkerText.color = confirmedHit && shotResults.LastHitWasKill
                 ? new Color(1f, 0.25f, 0.2f)
                 : Color.white;
+            UpdateCombatFeedback();
 
             uint localEntityId = sessionManager.RemotePlayers != null ? sessionManager.RemotePlayers.LocalEntityId : 0;
             match.TryGetPlayer(localEntityId, out DeathmatchPlayerState local);
@@ -99,6 +104,31 @@ namespace AFPS.Bootstrap
             }
         }
 
+        private void UpdateCombatFeedback()
+        {
+            bool damaged = shotResults != null && shotResults.DamageFeedbackVisible;
+            damageFlash.enabled = damaged;
+            damageDirectionText.text = damaged ? "^" : string.Empty;
+            var camera = UnityEngine.Camera.main;
+            if (damaged && camera != null)
+            {
+                Vector3 direction = camera.transform.InverseTransformDirection(shotResults.LastDamageSource - camera.transform.position);
+                float angle = Mathf.Atan2(direction.x, direction.z);
+                damageDirectionText.rectTransform.anchoredPosition = new Vector2(Mathf.Sin(angle), Mathf.Cos(angle)) * 90f;
+                damageDirectionText.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -angle * Mathf.Rad2Deg);
+            }
+            rejectionText.text = shotResults != null && shotResults.RejectionFeedbackVisible
+                ? shotResults.LastRejectionReason switch
+                {
+                    WeaponFireRejectReason.Reloading => "RELOADING",
+                    WeaponFireRejectReason.EmptyMagazine => "RELOAD",
+                    WeaponFireRejectReason.FireRateLimited => "WAIT TO FIRE",
+                    WeaponFireRejectReason.WeaponUnavailable => "WEAPON UNAVAILABLE",
+                    _ => "SHOT REJECTED"
+                }
+                : string.Empty;
+        }
+
         private void EnsureUi()
         {
             if (canvas != null)
@@ -114,11 +144,27 @@ namespace AFPS.Bootstrap
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
 
+            var flashRoot = new GameObject("Damage Flash", typeof(RectTransform), typeof(Image));
+            flashRoot.transform.SetParent(root.transform, false);
+            var flashRect = flashRoot.GetComponent<RectTransform>();
+            flashRect.anchorMin = Vector2.zero;
+            flashRect.anchorMax = Vector2.one;
+            flashRect.sizeDelta = Vector2.zero;
+            damageFlash = flashRoot.GetComponent<Image>();
+            damageFlash.color = new Color(1f, 0f, 0f, 0.12f);
+            damageFlash.raycastTarget = false;
+            damageFlash.enabled = false;
+
             statusText = CreateText(root.transform, "", 28f, TextAlignmentOptions.Top, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -22f), new Vector2(1500f, 60f));
             scoreText = CreateText(root.transform, "", 23f, TextAlignmentOptions.TopLeft, Vector2.one, Vector2.one, new Vector2(-220f, -28f), new Vector2(400f, 360f));
             centerText = CreateText(root.transform, "", 38f, TextAlignmentOptions.Center, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900f, 160f));
             hitMarkerText = CreateText(root.transform, "", 26f, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(50f, 50f));
+            damageDirectionText = CreateText(root.transform, "", 40f, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(50f, 50f));
+            damageDirectionText.color = Color.red;
+            rejectionText = CreateText(root.transform, "", 22f, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -80f), new Vector2(400f, 50f));
         }
 
         private static TextMeshProUGUI CreateText(Transform parent, string value, float size, TextAlignmentOptions alignment, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, Vector2 dimensions)

@@ -16,7 +16,7 @@ namespace AFPS.NetCode.Sessions
     /// 组装单个已连接玩家的输入接收窗口、服务器权威模拟和状态发送。
     /// 每次服务器世界 Tick 最多处理一条连续客户端输入。
     /// </summary>
-    public sealed class ServerAuthoritativeMovementSession
+    public sealed partial class ServerAuthoritativeMovementSession
     {
         private readonly ServerInputCommandReceiver inputReceiver;
         private readonly ServerAuthoritativeStateSender stateSender;
@@ -215,6 +215,7 @@ namespace AFPS.NetCode.Sessions
             weaponFireController?.SetEquipped(GameplayEnabled && WeaponEnabled);
             LastWeaponFireResult = weaponFireController != null ? weaponFireController.Process(serverWorldTick, entityId, appliedCommand, CurrentState) : default;
             SendWeaponState(serverWorldTick, command);
+            SendShotRejections(serverWorldTick, command);
             authoritativeState = new AuthoritativePlayerState(serverWorldTick, appliedCommand.Tick, CurrentState);
             stateSender.TrySend(authoritativeState, out sendResult);
             return true;

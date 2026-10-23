@@ -43,7 +43,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(DeathmatchStateCodec.TrySerialize(state, 1, new ArraySegment<byte>(bytes), out _), Is.True);
             bytes[4] = 5;
             Assert.That(DeathmatchStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
-            bytes[4] = 8;
+            bytes[4] = PacketHeader.CurrentProtocolVersion;
             bytes[PacketHeader.Size + 21] = 128;
             Assert.That(DeathmatchStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out var decoded), Is.False);
             Assert.That(decoded, Is.Null);

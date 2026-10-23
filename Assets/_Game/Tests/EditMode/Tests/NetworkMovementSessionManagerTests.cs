@@ -1258,6 +1258,48 @@ namespace AFPS.Tests.EditMode
             return new ArraySegment<byte>(bytes);
         }
 
+        [Test]
+        public void ShotRejection_RetriesFailedSendAndOnlyRoutesToOwner()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            var assignment = transport.SentPackets[0];
+            SendTick(manager, first, second, 1, 100,
+                new PlayerInputCommand { FirePressed = true, ShotSequence = 1 }, default);
+            transport.FailNextMessageType = NetworkMessageType.ShotRejection;
+            SendTick(manager, first, second, 2, 101,
+                new PlayerInputCommand { FirePressed = true, ShotSequence = 2 }, default);
+            Assert.That(transport.FailedReliableSendCount, Is.EqualTo(1));
+            SendTick(manager, first, second, 3, 102, default, default);
+            var client = CreateManager(null, new FakeTransport(TransportRole.Client));
+            var connection = new TransportConnectionId(30);
+            client.HandleConnected(NetworkTransportSide.Client, connection);
+            Assert.That(client.TryHandleData(NetworkTransportSide.Client, connection, assignment, out _), Is.True);
+            int rejectionCount = 0;
+            for (int i = 0; i < transport.SentPackets.Count; i++)
+            {
+                var packet = transport.SentPackets[i];
+                if (!ShotRejectionCodec.TryDeserialize(packet, out _, out var value))
+                {
+                    continue;
+                }
+                rejectionCount++;
+                Assert.That(transport.SentConnectionIds[i], Is.EqualTo(first));
+                Assert.That(value.InputTick, Is.EqualTo(2));
+                Assert.That(value.ServerTick, Is.EqualTo(101));
+                Assert.That(client.TryHandleData(NetworkTransportSide.Client, connection, packet, out _), Is.True);
+                Assert.That(client.TryHandleData(NetworkTransportSide.Client, connection, packet, out _), Is.False);
+                Assert.That(client.TryDequeueShotRejection(out var rejected), Is.True);
+                Assert.That(rejected.Reason, Is.EqualTo(WeaponFireRejectReason.FireRateLimited));
+                Assert.That(rejected.ShotSequence, Is.EqualTo(2));
+            }
+            Assert.That(rejectionCount, Is.EqualTo(1));
+        }
+
         private static NetworkMovementSessionManager CreateManager(
             IGameTransport serverTransport,
             IGameTransport clientTransport,
@@ -1361,6 +1403,7 @@ namespace AFPS.Tests.EditMode
             public readonly List<TransportConnectionId> SentConnectionIds = new List<TransportConnectionId>();
             public TransportConnectionId FailNextReliableConnection;
             public int FailedReliableSendCount;
+            public NetworkMessageType FailNextMessageType;
             public TransportConnectionId FailNextUnreliableConnection;
             public int FailedUnreliableSendCount;
             public bool IsRunning => true;
@@ -1378,6 +1421,13 @@ namespace AFPS.Tests.EditMode
 
             public TransportSendResult Send(TransportConnectionId connectionId, TransportDelivery delivery, ArraySegment<byte> payload)
             {
+                if (FailNextMessageType != NetworkMessageType.Unknown
+                    && PacketHeaderCodec.TryRead(payload, out var header) && header.MessageType == FailNextMessageType)
+                {
+                    FailNextMessageType = NetworkMessageType.Unknown;
+                    FailedReliableSendCount++;
+                    return TransportSendResult.TransportError;
+                }
                 if (delivery == TransportDelivery.ReliableSequenced && connectionId == FailNextReliableConnection)
                 {
                     FailNextReliableConnection = default;

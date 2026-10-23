@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using AFPS.NetCode.Weapons;
+using AFPS.NetCode.Messages;
+using AFPS.NetCode.Protocol;
 
 namespace AFPS.NetCode.Sessions
 {
@@ -12,6 +14,39 @@ namespace AFPS.NetCode.Sessions
 
         public int PendingShotPresentationCount => shotPresentationResults.Count;
         public ulong DroppedShotPresentationCount { get; private set; }
+        private readonly Queue<ShotRejection> shotRejections = new Queue<ShotRejection>();
+        private bool hasRejectionSequence;
+        private uint lastRejectionSequence;
+
+        public bool TryDequeueShotRejection(out ShotRejection rejection)
+        {
+            if (shotRejections.Count == 0)
+            {
+                rejection = default;
+                return false;
+            }
+            rejection = shotRejections.Dequeue();
+            return true;
+        }
+
+        private bool ReceiveShotRejection(System.ArraySegment<byte> packet)
+        {
+            if (!ShotRejectionCodec.TryDeserialize(packet, out var header, out var value)
+                || RemotePlayers == null || value.EntityId != RemotePlayers.LocalEntityId
+                || (hasRejectionSequence && !SequenceMath.IsNewer(header.Sequence, lastRejectionSequence)))
+            {
+                return false;
+            }
+            hasRejectionSequence = true;
+            lastRejectionSequence = header.Sequence;
+            if (shotRejections.Count == ShotPresentationCapacity)
+            {
+                shotRejections.Dequeue();
+                DroppedShotPresentationCount++;
+            }
+            shotRejections.Enqueue(value);
+            return true;
+        }
 
         /// <summary>单个表现消费者按接收顺序取出结果；同一渲染帧可消费多条。</summary>
         public bool TryDequeueShotPresentation(out AuthoritativeShotResult result)
@@ -39,6 +74,9 @@ namespace AFPS.NetCode.Sessions
         private void ResetClientShotResults()
         {
             shotPresentationResults.Clear();
+            shotRejections.Clear();
+            hasRejectionSequence = false;
+            lastRejectionSequence = 0;
             DroppedShotPresentationCount = 0;
             hasReceivedShotResultSequence = false;
             lastReceivedShotResultSequence = 0;

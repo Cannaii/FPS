@@ -354,6 +354,10 @@ namespace AFPS.Bootstrap
             double estimatedTick = sessionManager.TryGetSynchronizedServerTick(out double synchronizedTick)
                 ? synchronizedTick
                 : double.NaN;
+            while (sessionManager.TryDequeueShotRejection(out var rejection))
+            {
+                shotResultView.Reject(rejection);
+            }
             while (sessionManager.TryDequeueShotPresentation(out var result))
             {
                 shotResultView.Consume(result, localEntityId, estimatedTick, preparedWorld.TickDeltaTime.ToFloat());
