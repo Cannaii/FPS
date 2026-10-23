@@ -39,7 +39,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(decoded.RemainingAmmo, Is.EqualTo(int.MaxValue));
         }
 
-        [TestCase(19, 2)]
+        [TestCase(19, 3)]
         [TestCase(18, 127)]
         [TestCase(20, -1)]
         [TestCase(28, -1)]

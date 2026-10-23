@@ -39,7 +39,7 @@ namespace AFPS.NetCode.Messages
                 && writer.TryWriteUInt32(shot.RewindTick)
                 && writer.TryWriteUInt16(shot.WeaponId)
                 && writer.TryWriteByte((byte)shot.FireMode)
-                && writer.TryWriteByte(result.DidHit ? (byte)1 : (byte)0)
+                && writer.TryWriteByte(result.DidHit ? (byte)1 : result.HitEnvironment ? (byte)2 : (byte)0)
                 && writer.TryWriteInt32(result.RemainingAmmo)
                 && writer.TryWriteUInt32(result.TargetEntityId)
                 && writer.TryWriteInt32(result.TargetHealthFixed.Raw)
@@ -103,7 +103,7 @@ namespace AFPS.NetCode.Messages
             {
                 return false;
             }
-            if (reader.BytesRemaining != 0 || flags > 1)
+            if (reader.BytesRemaining != 0 || flags > 2)
             {
                 return false;
             }
@@ -112,7 +112,7 @@ namespace AFPS.NetCode.Messages
                 Vector(originX, originY, originZ), Vector(directionX, directionY, directionZ),
                 Fix.FromRaw(damage), Fix.FromRaw(range), Fix.FromRaw(speed), rewind, preserveZeroRewindTick: true);
             AuthoritativeShotResult decoded = new AuthoritativeShotResult(
-                shot, ammo, flags == 1, target, Fix.FromRaw(health), Vector(pointX, pointY, pointZ));
+                shot, ammo, flags == 1, target, Fix.FromRaw(health), Vector(pointX, pointY, pointZ), flags == 2);
             if (!IsValid(decoded))
             {
                 return false;
@@ -130,6 +130,7 @@ namespace AFPS.NetCode.Messages
             if (shot.EntityId == 0 || shot.ShotSequence == 0 || shot.WeaponId == 0
                 || result.RemainingAmmo < 0 || result.TargetHealthFixed.Raw < 0
                 || result.DidHit != (result.TargetEntityId != 0)
+                || (result.HitEnvironment && (result.DidHit || result.TargetEntityId != 0 || result.TargetHealthFixed.Raw != 0))
                 || shot.DamageFixed.Raw <= 0 || shot.RangeFixed.Raw <= 0
                 || (shot.FireMode != WeaponFireMode.Hitscan && shot.FireMode != WeaponFireMode.Projectile)
                 || (shot.FireMode == WeaponFireMode.Hitscan && shot.ProjectileSpeedFixed.Raw != 0)

@@ -596,6 +596,10 @@ namespace AFPS.NetCode.Sessions
 
         private void ResolveCombatTick(uint serverWorldTick)
         {
+            if (deathmatchPhase != DeathmatchPhase.Playing)
+            {
+                return;
+            }
             if (pendingWeaponFireResults.Count == 0 && projectileSimulation.Count == 0)
             {
                 return;
@@ -605,6 +609,10 @@ namespace AFPS.NetCode.Sessions
 
             for (int i = 0; i < pendingWeaponFireResults.Count; i++)
             {
+                if (deathmatchPhase != DeathmatchPhase.Playing)
+                {
+                    break;
+                }
                 WeaponFireResult fireResult = pendingWeaponFireResults[i];
                 AuthoritativeShot shot = fireResult.Shot;
                 if (shot.FireMode == WeaponFireMode.Projectile)
@@ -622,8 +630,8 @@ namespace AFPS.NetCode.Sessions
                     shot.OriginFixed, shot.DirectionFixed, shot.RangeFixed.Raw);
                 BuildCombatTargets(shot.RewindTick, serverWorldTick);
                 long rewindStarted = Stopwatch.GetTimestamp();
-                bool didHit = shot.FireMode == WeaponFireMode.Hitscan
-                    && ServerHitscanResolver.TryResolveFixed(shot, combatTargets, out target, out hitPoint);
+                bool didHit = ServerWorldShotResolver.TryResolve(shot, combatTargets, WorldContext?.World,
+                    WorldContext?.CollisionLayerMask ?? ~0, out target, out hitPoint, out bool hitEnvironment);
                 Metrics.RewindQueries++;
                 Metrics.LastRewindMicroseconds = ElapsedMicroseconds(rewindStarted);
                 uint targetEntityId = 0;
@@ -644,20 +652,29 @@ namespace AFPS.NetCode.Sessions
                     }
                 }
                 BroadcastShotResult(new AuthoritativeShotResult(
-                    shot, fireResult.RemainingAmmo, didHit, targetEntityId, targetHealth, hitPoint));
+                    shot, fireResult.RemainingAmmo, didHit, targetEntityId, targetHealth, hitPoint, hitEnvironment));
             }
 
             BuildCombatTargets(serverWorldTick, serverWorldTick);
             projectileImpacts.Clear();
-            projectileSimulation.Advance(tickDeltaTimeFixed, combatTargets, projectileImpacts);
+            if (deathmatchPhase != DeathmatchPhase.Playing)
+            {
+                return;
+            }
+            projectileSimulation.Advance(tickDeltaTimeFixed, combatTargets, projectileImpacts,
+                WorldContext?.World, WorldContext?.CollisionLayerMask ?? ~0);
             for (int i = 0; i < projectileImpacts.Count; i++)
             {
+                if (deathmatchPhase != DeathmatchPhase.Playing)
+                {
+                    break;
+                }
                 AuthoritativeShotResult impact = projectileImpacts[i];
-                Fix targetHealth = ApplyDamage(
-                    impact.Shot.EntityId, impact.TargetEntityId, impact.Shot.DamageFixed, serverWorldTick);
+                Fix targetHealth = impact.DidHit ? ApplyDamage(
+                    impact.Shot.EntityId, impact.TargetEntityId, impact.Shot.DamageFixed, serverWorldTick) : Fix.Zero;
                 BroadcastShotResult(new AuthoritativeShotResult(
-                    impact.Shot, impact.RemainingAmmo, true,
-                    impact.TargetEntityId, targetHealth, impact.HitPointFixed));
+                    impact.Shot, impact.RemainingAmmo, impact.DidHit,
+                    impact.TargetEntityId, targetHealth, impact.HitPointFixed, impact.HitEnvironment));
             }
         }
 

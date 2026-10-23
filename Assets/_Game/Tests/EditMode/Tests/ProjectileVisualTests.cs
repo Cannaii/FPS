@@ -210,6 +210,27 @@ namespace AFPS.Tests.EditMode
             }
         }
 
+        [Test]
+        public void EnvironmentImpact_RetiresProxyWithoutGrantingHitOrKillMarker()
+        {
+            var root = new GameObject("Environment impact test");
+            try
+            {
+                var view = root.AddComponent<ShotResultView>();
+                var shot = Shot(1, 1);
+                view.PredictProjectile(shot);
+                view.Consume(new AuthoritativeShotResult(shot, 29, false, 0, Fix.Zero,
+                    new FixVec3(Fix.Zero, Fix.One, Fix.FromInt(3)), true), 1);
+                Assert.That(view.ActiveProjectileCount, Is.Zero);
+                Assert.That(view.HitMarkerVisible, Is.False);
+                Assert.That(view.LastHitWasKill, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
         [TestCase(100u, 100d, 0.02f)]
         [TestCase(100u, 104.5d, 0.11f)]
         [TestCase(uint.MaxValue - 1, 0d, 0.06f)]

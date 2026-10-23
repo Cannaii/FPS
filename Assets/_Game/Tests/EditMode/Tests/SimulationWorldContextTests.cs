@@ -75,7 +75,7 @@ namespace AFPS.Tests.EditMode
                 Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
             var defaultContext = new SimulationWorldContext(CreateWorld(), configuration, SimulationStep.Step50Hz);
             var sceneContext = new SimulationWorldContext(CreateWorld(), configuration, SimulationStep.Step50Hz, 256);
-            Assert.That(defaultContext.Identity.AlgorithmVersion, Is.EqualTo(9));
+            Assert.That(defaultContext.Identity.AlgorithmVersion, Is.EqualTo(10));
             Assert.That(defaultContext.Identity.ConfigurationHash, Is.EqualTo(12131508834524026448UL));
             Assert.That(sceneContext.Identity.ConfigurationHash, Is.EqualTo(9275246948326663455UL));
         }

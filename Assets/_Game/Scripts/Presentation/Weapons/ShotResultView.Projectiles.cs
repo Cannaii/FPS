@@ -64,7 +64,7 @@ namespace AFPS.Presentation.Weapons
                 return;
             }
             var key = (shot.EntityId, shot.ShotSequence);
-            if (result.DidHit)
+            if (result.DidHit || result.HitEnvironment)
             {
                 ConfirmedProjectileImpactCount++;
                 ReleaseProjectile(key);

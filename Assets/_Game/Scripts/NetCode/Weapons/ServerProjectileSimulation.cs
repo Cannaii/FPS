@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using AFPS.Math;
 using AFPS.Simulation.Weapons;
+using AFPS.Simulation.World;
 
 namespace AFPS.NetCode.Weapons
 {
@@ -42,7 +43,8 @@ namespace AFPS.NetCode.Weapons
             return true;
         }
 
-        public int Advance(Fix deltaTime, IReadOnlyList<ServerCombatTarget> targets, List<AuthoritativeShotResult> impacts)
+        public int Advance(Fix deltaTime, IReadOnlyList<ServerCombatTarget> targets, List<AuthoritativeShotResult> impacts,
+            IWorldQuery world = null, int layerMask = ~0)
         {
             if (deltaTime.Raw <= 0)
             {
@@ -68,10 +70,12 @@ namespace AFPS.NetCode.Weapons
                     projectile.Shot.WeaponId, WeaponFireMode.Projectile,
                     projectile.Position, projectile.Shot.DirectionFixed, projectile.Shot.DamageFixed,
                     Fix.FromRaw(distanceRaw), projectile.Shot.ProjectileSpeedFixed, projectile.Shot.RewindTick);
-                if (ServerHitscanResolver.TryResolveFixed(segment, targets, out ServerCombatTarget target, out FixVec3 hitPoint))
+                bool didHit = ServerWorldShotResolver.TryResolve(segment, targets, world, layerMask,
+                    out ServerCombatTarget target, out FixVec3 hitPoint, out bool hitEnvironment);
+                if (didHit || hitEnvironment)
                 {
                     impacts?.Add(new AuthoritativeShotResult(projectile.Shot, projectile.RemainingAmmo,
-                        true, target.EntityId, target.HealthFixed, hitPoint));
+                        didHit, didHit ? target.EntityId : 0, didHit ? target.HealthFixed : Fix.Zero, hitPoint, hitEnvironment));
                     active.RemoveAt(index);
                     impactCount++;
                     continue;

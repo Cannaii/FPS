@@ -8,6 +8,7 @@ namespace AFPS.NetCode.Weapons
         public readonly AuthoritativeShot Shot;
         public readonly int RemainingAmmo;
         public readonly bool DidHit;
+        public readonly bool HitEnvironment;
         public readonly uint TargetEntityId;
         public readonly Fix TargetHealthFixed;
         public readonly FixVec3 HitPointFixed;
@@ -18,11 +19,13 @@ namespace AFPS.NetCode.Weapons
             bool didHit,
             uint targetEntityId,
             Fix targetHealth,
-            FixVec3 hitPoint)
+            FixVec3 hitPoint,
+            bool hitEnvironment = false)
         {
             Shot = shot;
             RemainingAmmo = remainingAmmo;
             DidHit = didHit;
+            HitEnvironment = hitEnvironment;
             TargetEntityId = targetEntityId;
             TargetHealthFixed = targetHealth;
             HitPointFixed = hitPoint;

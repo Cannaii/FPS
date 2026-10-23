@@ -40,7 +40,7 @@ namespace AFPS.Presentation.Weapons
                 DrawLine(result.Shot.Origin, end, new Color(1f, 0.8f, 0.25f), TracerSeconds);
             }
 
-            if (!result.DidHit)
+            if (!result.DidHit && !result.HitEnvironment)
             {
                 // Projectile 的未命中结果表示发射确认，不能画出瞬间穿越整个射程的光束。
                 return;
@@ -51,7 +51,7 @@ namespace AFPS.Presentation.Weapons
                 impactColor, ImpactSeconds);
             DrawLine(end - Vector3.up * ImpactHalfSize, end + Vector3.up * ImpactHalfSize,
                 impactColor, ImpactSeconds);
-            if (localEntityId != 0 && result.Shot.EntityId == localEntityId)
+            if (result.DidHit && localEntityId != 0 && result.Shot.EntityId == localEntityId)
             {
                 hitMarkerRemaining = HitMarkerSeconds;
                 LastHitWasKill = result.TargetHealthFixed.Raw == 0;
