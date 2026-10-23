@@ -815,7 +815,7 @@ namespace AFPS.NetCode.Sessions
 
             return new DeathmatchPlayerState(
                 entityId,
-                ServerCombatHealth.ToDisplayHealth(serverHealth[entityId]),
+                serverHealth[entityId],
                 serverKills[entityId],
                 serverDeaths[entityId],
                 (ushort)Mathf.Min(ushort.MaxValue, respawnTicks),

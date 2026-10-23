@@ -1,4 +1,6 @@
 using System;
+using AFPS.Math;
+using AFPS.NetCode.Weapons;
 
 namespace AFPS.NetCode.Match
 {
@@ -12,16 +14,24 @@ namespace AFPS.NetCode.Match
     public readonly struct DeathmatchPlayerState
     {
         public readonly uint EntityId;
-        public readonly ushort Health;
+        /// <summary>完整 Q16.16 生命值；整数 Health 仅供旧 HUD 显示。</summary>
+        public readonly Fix HealthFixed;
+        public ushort Health => ServerCombatHealth.ToDisplayHealth(HealthFixed);
         public readonly ushort Kills;
         public readonly ushort Deaths;
         public readonly ushort RespawnTicksRemaining;
         public readonly bool IsAlive;
 
-        public DeathmatchPlayerState(uint entityId, ushort health, ushort kills, ushort deaths, ushort respawnTicksRemaining, bool isAlive)
+        public DeathmatchPlayerState(
+            uint entityId, ushort health, ushort kills, ushort deaths, ushort respawnTicksRemaining, bool isAlive)
+            : this(entityId, Fix.FromInt(health), kills, deaths, respawnTicksRemaining, isAlive)
+        {
+        }
+        public DeathmatchPlayerState(
+            uint entityId, Fix health, ushort kills, ushort deaths, ushort respawnTicksRemaining, bool isAlive)
         {
             EntityId = entityId;
-            Health = health;
+            HealthFixed = health;
             Kills = kills;
             Deaths = deaths;
             RespawnTicksRemaining = respawnTicksRemaining;

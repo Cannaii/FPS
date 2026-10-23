@@ -335,6 +335,8 @@ namespace AFPS.Tests.EditMode
             }
             Assert.That(manager.TryGetServerHealthFixed(targetId, out Fix health), Is.True);
             Assert.That(health.Raw, Is.EqualTo(6553600 - 2 * damage.Raw));
+            Assert.That(manager.TryGetServerDeathmatchPlayer(targetId, out var player), Is.True);
+            Assert.That(player.HealthFixed, Is.EqualTo(health));
             Assert.That(FindLastShotResult(transport, out var result), Is.True);
             Assert.That(result.DidHit, Is.True);
             Assert.That(result.TargetEntityId, Is.EqualTo(targetId));
