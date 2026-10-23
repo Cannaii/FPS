@@ -6,8 +6,8 @@ namespace AFPS.Simulation.World
     public readonly struct SimulationWorldIdentity : IEquatable<SimulationWorldIdentity>
     {
         // 改变积分顺序、舍入、三角 LUT 或接触裁决时必须升级；代码排版与注释不升级。
-        // v10：Hitscan/Projectile 共用静态定点世界遮挡，同距环境优先；终局后不再产生战斗结果。
-        public const uint CurrentAlgorithmVersion = 10;
+        // v11：次武器爆炸采用中心平方距离衰减和静态 LOS，可自伤；每发弹丸命中后立即刷新目标。
+        public const uint CurrentAlgorithmVersion = 11;
 
         /// <summary>模拟和查询的算法语义版本；零保留为未初始化状态。</summary>
         public readonly uint AlgorithmVersion;

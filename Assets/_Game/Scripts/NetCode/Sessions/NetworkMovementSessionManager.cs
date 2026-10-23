@@ -607,6 +607,7 @@ namespace AFPS.NetCode.Sessions
 
             BuildCombatTargets(serverWorldTick, serverWorldTick);
 
+            pendingWeaponFireResults.Sort((left, right) => left.Shot.EntityId.CompareTo(right.Shot.EntityId));
             for (int i = 0; i < pendingWeaponFireResults.Count; i++)
             {
                 if (deathmatchPhase != DeathmatchPhase.Playing)
@@ -661,21 +662,8 @@ namespace AFPS.NetCode.Sessions
             {
                 return;
             }
-            projectileSimulation.Advance(tickDeltaTimeFixed, combatTargets, projectileImpacts,
-                WorldContext?.World, WorldContext?.CollisionLayerMask ?? ~0);
-            for (int i = 0; i < projectileImpacts.Count; i++)
-            {
-                if (deathmatchPhase != DeathmatchPhase.Playing)
-                {
-                    break;
-                }
-                AuthoritativeShotResult impact = projectileImpacts[i];
-                Fix targetHealth = impact.DidHit ? ApplyDamage(
-                    impact.Shot.EntityId, impact.TargetEntityId, impact.Shot.DamageFixed, serverWorldTick) : Fix.Zero;
-                BroadcastShotResult(new AuthoritativeShotResult(
-                    impact.Shot, impact.RemainingAmmo, impact.DidHit,
-                    impact.TargetEntityId, targetHealth, impact.HitPointFixed, impact.HitEnvironment));
-            }
+            projectileSimulation.Advance(tickDeltaTimeFixed, combatTargets, null,
+                WorldContext?.World, WorldContext?.CollisionLayerMask ?? ~0, ResolveProjectileImpact);
         }
 
         private void RecordCurrentHitboxes(uint serverWorldTick)

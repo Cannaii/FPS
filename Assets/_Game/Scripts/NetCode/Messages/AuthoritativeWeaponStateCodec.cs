@@ -7,7 +7,7 @@ namespace AFPS.NetCode.Messages
 {
     public static class AuthoritativeWeaponStateCodec
     {
-        // 小端：Entity/ServerTick/AckInputTick/Ammo/Capacity/ReloadTicks 各 4B，再加可用标志 1B。
+        // 小端：Entity/ServerTick/AckInputTick/Ammo/Capacity/ReloadTicks 各 4B，可用标志 1B、WeaponId 2B、EquipTicks 4B。
         public const int PayloadSize = 31;
         public const int PacketSize = PacketHeader.Size + PayloadSize;
 

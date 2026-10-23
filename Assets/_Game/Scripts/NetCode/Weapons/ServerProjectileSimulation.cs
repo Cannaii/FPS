@@ -44,7 +44,7 @@ namespace AFPS.NetCode.Weapons
         }
 
         public int Advance(Fix deltaTime, IReadOnlyList<ServerCombatTarget> targets, List<AuthoritativeShotResult> impacts,
-            IWorldQuery world = null, int layerMask = ~0)
+            IWorldQuery world = null, int layerMask = ~0, Action<AuthoritativeShotResult> onImpact = null)
         {
             if (deltaTime.Raw <= 0)
             {
@@ -74,8 +74,11 @@ namespace AFPS.NetCode.Weapons
                     out ServerCombatTarget target, out FixVec3 hitPoint, out bool hitEnvironment);
                 if (didHit || hitEnvironment)
                 {
-                    impacts?.Add(new AuthoritativeShotResult(projectile.Shot, projectile.RemainingAmmo,
-                        didHit, didHit ? target.EntityId : 0, didHit ? target.HealthFixed : Fix.Zero, hitPoint, hitEnvironment));
+                    var impact = new AuthoritativeShotResult(projectile.Shot, projectile.RemainingAmmo,
+                        didHit, didHit ? target.EntityId : 0, didHit ? target.HealthFixed : Fix.Zero, hitPoint, hitEnvironment);
+                    impacts?.Add(impact);
+                    // 权威会话可立即应用伤害并刷新 targets，下一发不能继续命中同 Tick 已死亡的旧胶囊。
+                    onImpact?.Invoke(impact);
                     active.RemoveAt(index);
                     impactCount++;
                     continue;

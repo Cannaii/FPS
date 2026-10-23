@@ -6,6 +6,7 @@ namespace AFPS.Simulation.Weapons
     public static class WeaponCatalog
     {
         public const uint EquipDurationTicks = 10; // 50Hz 下约 0.2 秒，使用服务器世界 Tick。
+        public static Fix LauncherExplosionRadius => Fix.FromInt(3); // 次武器爆炸半径，米；进入世界指纹。
 
         public static WeaponSimulationConfig SecondaryFor(in WeaponSimulationConfig primary) =>
             new WeaponSimulationConfig((ushort)(primary.WeaponId == 2 ? 3 : 2), WeaponFireMode.Projectile,

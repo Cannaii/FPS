@@ -51,10 +51,11 @@ namespace AFPS.Presentation.Weapons
                 impactColor, ImpactSeconds);
             DrawLine(end - Vector3.up * ImpactHalfSize, end + Vector3.up * ImpactHalfSize,
                 impactColor, ImpactSeconds);
-            if (result.DidHit && localEntityId != 0 && result.Shot.EntityId == localEntityId)
+            if (result.DidHit && localEntityId != 0 && result.Shot.EntityId == localEntityId && result.TargetEntityId != localEntityId)
             {
+                // 同一次爆炸可命中多个目标；该提示窗口已确认的击杀不能被随后非致命溅射改回白色。
+                LastHitWasKill = (hitMarkerRemaining > 0f && LastHitWasKill) || result.TargetHealthFixed.Raw == 0;
                 hitMarkerRemaining = HitMarkerSeconds;
-                LastHitWasKill = result.TargetHealthFixed.Raw == 0;
                 LocalHitConfirmationCount++;
             }
         }

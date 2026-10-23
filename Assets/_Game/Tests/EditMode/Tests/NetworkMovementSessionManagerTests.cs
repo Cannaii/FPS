@@ -1353,6 +1353,33 @@ namespace AFPS.Tests.EditMode
             Assert.That(session.LastWeaponFireResult.Accepted, Is.True);
         }
 
+        [Test]
+        public void Launcher_DirectKillAndSplashSelfDamageDoNotDoubleDamageTarget()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            manager.TryGetServerEntityId(first, out uint shooter);
+            manager.TryGetServerEntityId(second, out uint victim);
+            SendTick(manager, first, second, 1, 100, new PlayerInputCommand { SwitchWeaponPressed = true }, default);
+            SendTick(manager, first, second, 2, 110,
+                new PlayerInputCommand { FirePressed = true, ShotSequence = 1, LookYaw = 90f }, default);
+            for (uint tick = 3; tick <= 8; tick++)
+            {
+                SendTick(manager, first, second, tick, 108 + tick, default, default);
+            }
+            Assert.That(manager.TryGetServerDeathmatchPlayer(victim, out var target), Is.True);
+            Assert.That(target.IsAlive, Is.False);
+            Assert.That(target.Deaths, Is.EqualTo(1));
+            Assert.That(manager.TryGetServerDeathmatchPlayer(shooter, out var owner), Is.True);
+            Assert.That(owner.Kills, Is.EqualTo(1));
+            Assert.That(owner.HealthFixed.Raw, Is.LessThan(Fix.FromInt(100).Raw));
+            Assert.That(owner.HealthFixed.Raw, Is.GreaterThan(0));
+        }
+
         private static NetworkMovementSessionManager CreateManager(
             IGameTransport serverTransport,
             IGameTransport clientTransport,

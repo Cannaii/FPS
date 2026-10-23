@@ -29,7 +29,8 @@ namespace AFPS.Presentation.Weapons
         {
             if (localEntity != 0 && result.DidHit && result.TargetEntityId == localEntity)
             {
-                LastDamageSource = result.Shot.Origin;
+                LastDamageSource = result.Shot.FireMode == AFPS.Simulation.Weapons.WeaponFireMode.Projectile
+                    ? result.HitPoint : result.Shot.Origin;
                 damageRemaining = 0.35f; // 受击闪屏与方向提示，真实秒；不推导或反写生命值。
                 ReceivedDamageCount++;
             }

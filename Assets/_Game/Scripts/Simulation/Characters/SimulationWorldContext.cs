@@ -95,10 +95,10 @@ namespace AFPS.Simulation.Characters
             in SimulationSessionSpatialConfig sessionSpatial,
             in WeaponSimulationConfig weapon)
         {
-            // AFC4 覆盖双武器与切换时长；固定顺序的小端 int32，不能使用浮点字符串或本机字节序。
+            // AFC5 覆盖双武器、切换和发射器爆炸半径；固定顺序小端 int32。
             // 新增会改变模拟结果的参数时必须纳入字段，并升级域版本及黄金值。
             ulong hash = 14695981039346656037UL;
-            Add(ref hash, 0x34434641);
+            Add(ref hash, 0x35434641);
             Add(ref hash, tickDeltaTime.Raw);
             Add(ref hash, collisionLayerMask);
             Add(ref hash, configuration.MaxGroundSpeedFixed.Raw);
@@ -124,6 +124,7 @@ namespace AFPS.Simulation.Characters
             AddWeapon(ref hash, weapon);
             AddWeapon(ref hash, WeaponCatalog.SecondaryFor(weapon));
             Add(ref hash, unchecked((int)WeaponCatalog.EquipDurationTicks));
+            Add(ref hash, WeaponCatalog.LauncherExplosionRadius.Raw);
             return hash;
         }
 

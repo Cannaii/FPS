@@ -29,11 +29,12 @@ internal static class BakedMapReplay
             throw new Exception("Regression fingerprint changed");
         }
 
-        if (context.Identity.AlgorithmVersion != 10 || context.Identity.ConfigurationHash != 12131508834524026448UL)
+        if (context.Identity.AlgorithmVersion != 11 || context.Identity.ConfigurationHash != 3605442539420278840UL)
         {
             throw new Exception("World compatibility fingerprint changed");
         }
 
+        Console.WriteLine("ExplosionRawHash=" + AFPS.Tests.EditMode.DeterministicExplosionScenario.Run());
         return 0;
     }
 }

@@ -66,7 +66,7 @@ namespace AFPS.Math
         }
 
         // 二进制逐位求根，不依赖初始猜测或浮点；向量长度也复用这一实现。
-        internal static ulong IntegerSqrt(ulong value)
+        public static ulong IntegerSqrt(ulong value)
         {
             ulong result = 0;
             ulong bit = 1UL << 62;

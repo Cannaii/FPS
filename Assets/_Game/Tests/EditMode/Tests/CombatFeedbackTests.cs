@@ -68,12 +68,53 @@ namespace AFPS.Tests.EditMode
                 Assert.That(view.DamageFeedbackVisible, Is.False);
                 view.Consume(result, 1);
                 Assert.That(view.DamageFeedbackVisible, Is.True);
-                Assert.That(view.LastDamageSource, Is.EqualTo(shot.Origin));
+                Assert.That(view.LastDamageSource, Is.EqualTo(result.HitPoint));
                 Assert.That(view.HitMarkerVisible, Is.False);
                 Assert.That(view.ReceivedDamageCount, Is.EqualTo(1));
                 view.Clear();
                 Assert.That(view.DamageFeedbackVisible, Is.False);
                 Assert.That(view.ReceivedDamageCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void SelfDamage_DoesNotAwardHitOrKillMarker()
+        {
+            var root = new GameObject("Self damage test");
+            try
+            {
+                var view = root.AddComponent<ShotResultView>();
+                view.Consume(new AuthoritativeShotResult(Shot(1, 1), 4, true, 1, Fix.Zero, FixVec3.Zero), 1);
+                Assert.That(view.HitMarkerVisible, Is.False);
+                Assert.That(view.LastHitWasKill, Is.False);
+                Assert.That(view.DamageFeedbackVisible, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void MultipleTargets_PreserveKillMarkerOnlyWithinCurrentFeedbackWindow()
+        {
+            var root = new GameObject("Multi target marker test");
+            try
+            {
+                var view = root.AddComponent<ShotResultView>();
+                var shot = Shot(1, 1);
+                var kill = new AuthoritativeShotResult(shot, 4, true, 2, Fix.Zero, FixVec3.Zero);
+                var hit = new AuthoritativeShotResult(shot, 4, true, 3, Fix.FromInt(40), FixVec3.Zero);
+                view.Consume(kill, 1);
+                view.Consume(hit, 1);
+                Assert.That(view.LastHitWasKill, Is.True);
+                view.Advance(1f);
+                view.Consume(hit, 1);
+                Assert.That(view.LastHitWasKill, Is.False);
             }
             finally
             {
