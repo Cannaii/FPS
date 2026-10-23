@@ -7,7 +7,7 @@ namespace AFPS.Presentation.Weapons
     /// Drives the local first-person weapon animator from the predicted player state.
     /// This presentation component depends only on AFPS simulation state.
     /// </summary>
-    public sealed class FirstPersonWeaponView : MonoBehaviour
+    public sealed partial class FirstPersonWeaponView : MonoBehaviour
     {
         private static readonly int SpeedParameter = Animator.StringToHash("Speed");
         private static readonly int GroundedParameter = Animator.StringToHash("Grounded");
@@ -20,13 +20,17 @@ namespace AFPS.Presentation.Weapons
         [SerializeField] private AudioSource shotAudio;
         [SerializeField] private Transform recoilPivot;
         [SerializeField, Min(0f)] private float recoilAngle = 3f;
-        [SerializeField, Min(0f)] private float recoilReturnSpeed = 18f;
+        // 横轴为真实秒、纵轴为相对冲击幅度；快速抬升后回到零，不影响瞄准输入。
+        [SerializeField] private AnimationCurve recoilCurve = new AnimationCurve(
+            new Keyframe(0f, 0f), new Keyframe(0.025f, 1f),
+            new Keyframe(0.09f, 0.35f), new Keyframe(0.22f, 0f));
 
         private bool hasSpeedParameter;
         private bool hasGroundedParameter;
         private bool hasFireParameter;
-        private float currentRecoil;
+        private readonly System.Collections.Generic.List<float> recoilAges = new System.Collections.Generic.List<float>();
         private Quaternion recoilBaseRotation;
+        private Vector3 recoilBasePosition;
 
         private void Awake()
         {
@@ -42,6 +46,7 @@ namespace AFPS.Presentation.Weapons
             }
 
             recoilBaseRotation = recoilPivot.localRotation;
+            recoilBasePosition = recoilPivot.localPosition;
         }
 
         public void Render(in PlayerState state, float deltaTime)
@@ -58,11 +63,29 @@ namespace AFPS.Presentation.Weapons
                 animator.SetBool(GroundedParameter, state.IsGrounded);
             }
 
-            currentRecoil = Mathf.MoveTowards(currentRecoil, 0f, recoilReturnSpeed * deltaTime);
+            float elapsed = Mathf.Max(0f, deltaTime);
+            float currentRecoil = 0f;
+            float duration = recoilCurve != null && recoilCurve.length > 0
+                ? Mathf.Max(0.001f, recoilCurve[recoilCurve.length - 1].time) : 0.22f;
+            for (int i = recoilAges.Count - 1; i >= 0; i--)
+            {
+                recoilAges[i] += elapsed;
+                if (recoilAges[i] >= duration)
+                {
+                    recoilAges.RemoveAt(i);
+                    continue;
+                }
+                float weight = recoilCurve != null && recoilCurve.length > 0
+                    ? recoilCurve.Evaluate(recoilAges[i]) : 1f - recoilAges[i] / duration;
+                currentRecoil += recoilAngle * weight;
+            }
+            RecoilWeight = Mathf.Clamp01(currentRecoil / Mathf.Max(0.01f, recoilAngle));
             if (recoilPivot != null)
             {
-                recoilPivot.localRotation = recoilBaseRotation * Quaternion.Euler(-currentRecoil, 0f, 0f);
+                recoilPivot.localRotation = recoilBaseRotation * Quaternion.Euler(
+                    -Mathf.Min(9f, currentRecoil) + (Reloading ? 12f : 0f), 0f, Reloading ? -12f : 0f);
             }
+            AdvancePresentation(elapsed, state);
         }
 
         /// <summary>立即播放本地预测射击表现；命中和伤害仍等待服务器裁决。</summary>
@@ -84,7 +107,13 @@ namespace AFPS.Presentation.Weapons
                 shotAudio.Play();
             }
 
-            currentRecoil += recoilAngle;
+            if (recoilAges.Count >= 16)
+            {
+                recoilAges.RemoveAt(0);
+            }
+            recoilAges.Add(0f);
+            PlayOwnedAnimation("Fire");
+            FlashRemaining = 0.04f;
             // 弹丸由 ShotResultView 按射击身份统一管理，避免创建无法关联权威结果的匿名代理。
         }
 

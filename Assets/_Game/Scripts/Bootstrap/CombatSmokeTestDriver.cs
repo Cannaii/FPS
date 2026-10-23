@@ -40,6 +40,11 @@ namespace AFPS.Bootstrap
         private bool damage;
         private bool synced;
         private uint localEntity;
+        private bool rifleView;
+        private bool launcherView;
+        private bool reloadView;
+        private bool explosionView;
+        private bool remoteMuzzle;
 
         public void Configure(UnityNetworkMovementController controller, LocalPlayerInputCollector collector)
         {
@@ -49,8 +54,10 @@ namespace AFPS.Bootstrap
             Application.runInBackground = true;
         }
 
-        private bool Passed => sawLaunch && sawImpact && sawDeath && sawRespawn && synced
-            && (localEntity == 1 ? rifleAmmo && launcherAmmo && reloadCompleted && rejected : damage);
+        private bool Passed => sawLaunch && sawImpact && sawDeath && sawRespawn && synced && explosionView
+            && (localEntity == 1
+                ? rifleAmmo && launcherAmmo && reloadCompleted && rejected && rifleView && launcherView && reloadView
+                : damage && remoteMuzzle && rifleView);
 
         private void Update()
         {
@@ -87,6 +94,11 @@ namespace AFPS.Bootstrap
             rejected |= movement.RejectedShotCount > 0;
             damage |= movement.ReceivedDamageCount > 0;
             synced |= manager.HasTimeSync;
+            rifleView |= movement.PresentedWeaponId == WeaponSimulationConfig.DefaultRifle.WeaponId;
+            launcherView |= movement.PresentedWeaponId == WeaponCatalog.SecondaryFor(WeaponSimulationConfig.DefaultRifle).WeaponId;
+            reloadView |= movement.PresentedReloading;
+            explosionView |= movement.ExplosionEffectCount > 0;
+            remoteMuzzle |= movement.RemoteMuzzleCount > 0;
             if (manager.ClientDeathmatchState.TryGetPlayer(2, out var victim))
             {
                 sawDeath |= !victim.IsAlive;
@@ -166,7 +178,11 @@ namespace AFPS.Bootstrap
         {
             enabled = false;
             input.ClearAutomationInput();
-            Debug.Log($"[AFPS_COMBAT_RESULT] {(success ? "PASS" : "FAIL")} entity={localEntity} launch={sawLaunch} impact={sawImpact} death={sawDeath} respawn={sawRespawn} rifleAmmo={rifleAmmo} launcherAmmo={launcherAmmo} reload={reloadCompleted} rejected={rejected} damage={damage} synced={synced}");
+            Debug.Log($"[AFPS_COMBAT_RESULT] {(success ? "PASS" : "FAIL")} entity={localEntity}"
+                + $" launch={sawLaunch} impact={sawImpact} death={sawDeath} respawn={sawRespawn}"
+                + $" rifleAmmo={rifleAmmo} launcherAmmo={launcherAmmo} reload={reloadCompleted}"
+                + $" rejected={rejected} damage={damage} synced={synced} rifleView={rifleView}"
+                + $" launcherView={launcherView} reloadView={reloadView} explosionView={explosionView} remoteMuzzle={remoteMuzzle}");
             Application.Quit(success ? 0 : 2);
         }
     }

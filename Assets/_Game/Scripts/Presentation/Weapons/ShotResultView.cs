@@ -31,6 +31,7 @@ namespace AFPS.Presentation.Weapons
             float tickDeltaSeconds = 0.02f)
         {
             ConsumedResultCount++;
+            ConsumeEffects(result, localEntityId);
             ConsumeProjectile(result, estimatedServerTick, tickDeltaSeconds);
             ConsumeDamage(result, localEntityId);
             Vector3 end = result.HitPoint;
@@ -84,6 +85,7 @@ namespace AFPS.Presentation.Weapons
             LocalHitConfirmationCount = 0;
             ClearProjectiles();
             ClearFeedback();
+            ClearEffects();
             for (int i = 0; i < lines.Length; i++)
             {
                 remainingSeconds[i] = 0f;

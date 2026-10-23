@@ -84,6 +84,11 @@ namespace AFPS.Bootstrap
         private ConnectionAdmissionStatus observedAdmissionStatus;
 
         public string ConnectionStatusMessage { get; private set; }
+        public ushort PresentedWeaponId => firstPersonWeaponView != null && firstPersonWeaponView.HasOwnedModel
+            ? firstPersonWeaponView.WeaponId : (ushort)0;
+        public bool PresentedReloading => firstPersonWeaponView != null && firstPersonWeaponView.Reloading;
+        public ulong RemoteMuzzleCount => shotResultView != null ? shotResultView.RemoteMuzzleCount : 0;
+        public ulong ExplosionEffectCount => shotResultView != null ? shotResultView.ExplosionEffectCount : 0;
 
         public bool CanEnterGame => initialized
             && sessionManager.ClientAdmissionStatus == ConnectionAdmissionStatus.Admitted
@@ -263,6 +268,13 @@ namespace AFPS.Bootstrap
                 if (firstPersonWeaponView == null && UnityEngine.Camera.main != null)
                 {
                     firstPersonWeaponView = UnityEngine.Camera.main.GetComponentInChildren<FirstPersonWeaponView>(true);
+                    if (firstPersonWeaponView == null)
+                    {
+                        var weaponRoot = new GameObject("First Person Weapon");
+                        weaponRoot.transform.SetParent(UnityEngine.Camera.main.transform, false);
+                        firstPersonWeaponView = weaponRoot.AddComponent<FirstPersonWeaponView>();
+                        firstPersonWeaponView.Configure(UnityEngine.Camera.main);
+                    }
                 }
 
                 if (remotePlayerWorldView == null)
@@ -339,8 +351,22 @@ namespace AFPS.Bootstrap
                     }
                     if (active)
                     {
+                        firstPersonWeaponView.SetWeapon(sessionManager.ClientWeaponConfiguration);
+                        firstPersonWeaponView.SetReloading(sessionManager.ClientWeapon.IsReloading);
                         firstPersonWeaponView.Render(localState, Time.unscaledDeltaTime);
                     }
+                }
+                if (firstPersonCameraRig != null)
+                {
+                    float lateralSpeed = playerView.TryGetLatestState(out PlayerState cameraState)
+                        ? Vector3.Dot(cameraState.Velocity, firstPersonCameraRig.transform.right) : 0f;
+                    firstPersonCameraRig.RenderCombat(firstPersonWeaponView != null && firstPersonWeaponView.isActiveAndEnabled
+                        ? firstPersonWeaponView.RecoilWeight : 0f, IsLocalGameplayActive() ? lateralSpeed : 0f);
+                }
+                if (sessionManager.ClientDeathmatchState != null
+                    && sessionManager.ClientDeathmatchState.Phase == DeathmatchPhase.Finished && shotResultView != null)
+                {
+                    shotResultView.CancelInFlight();
                 }
 
                 RenderRemotePlayers();
@@ -412,10 +438,6 @@ namespace AFPS.Bootstrap
                 if (command.FirePressed)
                 {
                     command.ShotServerTick = sessionManager.RemotePlayers != null && sessionManager.RemotePlayers.LatestServerTick != 0 ? sessionManager.RemotePlayers.LatestServerTick : serverWorldTick;
-                    if (firstPersonWeaponView != null)
-                    {
-                        firstPersonWeaponView.PlayPredictedShot();
-                    }
                 }
 
                 if (sessionManager.TryPredictAndSend(command, out PlayerState predictedState, out _))
@@ -423,6 +445,10 @@ namespace AFPS.Bootstrap
                     playerView.ApplyState(predictedState);
                     if (command.FirePressed)
                     {
+                        if (firstPersonWeaponView != null)
+                        {
+                            firstPersonWeaponView.PlayPredictedShot();
+                        }
                         PredictProjectileVisual(command, predictedState, serverWorldTick);
                     }
                 }
@@ -492,6 +518,15 @@ namespace AFPS.Bootstrap
             {
                 presentedClientSession = client;
                 inputWeaponId = 0;
+                if (client == null && firstPersonWeaponView != null)
+                {
+                    firstPersonWeaponView.StopPresentation();
+                    firstPersonWeaponView.gameObject.SetActive(false);
+                }
+                if (client == null && firstPersonCameraRig != null)
+                {
+                    firstPersonCameraRig.RenderCombat(0f);
+                }
                 if (shotResultView != null)
                 {
                     shotResultView.Clear();
