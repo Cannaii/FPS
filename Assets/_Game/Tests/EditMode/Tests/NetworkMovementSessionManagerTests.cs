@@ -634,6 +634,75 @@ namespace AFPS.Tests.EditMode
             Assert.That(manager.Metrics.LastServerTickMicroseconds, Is.LessThan(1000000), "64 玩家测试 Tick 不应超过一秒的安全上限。");
         }
 
+        [Test]
+        public void TimeSync_IdleRoundTripMeasuresRttExpiresAndReconnectClearsSamples()
+        {
+            ulong now = 1000000;
+            FakeTransport serverTransport = new FakeTransport(TransportRole.Server);
+            FakeTransport clientTransport = new FakeTransport(TransportRole.Client);
+            NetworkMovementSessionManager server = CreateManager(serverTransport, null, clock: () => now);
+            NetworkMovementSessionManager client = CreateManager(null, clientTransport, clock: () => now);
+            TransportConnectionId connection = new TransportConnectionId(10);
+            server.HandleConnected(NetworkTransportSide.Server, connection);
+            client.HandleConnected(NetworkTransportSide.Client, connection);
+            serverTransport.SentPackets.Clear();
+            client.AdvanceTimeSync(0, 0f);
+            Assert.That(clientTransport.SentPackets.Count, Is.EqualTo(1));
+            client.AdvanceTimeSync(0, 0f);
+            Assert.That(clientTransport.SentPackets.Count, Is.EqualTo(1));
+            // 不发送任何输入，20ms 上行 + 20ms 下行，服务器处理时间为零。
+            now += 20000;
+            server.AdvanceTimeSync(500, 0.5f);
+            Assert.That(server.TryHandleData(NetworkTransportSide.Server, connection,
+                clientTransport.SentPackets[0], out _), Is.True);
+            now += 20000;
+            Assert.That(client.TryHandleData(NetworkTransportSide.Client, connection,
+                serverTransport.SentPackets[0], out _), Is.True);
+            Assert.That(client.HasTimeSync, Is.True);
+            Assert.That(client.Metrics.LastNetworkRoundTripMilliseconds, Is.EqualTo(40d));
+            Assert.That(client.TryGetSynchronizedServerTick(out double estimated), Is.True);
+            Assert.That(estimated, Is.EqualTo(501.5d).Within(0.0001d));
+            Assert.That(client.TryHandleData(NetworkTransportSide.Client, new TransportConnectionId(99),
+                serverTransport.SentPackets[0], out _), Is.False);
+            Assert.That(client.TryHandleData(NetworkTransportSide.Client, connection,
+                serverTransport.SentPackets[0], out _), Is.False);
+            now += 3000001;
+            Assert.That(client.HasTimeSync, Is.False);
+            Assert.That(client.TryGetSynchronizedServerTick(out _), Is.False);
+            client.AdvanceTimeSync(0, 0f);
+            Assert.That(clientTransport.SentPackets.Count, Is.EqualTo(2));
+            client.HandleDisconnected(NetworkTransportSide.Client, connection);
+            Assert.That(client.HasTimeSync, Is.False);
+            Assert.That(client.Metrics.TimeSyncResponsesReceived, Is.Zero);
+            now++;
+            client.HandleConnected(NetworkTransportSide.Client, connection);
+            Assert.That(client.TryHandleData(NetworkTransportSide.Client, connection,
+                serverTransport.SentPackets[0], out _), Is.False);
+            server.HandleDisconnected(NetworkTransportSide.Server, connection);
+            Assert.That(server.TryHandleData(NetworkTransportSide.Server, connection,
+                clientTransport.SentPackets[0], out _), Is.False);
+        }
+
+        [Test]
+        public void TimeSync_FailedSendIsThrottledAndRetriedWithoutInput()
+        {
+            ulong now = 0;
+            FakeTransport transport = new FakeTransport(TransportRole.Client);
+            NetworkMovementSessionManager client = CreateManager(null, transport, clock: () => now);
+            TransportConnectionId connection = new TransportConnectionId(10);
+            client.HandleConnected(NetworkTransportSide.Client, connection);
+            transport.FailNextUnreliableConnection = connection;
+            client.AdvanceTimeSync(0, 0f);
+            Assert.That(client.Metrics.TimeSyncRequestsSent, Is.Zero);
+            now = 499999;
+            client.AdvanceTimeSync(0, 0f);
+            Assert.That(transport.SentPackets.Count, Is.Zero);
+            now = 500000;
+            client.AdvanceTimeSync(0, 0f);
+            Assert.That(client.Metrics.TimeSyncRequestsSent, Is.EqualTo(1));
+            Assert.That(transport.SentPackets.Count, Is.EqualTo(1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => client.AdvanceTimeSync(0, float.NaN));
+        }
         private static NetworkMovementSessionManager CreateManager(
             IGameTransport serverTransport,
             IGameTransport clientTransport,
@@ -644,7 +713,8 @@ namespace AFPS.Tests.EditMode
             float deathmatchRespawnSeconds = 3f,
             PlayerState? spawnState = null,
             float spawnSpacing = 2.5f,
-            WeaponSimulationConfig? weaponConfig = null)
+            WeaponSimulationConfig? weaponConfig = null,
+            Func<ulong> clock = null)
         {
             PlayerState initialState = spawnState ?? new PlayerState { Tick = 0, IsGrounded = true };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
@@ -659,7 +729,8 @@ namespace AFPS.Tests.EditMode
                 interestRadius: interestRadius,
                 snapshotBudgetPerClientPerTick: snapshotBudget,
                 deathmatchKillLimit: deathmatchKillLimit,
-                deathmatchRespawnSeconds: deathmatchRespawnSeconds);
+                deathmatchRespawnSeconds: deathmatchRespawnSeconds,
+                monotonicMicroseconds: clock);
         }
         private static void SendTick(NetworkMovementSessionManager manager, TransportConnectionId shooter, TransportConnectionId target, uint inputTick, uint serverTick, PlayerInputCommand shooterCommand, PlayerInputCommand targetCommand)
         {

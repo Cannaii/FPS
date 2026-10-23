@@ -3,6 +3,11 @@ namespace AFPS.NetCode.Metrics
     /// <summary>运行期网络诊断计数器；由会话管理器单线程更新。</summary>
     public sealed class NetworkRuntimeMetrics
     {
+        public ulong TimeSyncRequestsSent { get; internal set; }
+        public ulong TimeSyncResponsesReceived { get; internal set; }
+        /// <summary>扣除服务器处理时间的真实往返毫秒；不表示单向延迟。</summary>
+        public double LastNetworkRoundTripMilliseconds { get; internal set; }
+        public double RoundTripJitterMilliseconds { get; internal set; }
         public ulong SnapshotPacketsSent { get; internal set; }
         public ulong SnapshotBytesSent { get; internal set; }
         public ulong ShotResultsSent { get; internal set; }

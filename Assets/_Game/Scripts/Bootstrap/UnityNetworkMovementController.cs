@@ -298,6 +298,7 @@ namespace AFPS.Bootstrap
 
         private void LateUpdate()
         {
+            UpdateTimeSync();
             RefreshClientAdmission();
             if (initialized && playerView != null && sessionManager.ClientSession != null)
             {
@@ -363,8 +364,17 @@ namespace AFPS.Bootstrap
             RefreshClientAdmission();
         }
 
+        private void UpdateTimeSync()
+        {
+            if (initialized)
+            {
+                sessionManager.AdvanceTimeSync(tickRunner.CurrentTick, tickRunner.TickAlpha);
+            }
+        }
+
         private void HandleTransportEvent(NetworkTransportSide side, GameTransportEvent transportEvent, ArraySegment<byte> payload)
         {
+            UpdateTimeSync();
             switch (transportEvent.Type)
             {
                 case TransportEventType.Connected:
@@ -475,7 +485,10 @@ namespace AFPS.Bootstrap
             }
 
             double elapsedTicks = (Time.realtimeSinceStartupAsDouble - latestRemoteSnapshotReceiveTime) / tickRunner.TickDeltaTime;
-            remotePlayerWorldView.Render(sessionManager.RemotePlayers, latestRemoteServerTick + elapsedTicks, sessionManager.ClientDeathmatchState);
+            double renderTick = sessionManager.TryGetSynchronizedServerTick(out double synchronizedTick)
+                ? synchronizedTick
+                : latestRemoteServerTick + elapsedTicks;
+            remotePlayerWorldView.Render(sessionManager.RemotePlayers, renderTick, sessionManager.ClientDeathmatchState);
         }
 
         private bool IsLocalGameplayActive()

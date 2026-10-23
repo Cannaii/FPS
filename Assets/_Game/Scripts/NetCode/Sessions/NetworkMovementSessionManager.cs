@@ -161,7 +161,8 @@ namespace AFPS.NetCode.Sessions
             SimulationWorldContext simulationWorld = null,
             // 本地模拟 Tick；50Hz 默认等待 5 秒，每 0.5 秒重试，等待连接期间也必须推进时钟。
             uint admissionTimeoutTicks = 250,
-            uint admissionRetryTicks = 25)
+            uint admissionRetryTicks = 25,
+            Func<ulong> monotonicMicroseconds = null)
         {
             if (serverTransport == null && clientTransport == null)
             {
@@ -234,6 +235,7 @@ namespace AFPS.NetCode.Sessions
             this.clientInitialState = clientInitialState;
             this.simulationConfig = simulationConfig;
             this.tickDeltaTime = tickDeltaTime;
+            timeSyncClock = monotonicMicroseconds ?? ReadMonotonicMicroseconds;
             tickDeltaTimeFixed = SimulationStep.FromSeconds(tickDeltaTime);
             this.predictionHistoryCapacity = predictionHistoryCapacity;
             this.inputRedundancyCount = inputRedundancyCount;
@@ -320,6 +322,7 @@ namespace AFPS.NetCode.Sessions
                     serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks,
                     collisionWorld, entityId, weaponConfig, WorldContext?.CollisionWorld));
                 serverEntityIds.Add(connectionId, entityId);
+                timeSyncResponders[connectionId] = new AFPS.NetCode.TimeSync.ServerTimeSyncResponder(serverTransport, connectionId);
                 serverHealth.Add(entityId, Fix.FromInt(100));
                 serverKills.Add(entityId, 0);
                 serverDeaths.Add(entityId, 0);
@@ -337,6 +340,7 @@ namespace AFPS.NetCode.Sessions
             }
 
             clientConnectionId = connectionId;
+            ResetClientTimeSync(connectionId);
             ClientSession = new ClientPredictedMovementSession(
                 clientTransport, connectionId, clientInitialState, simulationConfig, tickDeltaTime,
                 predictionHistoryCapacity, inputRedundancyCount, positionErrorThreshold, velocityErrorThreshold,
@@ -362,6 +366,7 @@ namespace AFPS.NetCode.Sessions
                 }
 
                 serverEntityIds.Remove(connectionId);
+                timeSyncResponders.Remove(connectionId);
                 serverHealth.Remove(entityId);
                 serverKills.Remove(entityId);
                 serverDeaths.Remove(entityId);
@@ -389,6 +394,7 @@ namespace AFPS.NetCode.Sessions
             }
 
             clientConnectionId = default;
+            ResetClientTimeSync(default);
             ClientSession = null;
             RemotePlayers?.Clear();
             clientSnapshotBaselines.Clear();
@@ -411,6 +417,13 @@ namespace AFPS.NetCode.Sessions
 
             if (side == NetworkTransportSide.Server)
             {
+                if (header.MessageType == NetworkMessageType.TimeSyncRequest
+                    && timeSyncResponders.TryGetValue(connectionId, out var responder))
+                {
+                    ulong received = timeSyncClock();
+                    return responder.TryRespond(packet, received, timeSyncClock(),
+                        timeSyncWorldTick, timeSyncTickAlpha, out _);
+                }
                 return header.MessageType == NetworkMessageType.InputCommandBatch && serverSessions.TryGetValue(connectionId, out ServerAuthoritativeMovementSession serverSession) && serverSession.TryReceiveInputPacket(packet, out _);
             }
 
@@ -421,6 +434,8 @@ namespace AFPS.NetCode.Sessions
 
             switch (header.MessageType)
             {
+                case NetworkMessageType.TimeSyncResponse:
+                    return ReceiveTimeSync(packet);
                 case NetworkMessageType.AuthoritativePlayerState:
                     bool handled = ClientSession != null && ClientSession.TryReceiveAuthoritativePacket(packet, out _, out reconciliationResult);
                     if (handled && reconciliationResult.Status == ReconciliationStatus.Corrected) Metrics.CorrectionsApplied++;

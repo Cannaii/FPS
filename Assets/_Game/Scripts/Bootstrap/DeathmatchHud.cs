@@ -43,6 +43,10 @@ namespace AFPS.Bootstrap
                 ? $"{seconds / 60:00}:{seconds % 60:00}   HP {local.Health:000}   K {local.Kills} / D {local.Deaths}"
                 : $"HP {local.Health:000}   K {local.Kills} / D {local.Deaths}";
 
+            statusText.text += sessionManager.HasTimeSync
+                ? $"   RTT {sessionManager.Metrics.LastNetworkRoundTripMilliseconds:F1} ms"
+                : "   RTT --";
+
             scoreBuilder.Clear();
             scoreBuilder.AppendLine("DEATHMATCH");
             for (int i = 0; i < match.PlayerCount; i++)

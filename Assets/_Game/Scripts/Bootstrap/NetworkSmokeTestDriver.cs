@@ -167,8 +167,10 @@ namespace AFPS.Bootstrap
             bool turned = Mathf.Abs(Mathf.DeltaAngle(localState.Yaw, TestYaw)) <= 1f;
             bool receivedShotResult = manager.ShotResultVersion != initialShotResultVersion;
             bool authoritativeHit = receivedShotResult && manager.LastReceivedShotResult.DidHit && manager.LastReceivedShotResult.TargetEntityId != 0;
-            bool passed = hasAssignment && hasRemote && sampledRemote && moved && jumped && turned && authoritativeHit;
-            string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0} remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned} sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} position={localState.Position}";
+            bool timeSynced = manager.HasTimeSync && manager.Metrics.TimeSyncResponsesReceived >= 2;
+            bool passed = hasAssignment && hasRemote && sampledRemote && moved && jumped && turned
+                && authoritativeHit && timeSynced;
+            string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0} remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned} sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} timeSynced={timeSynced} rttMs={manager.Metrics.LastNetworkRoundTripMilliseconds:F3} position={localState.Position}";
             Finish(passed, details);
         }
 
