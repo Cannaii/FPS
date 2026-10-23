@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using AFPS.NetCode.Messages;
 using AFPS.NetCode.Weapons;
 using AFPS.Simulation.Characters;
@@ -16,7 +16,7 @@ namespace AFPS.Tests.EditMode
             byte[] bytes = new byte[AuthoritativeWeaponStateCodec.PacketSize + 6];
             var packet = new ArraySegment<byte>(bytes, 3, AuthoritativeWeaponStateCodec.PacketSize);
             Assert.That(AuthoritativeWeaponStateCodec.TrySerialize(state, 99, packet, out int count), Is.True);
-            Assert.That(count, Is.EqualTo(37));
+            Assert.That(count, Is.EqualTo(43));
             Assert.That(bytes[3 + 12], Is.EqualTo(7)); // 独立小端实体字段。
             Assert.That(bytes[3 + 12 + 15], Is.EqualTo(127)); // int.MaxValue-1 的最高字节。
             Assert.That(AuthoritativeWeaponStateCodec.TryDeserialize(packet, out var header, out var decoded), Is.True);

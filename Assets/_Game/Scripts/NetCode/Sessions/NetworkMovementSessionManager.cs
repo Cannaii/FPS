@@ -59,6 +59,9 @@ namespace AFPS.NetCode.Sessions
         private readonly ICharacterCollisionWorld collisionWorld;
         private readonly SimulationSessionSpatialConfig sessionSpatial;
         private readonly WeaponSimulationConfig weaponConfig;
+        public WeaponSimulationConfig ClientWeaponConfiguration => ClientWeapon.HasState
+            && ClientWeapon.State.WeaponId == WeaponCatalog.SecondaryFor(weaponConfig).WeaponId
+                ? WeaponCatalog.SecondaryFor(weaponConfig) : weaponConfig;
         private readonly uint maximumRewindTicks;
         private readonly int snapshotBudgetPerClientPerTick;
         private readonly uint fullSnapshotIntervalTicks;
@@ -453,7 +456,7 @@ namespace AFPS.NetCode.Sessions
                 case NetworkMessageType.AuthoritativeWeaponState:
                     if (!AuthoritativeWeaponStateCodec.TryDeserialize(packet, out var weaponHeader, out var weaponState)
                         || RemotePlayers == null || weaponState.EntityId != RemotePlayers.LocalEntityId
-                        || weaponState.Capacity != weaponConfig.MagazineCapacity
+                        || !IsCompatibleWeaponState(weaponState)
                         || (hasWeaponStateSequence && !SequenceMath.IsNewer(weaponHeader.Sequence, lastWeaponStateSequence))
                         || !ClientWeapon.Apply(weaponState))
                     {

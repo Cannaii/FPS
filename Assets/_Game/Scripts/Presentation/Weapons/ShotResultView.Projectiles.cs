@@ -29,6 +29,8 @@ namespace AFPS.Presentation.Weapons
         private ulong projectileOrder;
 
         public int ActiveProjectileCount => projectiles.Count;
+        public ulong ConfirmedProjectileLaunchCount { get; private set; }
+        public ulong ConfirmedProjectileImpactCount { get; private set; }
         public int CreatedProjectileVisualCount { get; private set; }
 
         public bool TryGetProjectilePosition(uint entityId, uint shotSequence, out Vector3 position)
@@ -64,6 +66,7 @@ namespace AFPS.Presentation.Weapons
             var key = (shot.EntityId, shot.ShotSequence);
             if (result.DidHit)
             {
+                ConfirmedProjectileImpactCount++;
                 ReleaseProjectile(key);
                 RememberCompletedProjectile(key);
                 return;
@@ -72,6 +75,8 @@ namespace AFPS.Presentation.Weapons
             {
                 return;
             }
+
+            ConfirmedProjectileLaunchCount++;
 
             float age = EstimateProjectileAge(shot.ServerTick, estimatedServerTick, tickDeltaSeconds);
             if (projectiles.TryGetValue(key, out var entry))
@@ -228,6 +233,8 @@ namespace AFPS.Presentation.Weapons
 
         private void ClearProjectiles()
         {
+            ConfirmedProjectileLaunchCount = 0;
+            ConfirmedProjectileImpactCount = 0;
             foreach (var entry in projectiles.Values)
             {
                 entry.View.gameObject.SetActive(false);

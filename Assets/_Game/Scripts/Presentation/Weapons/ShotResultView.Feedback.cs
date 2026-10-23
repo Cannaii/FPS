@@ -13,6 +13,7 @@ namespace AFPS.Presentation.Weapons
         public Vector3 LastDamageSource { get; private set; }
         public WeaponFireRejectReason LastRejectionReason { get; private set; }
         public ulong ReceivedDamageCount { get; private set; }
+        public ulong RejectedShotCount { get; private set; }
 
         public void Reject(in ShotRejection value)
         {
@@ -20,6 +21,7 @@ namespace AFPS.Presentation.Weapons
             ReleaseProjectile(key);
             RememberCompletedProjectile(key);
             LastRejectionReason = value.Reason;
+            RejectedShotCount++;
             rejectionRemaining = 0.6f; // 拒绝原因提示，真实秒。
         }
 
@@ -46,6 +48,7 @@ namespace AFPS.Presentation.Weapons
             LastDamageSource = default;
             LastRejectionReason = WeaponFireRejectReason.None;
             ReceivedDamageCount = 0;
+            RejectedShotCount = 0;
         }
     }
 }

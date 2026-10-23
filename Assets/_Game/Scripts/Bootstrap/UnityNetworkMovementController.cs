@@ -77,6 +77,7 @@ namespace AFPS.Bootstrap
         private double latestRemoteSnapshotReceiveTime;
         private DeathmatchHud deathmatchHud;
         private ShotResultView shotResultView;
+        private ushort inputWeaponId;
         private bool weaponViewWasActive;
         private SimulationWorldContext preparedWorld;
         private ClientPredictedMovementSession presentedClientSession;
@@ -131,6 +132,10 @@ namespace AFPS.Bootstrap
         public NetworkMovementSessionManager SessionManager => sessionManager;
         public ulong PresentedShotResultCount => shotResultView != null ? shotResultView.ConsumedResultCount : 0;
         public ulong ConfirmedLocalHitCount => shotResultView != null ? shotResultView.LocalHitConfirmationCount : 0;
+        public ulong ReceivedDamageCount => shotResultView != null ? shotResultView.ReceivedDamageCount : 0;
+        public ulong RejectedShotCount => shotResultView != null ? shotResultView.RejectedShotCount : 0;
+        public ulong ProjectileLaunchCount => shotResultView != null ? shotResultView.ConfirmedProjectileLaunchCount : 0;
+        public ulong ProjectileImpactCount => shotResultView != null ? shotResultView.ConfirmedProjectileImpactCount : 0;
 
         private void Start()
         {
@@ -286,7 +291,12 @@ namespace AFPS.Bootstrap
 
             Debug.Log($"AFPS 定点世界已装配：{preparedWorld.Identity.WorldHash}，配置={preparedWorld.Identity.ConfigurationHash}。", this);
             initialized = true;
-            if (hasLocalClient && NetworkSmokeTestDriver.IsRequested)
+            if (hasLocalClient && CombatSmokeTestDriver.IsRequested)
+            {
+                var combat = gameObject.AddComponent<CombatSmokeTestDriver>();
+                combat.Configure(this, inputCollector);
+            }
+            else if (hasLocalClient && NetworkSmokeTestDriver.IsRequested)
             {
                 NetworkSmokeTestDriver smokeTest = gameObject.AddComponent<NetworkSmokeTestDriver>();
                 smokeTest.Configure(networkBootstrap, this, inputCollector);
@@ -375,7 +385,12 @@ namespace AFPS.Bootstrap
             if (clientSession != null)
             {
                 uint inputTick = unchecked(clientSession.CurrentState.Tick + 1);
-                PlayerInputCommand command = inputCollector.ConsumeCommand(inputTick);
+                if (sessionManager.ClientWeapon.HasState && inputWeaponId != sessionManager.ClientWeapon.State.WeaponId)
+                {
+                    inputWeaponId = sessionManager.ClientWeapon.State.WeaponId;
+                    inputCollector.ConfigureFireInterval(sessionManager.ClientWeaponConfiguration.FireIntervalTicks);
+                }
+                PlayerInputCommand command = inputCollector.ConsumeCommand(inputTick, sessionManager.ClientWeapon.CanFire);
                 if (!IsLocalGameplayActive())
                 {
                     command.MoveX = 0f;
@@ -383,11 +398,12 @@ namespace AFPS.Bootstrap
                     command.JumpPressed = false;
                     command.FirePressed = false;
                     command.ReloadPressed = false;
+                    command.SwitchWeaponPressed = false;
                     command.ShotSequence = 0;
                 }
                 // 换弹优先；只限制本地动作与表现，最终弹量/许可始终由权威快照确认。
-                command.ReloadPressed &= sessionManager.ClientWeapon.CanReload;
-                if (command.FirePressed && (command.ReloadPressed || !sessionManager.ClientWeapon.CanFire))
+                command.ReloadPressed &= sessionManager.ClientWeapon.CanReload && !command.SwitchWeaponPressed;
+                if (command.FirePressed && (command.SwitchWeaponPressed || command.ReloadPressed || !sessionManager.ClientWeapon.CanFire))
                 {
                     command.FirePressed = false;
                     command.ShotSequence = 0;
@@ -418,7 +434,7 @@ namespace AFPS.Bootstrap
 
         private void PredictProjectileVisual(in PlayerInputCommand command, in PlayerState state, uint serverWorldTick)
         {
-            var weapon = preparedWorld.WeaponConfiguration;
+            var weapon = sessionManager.ClientWeaponConfiguration;
             uint entityId = sessionManager.RemotePlayers != null ? sessionManager.RemotePlayers.LocalEntityId : 0;
             if (shotResultView == null || entityId == 0 || weapon.FireMode != WeaponFireMode.Projectile
                 || !WeaponAim.TryGetDirection(state.YawFixedDegrees, state.PitchFixedDegrees, out FixVec3 direction))
@@ -475,6 +491,7 @@ namespace AFPS.Bootstrap
             if (client != presentedClientSession)
             {
                 presentedClientSession = client;
+                inputWeaponId = 0;
                 if (shotResultView != null)
                 {
                     shotResultView.Clear();

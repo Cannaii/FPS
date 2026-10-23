@@ -26,7 +26,7 @@ namespace AFPS.NetCode.Sessions
         private readonly int maxRepeatedMovementTicks;
         private readonly IFixedCharacterCollisionWorld collisionWorld;
         private readonly uint entityId;
-        private readonly ServerWeaponFireController weaponFireController;
+        private ServerWeaponFireController weaponFireController;
         private readonly IGameTransport weaponTransport;
         private readonly TransportConnectionId weaponConnection;
         private readonly byte[] weaponStateBuffer = new byte[AuthoritativeWeaponStateCodec.PacketSize];
@@ -91,7 +91,7 @@ namespace AFPS.NetCode.Sessions
         public void Respawn(FixVec3 position)
         {
             Teleport(position);
-            weaponFireController?.ResetForRespawn();
+            ResetLoadoutForRespawn();
             // 即使弹量恰好未改变，也必须向拥有者立即确认新生命的武器状态。
             hasSentWeaponState = false;
         }
@@ -128,6 +128,9 @@ namespace AFPS.NetCode.Sessions
             if (weaponConfig.HasValue)
             {
                 weaponFireController = new ServerWeaponFireController(weaponConfig.Value);
+                primaryWeapon = weaponFireController;
+                secondaryWeapon = new ServerWeaponFireController(WeaponCatalog.SecondaryFor(weaponConfig.Value));
+                secondaryWeapon.SetEquipped(false);
             }
             CurrentState = initialState;
             inputReceiver = new ServerInputCommandReceiver(unchecked(initialState.Tick + 1), inputWindowCapacity);
@@ -201,19 +204,21 @@ namespace AFPS.NetCode.Sessions
                 appliedCommand.JumpPressed = false;
                 appliedCommand.FirePressed = false;
                 appliedCommand.ReloadPressed = false;
+                appliedCommand.SwitchWeaponPressed = false;
                 appliedCommand.ShotSequence = 0;
             }
             else if (!WeaponEnabled)
             {
                 appliedCommand.FirePressed = false;
                 appliedCommand.ReloadPressed = false;
+                appliedCommand.SwitchWeaponPressed = false;
                 appliedCommand.ShotSequence = 0;
             }
 
+            ApplyWeaponSwitch(serverWorldTick, ref appliedCommand);
             LastAppliedInput = appliedCommand;
             CurrentState = PlayerSimulation.Simulate(CurrentState, appliedCommand, simulationConfig, tickDeltaTime, collisionWorld);
-            weaponFireController?.SetEquipped(GameplayEnabled && WeaponEnabled);
-            LastWeaponFireResult = weaponFireController != null ? weaponFireController.Process(serverWorldTick, entityId, appliedCommand, CurrentState) : default;
+            LastWeaponFireResult = ProcessActiveWeapon(serverWorldTick, appliedCommand);
             SendWeaponState(serverWorldTick, command);
             SendShotRejections(serverWorldTick, command);
             authoritativeState = new AuthoritativePlayerState(serverWorldTick, appliedCommand.Tick, CurrentState);
@@ -228,11 +233,13 @@ namespace AFPS.NetCode.Sessions
             }
             var state = new AuthoritativeWeaponState(entityId, serverTick, command.Tick,
                 weaponFireController.Ammo, weaponFireController.Capacity,
-                weaponFireController.RemainingReloadTicks(serverTick), weaponFireController.IsEquipped);
+                weaponFireController.RemainingReloadTicks(serverTick), weaponFireController.IsEquipped,
+                weaponFireController.WeaponId, weaponFireController.IsEquipped ? RemainingEquipTicks(serverTick) : 0);
             // 动作结算（包括拒绝）必须确认；空闲基线每 10 Tick 更新，避免每帧可靠包积压。
-            if (hasSentWeaponState && !command.FirePressed && !command.ReloadPressed
+            if (hasSentWeaponState && !command.FirePressed && !command.ReloadPressed && !command.SwitchWeaponPressed
                 && state.Ammo == lastSentWeaponState.Ammo && state.IsReloading == lastSentWeaponState.IsReloading
                 && state.IsEquipped == lastSentWeaponState.IsEquipped
+                && state.IsEquipping == lastSentWeaponState.IsEquipping
                 && unchecked(serverTick - lastSentWeaponState.ServerTick) < 10)
             {
                 return;

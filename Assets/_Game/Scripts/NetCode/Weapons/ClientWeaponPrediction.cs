@@ -13,6 +13,20 @@ namespace AFPS.NetCode.Weapons
         private bool overflowed;
         private uint latestObservedTick;
         public bool HasState { get; private set; }
+        public bool IsSwitchPending
+        {
+            get
+            {
+                foreach (var input in pending)
+                {
+                    if (input.SwitchWeaponPressed)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
         public AuthoritativeWeaponState State { get; private set; }
         public int Ammo
         {
@@ -47,8 +61,8 @@ namespace AFPS.NetCode.Weapons
                 return false;
             }
         }
-        public bool CanFire => HasState && State.IsEquipped && !IsReloading && Ammo > 0 && !overflowed;
-        public bool CanReload => HasState && State.IsEquipped && !IsReloading && Ammo < State.Capacity && !overflowed;
+        public bool CanFire => HasState && State.IsEquipped && !State.IsEquipping && !IsSwitchPending && !IsReloading && Ammo > 0 && !overflowed;
+        public bool CanReload => HasState && State.IsEquipped && !State.IsEquipping && !IsSwitchPending && !IsReloading && Ammo < State.Capacity && !overflowed;
 
         public bool Apply(in AuthoritativeWeaponState state)
         {
@@ -67,7 +81,7 @@ namespace AFPS.NetCode.Weapons
 
         public void Observe(in PlayerInputCommand input)
         {
-            if (!input.FirePressed && !input.ReloadPressed)
+            if (!input.FirePressed && !input.ReloadPressed && !input.SwitchWeaponPressed)
             {
                 return;
             }

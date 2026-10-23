@@ -29,7 +29,7 @@ internal static class BakedMapReplay
             throw new Exception("Regression fingerprint changed");
         }
 
-        if (context.Identity.AlgorithmVersion != 8 || context.Identity.ConfigurationHash != 2351933728679746851UL)
+        if (context.Identity.AlgorithmVersion != 9 || context.Identity.ConfigurationHash != 12131508834524026448UL)
         {
             throw new Exception("World compatibility fingerprint changed");
         }

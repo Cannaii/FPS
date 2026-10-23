@@ -1300,6 +1300,59 @@ namespace AFPS.Tests.EditMode
             Assert.That(rejectionCount, Is.EqualTo(1));
         }
 
+        [Test]
+        public void Loadout_SwitchPreservesPerWeaponAmmoAndRespawnResetsBoth()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            manager.TryGetServerSession(first, out var session);
+            SendTick(manager, first, second, 1, 100, new PlayerInputCommand { FirePressed = true, ShotSequence = 1 }, default);
+            Assert.That(session.LastWeaponFireResult.RemainingAmmo, Is.EqualTo(29));
+            SendTick(manager, first, second, 2, 101, new PlayerInputCommand { SwitchWeaponPressed = true }, default);
+            SendTick(manager, first, second, 3, 110, new PlayerInputCommand { FirePressed = true, ShotSequence = 2 }, default);
+            Assert.That(session.LastWeaponFireResult.RejectReason, Is.EqualTo(WeaponFireRejectReason.WeaponUnavailable));
+            SendTick(manager, first, second, 4, 111, new PlayerInputCommand { FirePressed = true, ShotSequence = 3 }, default);
+            Assert.That(session.LastWeaponFireResult.Accepted, Is.True);
+            Assert.That(session.LastWeaponFireResult.Shot.FireMode, Is.EqualTo(WeaponFireMode.Projectile));
+            Assert.That(session.LastWeaponFireResult.RemainingAmmo, Is.EqualTo(4));
+            SendTick(manager, first, second, 5, 112, new PlayerInputCommand { SwitchWeaponPressed = true }, default);
+            SendTick(manager, first, second, 6, 122, new PlayerInputCommand { FirePressed = true, ShotSequence = 4 }, default);
+            Assert.That(session.LastWeaponFireResult.RemainingAmmo, Is.EqualTo(28));
+            SendTick(manager, first, second, 7, 123, new PlayerInputCommand { SwitchWeaponPressed = true }, default);
+            // 发射器独立冷却仍从 111 Tick 起算；切换不能把 35 Tick 冷却缩短成装备时长。
+            SendTick(manager, first, second, 8, 146, new PlayerInputCommand { FirePressed = true, ShotSequence = 5 }, default);
+            Assert.That(session.LastWeaponFireResult.RemainingAmmo, Is.EqualTo(3));
+            session.Respawn(session.CurrentState.PositionFixed);
+            SendTick(manager, first, second, 9, 147, new PlayerInputCommand { FirePressed = true, ShotSequence = 6 }, default);
+            Assert.That(session.LastWeaponFireResult.Accepted, Is.True);
+            Assert.That(session.LastWeaponFireResult.Shot.FireMode, Is.EqualTo(WeaponFireMode.Hitscan));
+            Assert.That(session.LastWeaponFireResult.RemainingAmmo, Is.EqualTo(29));
+            SendTick(manager, first, second, 10, 148, new PlayerInputCommand { SwitchWeaponPressed = true }, default);
+            SendTick(manager, first, second, 11, 158, new PlayerInputCommand { FirePressed = true, ShotSequence = 7 }, default);
+            Assert.That(session.LastWeaponFireResult.RemainingAmmo, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void Loadout_RejectsReplayedShotSequenceAcrossDifferentWeapons()
+        {
+            var manager = CreateManager(new FakeTransport(TransportRole.Server), null);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            manager.TryGetServerSession(first, out var session);
+            SendTick(manager, first, second, 1, 100, new PlayerInputCommand { FirePressed = true, ShotSequence = 1 }, default);
+            SendTick(manager, first, second, 2, 101, new PlayerInputCommand { SwitchWeaponPressed = true }, default);
+            SendTick(manager, first, second, 3, 111, new PlayerInputCommand { FirePressed = true, ShotSequence = 1 }, default);
+            Assert.That(session.LastWeaponFireResult.RejectReason, Is.EqualTo(WeaponFireRejectReason.DuplicateOrOldSequence));
+            SendTick(manager, first, second, 4, 112, new PlayerInputCommand { FirePressed = true, ShotSequence = 2 }, default);
+            Assert.That(session.LastWeaponFireResult.Accepted, Is.True);
+        }
+
         private static NetworkMovementSessionManager CreateManager(
             IGameTransport serverTransport,
             IGameTransport clientTransport,

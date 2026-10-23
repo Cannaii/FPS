@@ -31,6 +31,7 @@ namespace AFPS.Input
         private bool jumpPressedSinceLastTick;
         private bool firePressedSinceLastTick;
         private bool reloadPressedSinceLastTick;
+        private bool switchWeaponSinceLastTick;
         private bool fireHeld;
         private bool hasAutomaticShot;
         private uint lastAutomaticShotTick;
@@ -93,6 +94,8 @@ namespace AFPS.Input
                 || (Gamepad.current != null && Gamepad.current.rightTrigger.isPressed);
             reloadPressedSinceLastTick |= (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
                 || (Gamepad.current != null && Gamepad.current.buttonWest.wasPressedThisFrame);
+            switchWeaponSinceLastTick |= (Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame)
+                || (Gamepad.current != null && Gamepad.current.buttonNorth.wasPressedThisFrame);
         }
 
         /// <summary>
@@ -109,7 +112,7 @@ namespace AFPS.Input
         /// suspended until <see cref = "ClearAutomationInput"/> is called.
         /// </summary>
         public void SetAutomationInput(float horizontal, float vertical, float yaw, float pitch, bool jumpPressed, bool firePressed = false,
-            bool fireHeld = false, bool reloadPressed = false)
+            bool fireHeld = false, bool reloadPressed = false, bool switchWeaponPressed = false)
         {
             automationEnabled = true;
             // 对角归一化由模拟统一处理；采集只按独立轴进入整数网格。
@@ -121,6 +124,7 @@ namespace AFPS.Input
             firePressedSinceLastTick |= firePressed;
             this.fireHeld = fireHeld;
             reloadPressedSinceLastTick |= reloadPressed;
+            switchWeaponSinceLastTick |= switchWeaponPressed;
         }
 
         public void ClearAutomationInput()
@@ -133,15 +137,16 @@ namespace AFPS.Input
             jumpPressedSinceLastTick = false;
             firePressedSinceLastTick = false;
             reloadPressedSinceLastTick = false;
+            switchWeaponSinceLastTick = false;
         }
 
         /// <summary>
         /// 为指定模拟 Tick 创建输入命令；跳跃事件被读取后立即清除。
         /// </summary>
-        public PlayerInputCommand ConsumeCommand(uint tick)
+        public PlayerInputCommand ConsumeCommand(uint tick, bool allowFire = true)
         {
-            bool firePressed = firePressedSinceLastTick || (fireHeld
-                && (!hasAutomaticShot || unchecked(tick - lastAutomaticShotTick) >= fireIntervalTicks));
+            bool firePressed = allowFire && (firePressedSinceLastTick || (fireHeld
+                && (!hasAutomaticShot || unchecked(tick - lastAutomaticShotTick) >= fireIntervalTicks)));
             if (firePressed)
             {
                 hasAutomaticShot = true;
@@ -157,11 +162,13 @@ namespace AFPS.Input
                 JumpPressed = jumpPressedSinceLastTick,
                 FirePressed = firePressed,
                 ReloadPressed = reloadPressedSinceLastTick,
+                SwitchWeaponPressed = switchWeaponSinceLastTick,
                 ShotSequence = firePressed ? AllocateShotSequence() : 0u
             };
             jumpPressedSinceLastTick = false;
             firePressedSinceLastTick = false;
             reloadPressedSinceLastTick = false;
+            switchWeaponSinceLastTick = false;
             return command;
         }
 

@@ -11,9 +11,13 @@
         public readonly uint ReloadTicksRemaining;
         public readonly bool IsEquipped;
         public bool IsReloading => ReloadTicksRemaining != 0;
+        public readonly ushort WeaponId;
+        public readonly uint EquipTicksRemaining;
+        public bool IsEquipping => EquipTicksRemaining != 0;
 
         public AuthoritativeWeaponState(uint entityId, uint serverTick, uint ackInputTick,
-            int ammo, int capacity, uint reloadTicksRemaining, bool isEquipped)
+            int ammo, int capacity, uint reloadTicksRemaining, bool isEquipped,
+            ushort weaponId = 1, uint equipTicksRemaining = 0)
         {
             EntityId = entityId;
             ServerTick = serverTick;
@@ -22,6 +26,8 @@
             Capacity = capacity;
             ReloadTicksRemaining = reloadTicksRemaining;
             IsEquipped = isEquipped;
+            WeaponId = weaponId;
+            EquipTicksRemaining = equipTicksRemaining;
         }
     }
 }

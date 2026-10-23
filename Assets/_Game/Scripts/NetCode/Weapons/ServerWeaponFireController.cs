@@ -22,6 +22,7 @@ namespace AFPS.NetCode.Weapons
         public int Ammo { get; private set; }
         public bool IsEquipped => equipped;
         public int Capacity => config.MagazineCapacity;
+        public ushort WeaponId => config.WeaponId;
         public uint RemainingReloadTicks(uint serverTick) => IsReloading
             ? ReloadDurationTicks - System.Math.Min(ReloadDurationTicks, unchecked(serverTick - reloadStartedTick))
             : 0;

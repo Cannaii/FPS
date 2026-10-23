@@ -18,6 +18,13 @@ namespace AFPS.NetCode.Sessions
         private bool hasRejectionSequence;
         private uint lastRejectionSequence;
 
+        private bool IsCompatibleWeaponState(in AuthoritativeWeaponState state)
+        {
+            var secondary = AFPS.Simulation.Weapons.WeaponCatalog.SecondaryFor(weaponConfig);
+            return (state.WeaponId == weaponConfig.WeaponId && state.Capacity == weaponConfig.MagazineCapacity)
+                || (state.WeaponId == secondary.WeaponId && state.Capacity == secondary.MagazineCapacity);
+        }
+
         public bool TryDequeueShotRejection(out ShotRejection rejection)
         {
             if (shotRejections.Count == 0)

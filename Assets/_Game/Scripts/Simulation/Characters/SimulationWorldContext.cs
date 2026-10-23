@@ -14,6 +14,7 @@ namespace AFPS.Simulation.Characters
         public PlayerSimulationConfig Configuration { get; }
         public SimulationSessionSpatialConfig SessionSpatial { get; }
         public WeaponSimulationConfig WeaponConfiguration { get; }
+        public WeaponSimulationConfig SecondaryWeaponConfiguration => WeaponCatalog.SecondaryFor(WeaponConfiguration);
 
         /// <summary>每个模拟 Tick 的秒数，Q16.16；50Hz 的规范值为 1311 Raw。</summary>
         public Fix TickDeltaTime { get; }
@@ -94,10 +95,10 @@ namespace AFPS.Simulation.Characters
             in SimulationSessionSpatialConfig sessionSpatial,
             in WeaponSimulationConfig weapon)
         {
-            // AFC3 追加武器规则；固定顺序的小端 int32，不能使用浮点字符串或本机字节序。
+            // AFC4 覆盖双武器与切换时长；固定顺序的小端 int32，不能使用浮点字符串或本机字节序。
             // 新增会改变模拟结果的参数时必须纳入字段，并升级域版本及黄金值。
             ulong hash = 14695981039346656037UL;
-            Add(ref hash, 0x33434641);
+            Add(ref hash, 0x34434641);
             Add(ref hash, tickDeltaTime.Raw);
             Add(ref hash, collisionLayerMask);
             Add(ref hash, configuration.MaxGroundSpeedFixed.Raw);
@@ -120,6 +121,14 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, sessionSpatial.SpawnOrigin.Z.Raw);
             Add(ref hash, sessionSpatial.SpawnSpacing.Raw);
             Add(ref hash, sessionSpatial.InterestRadius.Raw);
+            AddWeapon(ref hash, weapon);
+            AddWeapon(ref hash, WeaponCatalog.SecondaryFor(weapon));
+            Add(ref hash, unchecked((int)WeaponCatalog.EquipDurationTicks));
+            return hash;
+        }
+
+        private static void AddWeapon(ref ulong hash, in WeaponSimulationConfig weapon)
+        {
             Add(ref hash, weapon.WeaponId);
             Add(ref hash, (int)weapon.FireMode);
             Add(ref hash, weapon.MagazineCapacity);
@@ -128,7 +137,6 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, weapon.RangeFixed.Raw);
             Add(ref hash, weapon.ProjectileSpeedFixed.Raw);
             Add(ref hash, weapon.EyeHeightFixed.Raw);
-            return hash;
         }
 
         private static void Add(ref ulong hash, int value)

@@ -70,7 +70,13 @@ namespace AFPS.Bootstrap
 
             if (sessionManager.ClientWeapon.HasState)
             {
+                statusText.text += sessionManager.ClientWeaponConfiguration.FireMode == AFPS.Simulation.Weapons.WeaponFireMode.Projectile
+                    ? "   LAUNCHER [Q]" : "   RIFLE [Q]";
                 statusText.text += $"   AMMO {sessionManager.ClientWeapon.Ammo}/{sessionManager.ClientWeapon.State.Capacity}";
+                if (sessionManager.ClientWeapon.IsSwitchPending || sessionManager.ClientWeapon.State.IsEquipping)
+                {
+                    statusText.text += "   EQUIPPING";
+                }
                 if (sessionManager.ClientWeapon.IsReloading)
                 {
                     statusText.text += sessionManager.ClientWeapon.State.IsReloading
