@@ -1,4 +1,4 @@
-﻿using AFPS.Math;
+using AFPS.Math;
 using AFPS.Simulation.Weapons;
 
 namespace AFPS.NetCode.Weapons
@@ -44,13 +44,14 @@ namespace AFPS.NetCode.Weapons
             Fix damage,
             Fix range,
             Fix projectileSpeed,
-            uint rewindTick = 0)
+            uint rewindTick = 0,
+            bool preserveZeroRewindTick = false)
         {
             EntityId = entityId;
             ShotSequence = shotSequence;
             ServerTick = serverTick;
             // 保留旧请求语义：零表示使用接收请求的服务器 Tick；非零由回溯窗口另行验证。
-            RewindTick = rewindTick == 0 ? serverTick : rewindTick;
+            RewindTick = !preserveZeroRewindTick && rewindTick == 0 ? serverTick : rewindTick;
             WeaponId = weaponId;
             FireMode = fireMode;
             OriginFixed = origin;

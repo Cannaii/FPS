@@ -1,92 +1,72 @@
 using System;
+using AFPS.Math;
 using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Serialization;
 using AFPS.NetCode.Weapons;
 using AFPS.Simulation.Weapons;
-using UnityEngine;
 
 namespace AFPS.NetCode.Messages
 {
-    /// <summary>编码服务器已接受射击的弹药与命中裁决。</summary>
+    /// <summary>v5：全部数值直接传 Q16.16 Raw，不再量化毫米/厘米或重归一化方向。</summary>
     public static class AuthoritativeShotResultCodec
     {
-        public const int PayloadSize = 64;
+        // 小端：身份/两种 Tick 16B，武器/模式/标志 4B，弹药/目标/血量 12B，三向量 36B，三标量 12B。
+        public const int PayloadSize = 80;
         public const int PacketSize = PacketHeader.Size + PayloadSize;
-        private const byte HitMask = 1 << 0;
-        private const float ScalarResolution = 0.01f;
-        private const float PositionResolution = 0.001f;
-        private const float DirectionResolution = 1f / short.MaxValue;
-        public static bool TrySerialize(in AuthoritativeShotResult result, uint packetSequence, ArraySegment<byte> destination, out int bytesWritten)
+
+        public static bool TrySerialize(
+            in AuthoritativeShotResult result,
+            uint packetSequence,
+            ArraySegment<byte> destination,
+            out int bytesWritten)
         {
             bytesWritten = 0;
             AuthoritativeShot shot = result.Shot;
-            if (shot.EntityId == 0
-                || shot.ShotSequence == 0
-                || shot.WeaponId == 0
-                || result.RemainingAmmo < 0
-                || result.RemainingAmmo > ushort.MaxValue
-                || result.TargetHealth < 0f
-                || result.TargetHealth > ushort.MaxValue * ScalarResolution
-                || destination.Count < PacketSize
-                || !TryQuantizeVector(shot.Origin, PositionResolution, out int ox, out int oy, out int oz)
-                || !TryQuantizeDirection(shot.Direction, out short dx, out short dy, out short dz)
-                || !TryQuantizeVector(result.HitPoint, PositionResolution, out int hx, out int hy, out int hz)
-                || !TryQuantizePositive(shot.Damage, ScalarResolution, ushort.MaxValue, out uint damage)
-                || !TryQuantizePositive(shot.Range, PositionResolution, int.MaxValue, out uint range)
-                || !TryQuantizeNonNegative(shot.ProjectileSpeed, PositionResolution, int.MaxValue, out uint projectileSpeed))
+            if (!IsValid(result) || destination.Count < PacketSize)
             {
                 return false;
             }
-
-            if ((shot.FireMode != WeaponFireMode.Hitscan
-                && shot.FireMode != WeaponFireMode.Projectile)
-                || (result.DidHit
-                && result.TargetEntityId == 0)
-                || (!result.DidHit
-                && result.TargetEntityId != 0))
-            {
-                return false;
-            }
-
-            ushort health = (ushort)System.Math.Round(result.TargetHealth / ScalarResolution);
             PacketHeader header = new PacketHeader(NetworkMessageType.AuthoritativeShotResult, PayloadSize, packetSequence);
             if (!PacketHeaderCodec.TryWrite(header, destination))
             {
                 return false;
             }
-
-            PacketBufferWriter writer = new PacketBufferWriter(new ArraySegment<byte>(destination.Array, destination.Offset + PacketHeader.Size, PayloadSize));
+            PacketBufferWriter writer = new PacketBufferWriter(new ArraySegment<byte>(
+                destination.Array, destination.Offset + PacketHeader.Size, PayloadSize));
             bool success = writer.TryWriteUInt32(shot.EntityId)
                 && writer.TryWriteUInt32(shot.ShotSequence)
                 && writer.TryWriteUInt32(shot.ServerTick)
+                && writer.TryWriteUInt32(shot.RewindTick)
                 && writer.TryWriteUInt16(shot.WeaponId)
                 && writer.TryWriteByte((byte)shot.FireMode)
-                && writer.TryWriteUInt16((ushort)result.RemainingAmmo)
-                && writer.TryWriteByte(result.DidHit ? HitMask : (byte)0)
+                && writer.TryWriteByte(result.DidHit ? (byte)1 : (byte)0)
+                && writer.TryWriteInt32(result.RemainingAmmo)
                 && writer.TryWriteUInt32(result.TargetEntityId)
-                && writer.TryWriteUInt16(health)
-                && writer.TryWriteInt32(ox)
-                && writer.TryWriteInt32(oy)
-                && writer.TryWriteInt32(oz)
-                && writer.TryWriteInt16(dx)
-                && writer.TryWriteInt16(dy)
-                && writer.TryWriteInt16(dz)
-                && writer.TryWriteInt32(hx)
-                && writer.TryWriteInt32(hy)
-                && writer.TryWriteInt32(hz)
-                && writer.TryWriteUInt16((ushort)damage)
-                && writer.TryWriteInt32((int)range)
-                && writer.TryWriteInt32((int)projectileSpeed);
+                && writer.TryWriteInt32(result.TargetHealthFixed.Raw)
+                && writer.TryWriteInt32(shot.OriginFixed.X.Raw)
+                && writer.TryWriteInt32(shot.OriginFixed.Y.Raw)
+                && writer.TryWriteInt32(shot.OriginFixed.Z.Raw)
+                && writer.TryWriteInt32(shot.DirectionFixed.X.Raw)
+                && writer.TryWriteInt32(shot.DirectionFixed.Y.Raw)
+                && writer.TryWriteInt32(shot.DirectionFixed.Z.Raw)
+                && writer.TryWriteInt32(result.HitPointFixed.X.Raw)
+                && writer.TryWriteInt32(result.HitPointFixed.Y.Raw)
+                && writer.TryWriteInt32(result.HitPointFixed.Z.Raw)
+                && writer.TryWriteInt32(shot.DamageFixed.Raw)
+                && writer.TryWriteInt32(shot.RangeFixed.Raw)
+                && writer.TryWriteInt32(shot.ProjectileSpeedFixed.Raw);
             if (!success || writer.BytesWritten != PayloadSize)
             {
                 return false;
             }
-
             bytesWritten = PacketSize;
             return true;
         }
 
-        public static bool TryDeserialize(ArraySegment<byte> packet, out PacketHeader header, out AuthoritativeShotResult result)
+        public static bool TryDeserialize(
+            ArraySegment<byte> packet,
+            out PacketHeader header,
+            out AuthoritativeShotResult result)
         {
             header = default;
             result = default;
@@ -96,127 +76,78 @@ namespace AFPS.NetCode.Messages
             {
                 return false;
             }
-
-            PacketBufferReader reader = new PacketBufferReader(new ArraySegment<byte>(packet.Array, packet.Offset + PacketHeader.Size, PayloadSize));
-            if (!reader.TryReadUInt32(out uint entityId)
-                || !reader.TryReadUInt32(out uint shotSequence)
-                || !reader.TryReadUInt32(out uint serverTick)
-                || !reader.TryReadUInt16(out ushort weaponId)
-                || !reader.TryReadByte(out byte fireModeRaw)
-                || !reader.TryReadUInt16(out ushort ammo)
+            PacketBufferReader reader = new PacketBufferReader(new ArraySegment<byte>(
+                packet.Array, packet.Offset + PacketHeader.Size, PayloadSize));
+            if (!reader.TryReadUInt32(out uint entity)
+                || !reader.TryReadUInt32(out uint sequence)
+                || !reader.TryReadUInt32(out uint tick)
+                || !reader.TryReadUInt32(out uint rewind)
+                || !reader.TryReadUInt16(out ushort weapon)
+                || !reader.TryReadByte(out byte mode)
                 || !reader.TryReadByte(out byte flags)
-                || !reader.TryReadUInt32(out uint targetId)
-                || !reader.TryReadUInt16(out ushort health)
-                || !reader.TryReadInt32(out int ox)
-                || !reader.TryReadInt32(out int oy)
-                || !reader.TryReadInt32(out int oz)
-                || !reader.TryReadInt16(out short dx)
-                || !reader.TryReadInt16(out short dy)
-                || !reader.TryReadInt16(out short dz)
-                || !reader.TryReadInt32(out int hx)
-                || !reader.TryReadInt32(out int hy)
-                || !reader.TryReadInt32(out int hz)
-                || !reader.TryReadUInt16(out ushort damage)
+                || !reader.TryReadInt32(out int ammo)
+                || !reader.TryReadUInt32(out uint target)
+                || !reader.TryReadInt32(out int health)
+                || !reader.TryReadInt32(out int originX)
+                || !reader.TryReadInt32(out int originY)
+                || !reader.TryReadInt32(out int originZ)
+                || !reader.TryReadInt32(out int directionX)
+                || !reader.TryReadInt32(out int directionY)
+                || !reader.TryReadInt32(out int directionZ)
+                || !reader.TryReadInt32(out int pointX)
+                || !reader.TryReadInt32(out int pointY)
+                || !reader.TryReadInt32(out int pointZ)
+                || !reader.TryReadInt32(out int damage)
                 || !reader.TryReadInt32(out int range)
-                || !reader.TryReadInt32(out int projectileSpeed))
+                || !reader.TryReadInt32(out int speed))
             {
                 return false;
             }
-
-            WeaponFireMode fireMode = (WeaponFireMode)fireModeRaw;
-            bool didHit = (flags & HitMask) != 0;
-            Vector3 direction = new Vector3(dx * DirectionResolution, dy * DirectionResolution, dz * DirectionResolution);
-            if (reader.BytesRemaining != 0
-                || entityId == 0
-                || shotSequence == 0
-                || weaponId == 0
-                || (fireMode != WeaponFireMode.Hitscan
-                && fireMode != WeaponFireMode.Projectile)
-                || (flags & ~HitMask) != 0
-                || didHit != (targetId != 0)
-                || range <= 0
-                || projectileSpeed < 0
-                || direction.sqrMagnitude < 0.99f
-                || direction.sqrMagnitude > 1.01f)
+            if (reader.BytesRemaining != 0 || flags > 1)
             {
                 return false;
             }
-
-            direction.Normalize();
-            Vector3 origin = new Vector3(ox, oy, oz) * PositionResolution;
-            Vector3 hitPoint = new Vector3(hx, hy, hz) * PositionResolution;
-            AuthoritativeShot shot;
-            try
+            // 网络 Tick 零是合法回绕值，不能套用本地请求的“零表示当前帧”缺省规则。
+            AuthoritativeShot shot = new AuthoritativeShot(entity, sequence, tick, weapon, (WeaponFireMode)mode,
+                Vector(originX, originY, originZ), Vector(directionX, directionY, directionZ),
+                Fix.FromRaw(damage), Fix.FromRaw(range), Fix.FromRaw(speed), rewind, preserveZeroRewindTick: true);
+            AuthoritativeShotResult decoded = new AuthoritativeShotResult(
+                shot, ammo, flags == 1, target, Fix.FromRaw(health), Vector(pointX, pointY, pointZ));
+            if (!IsValid(decoded))
             {
-                shot = new AuthoritativeShot(
-                    entityId,
-                    shotSequence,
-                    serverTick,
-                    weaponId,
-                    fireMode,
-                    origin,
-                    direction,
-                    damage * ScalarResolution,
-                    range * PositionResolution,
-                    projectileSpeed * PositionResolution);
-                result = new AuthoritativeShotResult(shot, ammo, didHit, targetId, health * ScalarResolution, hitPoint);
-            }
-            catch (OverflowException)
-            {
-                // 旧毫米协议可表达比 Q16.16 更大的坐标/射程；拒绝越域包，不向网络循环抛异常。
-                // 协议 Raw 化前仍保留原量化布局，不能将这里视作无损定点传输。
                 return false;
             }
+            result = decoded;
             return true;
         }
 
-        private static bool TryQuantizeVector(Vector3 value, float resolution, out int x, out int y, out int z)
-        {
-            return TryQuantizeSigned(value.x, resolution, out x) & TryQuantizeSigned(value.y, resolution, out y) & TryQuantizeSigned(value.z, resolution, out z);
-        }
+        private static FixVec3 Vector(int x, int y, int z) =>
+            new FixVec3(Fix.FromRaw(x), Fix.FromRaw(y), Fix.FromRaw(z));
 
-        private static bool TryQuantizeDirection(Vector3 direction, out short x, out short y, out short z)
+        private static bool IsValid(in AuthoritativeShotResult result)
         {
-            x = y = z = 0;
-            if (float.IsNaN(direction.x)
-                || float.IsNaN(direction.y)
-                || float.IsNaN(direction.z)
-                || float.IsInfinity(direction.x)
-                || float.IsInfinity(direction.y)
-                || float.IsInfinity(direction.z)
-                || direction.sqrMagnitude < 0.99f
-                || direction.sqrMagnitude > 1.01f)
+            AuthoritativeShot shot = result.Shot;
+            if (shot.EntityId == 0 || shot.ShotSequence == 0 || shot.WeaponId == 0
+                || result.RemainingAmmo < 0 || result.TargetHealthFixed.Raw < 0
+                || result.DidHit != (result.TargetEntityId != 0)
+                || shot.DamageFixed.Raw <= 0 || shot.RangeFixed.Raw <= 0
+                || (shot.FireMode != WeaponFireMode.Hitscan && shot.FireMode != WeaponFireMode.Projectile)
+                || (shot.FireMode == WeaponFireMode.Hitscan && shot.ProjectileSpeedFixed.Raw != 0)
+                || (shot.FireMode == WeaponFireMode.Projectile && shot.ProjectileSpeedFixed.Raw <= 0))
             {
                 return false;
             }
-
-            direction.Normalize();
-            x = (short)System.Math.Round(Mathf.Clamp(direction.x, -1f, 1f) * short.MaxValue);
-            y = (short)System.Math.Round(Mathf.Clamp(direction.y, -1f, 1f) * short.MaxValue);
-            z = (short)System.Math.Round(Mathf.Clamp(direction.z, -1f, 1f) * short.MaxValue);
-            return true;
-        }
-
-        private static bool TryQuantizeSigned(float value, float resolution, out int quantized)
-        {
-            double rounded = System.Math.Round(value / resolution);
-            bool valid = !float.IsNaN(value) && !float.IsInfinity(value) && rounded >= int.MinValue && rounded <= int.MaxValue;
-            quantized = valid ? (int)rounded : 0;
-            return valid;
-        }
-
-        private static bool TryQuantizePositive(float value, float resolution, int maximum, out uint quantized)
-        {
-            bool valid = TryQuantizeNonNegative(value, resolution, maximum, out quantized) && quantized > 0;
-            return valid;
-        }
-
-        private static bool TryQuantizeNonNegative(float value, float resolution, int maximum, out uint quantized)
-        {
-            double rounded = System.Math.Round(value / resolution);
-            bool valid = !float.IsNaN(value) && !float.IsInfinity(value) && rounded >= 0 && rounded <= maximum;
-            quantized = valid ? (uint)rounded : 0;
-            return valid;
+            FixVec3 d = shot.DirectionFixed;
+            // 先限制分量再求平方和，恶意 int 极值不能溢出 long；允许 LUT 的整数归一化误差。
+            if (System.Math.Abs((long)d.X.Raw) > Fix.Scale
+                || System.Math.Abs((long)d.Y.Raw) > Fix.Scale
+                || System.Math.Abs((long)d.Z.Raw) > Fix.Scale)
+            {
+                return false;
+            }
+            long squared = (long)d.X.Raw * d.X.Raw + (long)d.Y.Raw * d.Y.Raw + (long)d.Z.Raw * d.Z.Raw;
+            long unitSquared = Fix.Scale * Fix.Scale;
+            return squared >= unitSquared - unitSquared / 100 && squared <= unitSquared + unitSquared / 100;
         }
     }
 }

@@ -1,69 +1,99 @@
-using System;
+﻿using System;
+using AFPS.Math;
 using AFPS.NetCode.Messages;
 using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Weapons;
 using AFPS.Simulation.Weapons;
 using NUnit.Framework;
-using UnityEngine;
 
 namespace AFPS.Tests.EditMode
 {
     public sealed class AuthoritativeShotResultCodecTests
     {
-        [TestCase(24, int.MaxValue)]
-        [TestCase(28, int.MinValue)]
-        [TestCase(32, int.MaxValue)]
-        [TestCase(42, int.MaxValue)]
-        [TestCase(46, int.MinValue)]
-        [TestCase(50, int.MaxValue)]
-        [TestCase(56, int.MaxValue)]
-        [TestCase(60, int.MaxValue)]
-        public void Result_RejectsLegacyMillimetresOutsideFixedDomainWithoutThrowing(int payloadOffset, int value)
+        [TestCase(0u)]
+        [TestCase(uint.MaxValue)]
+        public void Result_RoundTripsRawExtremesAndRewind(uint rewind)
         {
-            AuthoritativeShot shot = new AuthoritativeShot(1, 1, 1, 1, WeaponFireMode.Hitscan,
-                Vector3.zero, Vector3.forward, 20f, 100f, 0f);
-            AuthoritativeShotResult source = new AuthoritativeShotResult(shot, 29, false, 0, 100f, Vector3.forward);
-            byte[] packet = new byte[AuthoritativeShotResultCodec.PacketSize];
-            Assert.That(AuthoritativeShotResultCodec.TrySerialize(source, 1,
-                new ArraySegment<byte>(packet), out _), Is.True);
-            // 显式小端写坏一个旧协议字段，不依赖宿主机端序。
-            uint bits = unchecked((uint)value);
-            for (int index = 0; index < 4; index++)
+            AuthoritativeShot shot = new AuthoritativeShot(3, 44, 900, 2, WeaponFireMode.Projectile,
+                new FixVec3(Fix.MinValue, Fix.MaxValue, Fix.Epsilon), FixVec3.Forward,
+                Fix.Epsilon, Fix.MaxValue, Fix.Epsilon, rewind, preserveZeroRewindTick: true);
+            AuthoritativeShotResult source = new AuthoritativeShotResult(shot, int.MaxValue, true, 8,
+                Fix.MaxValue, new FixVec3(Fix.MaxValue, Fix.MinValue, Fix.FromRaw(655360001)));
+            byte[] bytes = new byte[AuthoritativeShotResultCodec.PacketSize + 6];
+            ArraySegment<byte> packet = new ArraySegment<byte>(bytes, 3, AuthoritativeShotResultCodec.PacketSize);
+            Assert.That(AuthoritativeShotResultCodec.TrySerialize(source, 7, packet, out int count), Is.True);
+            Assert.That(count, Is.EqualTo(92));
+            Assert.That(bytes[3 + 4], Is.EqualTo(5));
+            Assert.That(bytes[3 + PacketHeader.Size + 32], Is.EqualTo(0));
+            Assert.That(bytes[3 + PacketHeader.Size + 35], Is.EqualTo(128)); // int.MinValue 小端最高字节。
+            Assert.That(AuthoritativeShotResultCodec.TryDeserialize(packet, out PacketHeader header, out var decoded), Is.True);
+            Assert.That(header.Sequence, Is.EqualTo(7));
+            Assert.That(decoded.Shot.OriginFixed, Is.EqualTo(shot.OriginFixed));
+            Assert.That(decoded.Shot.DirectionFixed, Is.EqualTo(shot.DirectionFixed));
+            Assert.That(decoded.Shot.DamageFixed, Is.EqualTo(shot.DamageFixed));
+            Assert.That(decoded.Shot.RangeFixed, Is.EqualTo(shot.RangeFixed));
+            Assert.That(decoded.Shot.ProjectileSpeedFixed, Is.EqualTo(shot.ProjectileSpeedFixed));
+            Assert.That(decoded.Shot.RewindTick, Is.EqualTo(rewind));
+            Assert.That(decoded.HitPointFixed, Is.EqualTo(source.HitPointFixed));
+            Assert.That(decoded.TargetHealthFixed, Is.EqualTo(source.TargetHealthFixed));
+            Assert.That(decoded.RemainingAmmo, Is.EqualTo(int.MaxValue));
+        }
+
+        [TestCase(19, 2)]
+        [TestCase(18, 127)]
+        [TestCase(20, -1)]
+        [TestCase(28, -1)]
+        [TestCase(44, int.MinValue)]
+        [TestCase(52, 0)]
+        [TestCase(68, 0)]
+        [TestCase(72, -1)]
+        [TestCase(76, 1)]
+        public void Result_RejectsInvalidFieldsWithoutPartialOutput(int offset, int value)
+        {
+            byte[] packet = Packet();
+            int length = offset == 18 || offset == 19 ? 1 : 4;
+            for (int index = 0; index < length; index++)
             {
-                packet[PacketHeader.Size + payloadOffset + index] = unchecked((byte)(bits >> (index * 8)));
+                packet[PacketHeader.Size + offset + index] = unchecked((byte)((uint)value >> (index * 8)));
             }
-            Assert.That(AuthoritativeShotResultCodec.TryDeserialize(new ArraySegment<byte>(packet),
-                out _, out AuthoritativeShotResult decoded), Is.False);
-            Assert.That(decoded.Shot.EntityId, Is.Zero);
+            Assert.That(AuthoritativeShotResultCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out var result), Is.False);
+            Assert.That(result.Shot.EntityId, Is.Zero);
         }
 
         [Test]
-        public void Result_RoundTripsAuthoritativeShotHitAmmoAndHealth()
+        public void Result_RejectsOldVersionTruncationAndShortDestination()
         {
-            AuthoritativeShot shot = new AuthoritativeShot(3, 44, 900, 2, WeaponFireMode.Hitscan, new Vector3(1.234f, 2.345f, -3.456f), new Vector3(0.2f, -0.1f, 0.9746794f).normalized, 25f, 200f, 0f);
-            AuthoritativeShotResult source = new AuthoritativeShotResult(shot, 17, true, 8, 75f, new Vector3(10.111f, 1.222f, -5.333f));
-            byte[] packet = new byte[AuthoritativeShotResultCodec.PacketSize];
-
-            Assert.That(AuthoritativeShotResultCodec.TrySerialize(source, 7, new ArraySegment<byte>(packet), out int written), Is.True);
-            Assert.That(written, Is.EqualTo(packet.Length));
-            Assert.That(AuthoritativeShotResultCodec.TryDeserialize(new ArraySegment<byte>(packet), out var header, out AuthoritativeShotResult decoded), Is.True);
-            Assert.That(header.Sequence, Is.EqualTo(7));
-            Assert.That(decoded.Shot.EntityId, Is.EqualTo(3));
-            Assert.That(decoded.Shot.ShotSequence, Is.EqualTo(44));
-            Assert.That(decoded.RemainingAmmo, Is.EqualTo(17));
-            Assert.That(decoded.DidHit, Is.True);
-            Assert.That(decoded.TargetEntityId, Is.EqualTo(8));
-            Assert.That(decoded.TargetHealth, Is.EqualTo(75f).Within(0.01f));
-            Assert.That(Vector3.Distance(decoded.HitPoint, source.HitPoint), Is.LessThan(0.002f));
-            Assert.That(Vector3.Angle(decoded.Shot.Direction, source.Shot.Direction), Is.LessThan(0.01f));
+            byte[] packet = Packet();
+            packet[4] = 4;
+            Assert.That(AuthoritativeShotResultCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out _), Is.False);
+            packet[4] = 5;
+            Assert.That(AuthoritativeShotResultCodec.TryDeserialize(new ArraySegment<byte>(packet, 0, packet.Length - 1), out _, out _), Is.False);
+            Assert.That(AuthoritativeShotResultCodec.TrySerialize(Source(), 1,
+                new ArraySegment<byte>(new byte[packet.Length - 1]), out int written), Is.False);
+            Assert.That(written, Is.Zero);
         }
 
         [Test]
         public void Result_RejectsInconsistentHitTarget()
         {
-            AuthoritativeShot shot = new AuthoritativeShot(1, 1, 1, 1, WeaponFireMode.Hitscan, Vector3.zero, Vector3.forward, 20f, 100f, 0f);
-            AuthoritativeShotResult invalid = new AuthoritativeShotResult(shot, 29, false, 2, 100f, Vector3.forward * 100f);
-            Assert.That(AuthoritativeShotResultCodec.TrySerialize(invalid, 1, new ArraySegment<byte>(new byte[AuthoritativeShotResultCodec.PacketSize]), out _), Is.False);
+            AuthoritativeShotResult source = Source();
+            AuthoritativeShotResult invalid = new AuthoritativeShotResult(source.Shot, 29, false, 2, Fix.One, FixVec3.Zero);
+            Assert.That(AuthoritativeShotResultCodec.TrySerialize(invalid, 1,
+                new ArraySegment<byte>(new byte[AuthoritativeShotResultCodec.PacketSize]), out _), Is.False);
+        }
+
+        private static AuthoritativeShotResult Source()
+        {
+            AuthoritativeShot shot = new AuthoritativeShot(1, 1, 1, 1, WeaponFireMode.Hitscan,
+                FixVec3.Zero, FixVec3.Forward, Fix.One, Fix.One, Fix.Zero);
+            return new AuthoritativeShotResult(shot, 29, false, 0, Fix.Zero, FixVec3.Forward);
+        }
+
+        private static byte[] Packet()
+        {
+            byte[] packet = new byte[AuthoritativeShotResultCodec.PacketSize];
+            Assert.That(AuthoritativeShotResultCodec.TrySerialize(Source(), 1, new ArraySegment<byte>(packet), out _), Is.True);
+            return packet;
         }
     }
 }

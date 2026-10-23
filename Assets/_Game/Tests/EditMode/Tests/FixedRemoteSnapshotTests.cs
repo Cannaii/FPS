@@ -41,7 +41,7 @@ namespace AFPS.Tests.EditMode
                 3, 2, 1, 0, 0xfd, 0xfd, 0xfe, 0xff, 1
             };
             Assert.That(count, Is.EqualTo(53));
-            Assert.That(envelope[3 + 4], Is.EqualTo(4)); // v3 的毫米/厘米布局不能按新 Raw 解释。
+            Assert.That(envelope[3 + 4], Is.EqualTo(5)); // v3 的毫米/厘米布局不能按新 Raw 解释。
             for (int i = 0; i < golden.Length; i++)
             {
                 Assert.That(envelope[3 + PacketHeader.Size + i], Is.EqualTo(golden[i]), "offset " + i);
