@@ -703,6 +703,36 @@ namespace AFPS.Tests.EditMode
             Assert.That(transport.SentPackets.Count, Is.EqualTo(1));
             Assert.Throws<ArgumentOutOfRangeException>(() => client.AdvanceTimeSync(0, float.NaN));
         }
+        [Test]
+        public void WeaponReload_InputTraversesSessionAndRestoresMagazineAfterWorldTicks()
+        {
+            FakeTransport transport = new FakeTransport(TransportRole.Server);
+            NetworkMovementSessionManager manager = CreateManager(transport, null);
+            TransportConnectionId shooter = new TransportConnectionId(10);
+            TransportConnectionId other = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, shooter);
+            manager.HandleConnected(NetworkTransportSide.Server, other);
+            manager.TryGetServerSession(shooter, out var session);
+            for (uint tick = 1; tick <= 102; tick++)
+            {
+                bool fire = tick == 1 || tick == 3 || tick == 102;
+                SendTick(manager, shooter, other, tick, tick + 99,
+                    new PlayerInputCommand
+                    {
+                        FirePressed = fire,
+                        ReloadPressed = tick == 2,
+                        ShotSequence = fire ? (tick == 1 ? 1u : tick == 3 ? 2u : 3u) : 0u
+                    }, default);
+                if (tick == 3)
+                {
+                    Assert.That(session.LastWeaponFireResult.RejectReason,
+                        Is.EqualTo(AFPS.NetCode.Weapons.WeaponFireRejectReason.Reloading));
+                    Assert.That(session.LastWeaponFireResult.RemainingAmmo, Is.EqualTo(29));
+                }
+            }
+            Assert.That(session.LastWeaponFireResult.Accepted, Is.True);
+            Assert.That(session.LastWeaponFireResult.RemainingAmmo, Is.EqualTo(29));
+        }
         private static NetworkMovementSessionManager CreateManager(
             IGameTransport serverTransport,
             IGameTransport clientTransport,

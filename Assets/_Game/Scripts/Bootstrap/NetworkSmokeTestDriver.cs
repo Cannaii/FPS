@@ -28,6 +28,11 @@ namespace AFPS.Bootstrap
         private double testStartedAt = -1d;
         private bool jumpSent;
         private bool fireSent;
+        private bool reloadSent;
+        private bool postReloadFireSent;
+        private bool authoritativeHitObserved;
+        private bool reloadVerified;
+        private bool automaticFireVerified;
         private Vector3 initialPosition;
         private float maximumHeight;
         private uint initialShotResultVersion;
@@ -100,6 +105,13 @@ namespace AFPS.Bootstrap
 
             double elapsed = now - testStartedAt;
             maximumHeight = Mathf.Max(maximumHeight, localState.Position.y);
+            if (manager.ShotResultVersion != initialShotResultVersion)
+            {
+                var shotResult = manager.LastReceivedShotResult;
+                authoritativeHitObserved |= shotResult.DidHit && shotResult.TargetEntityId != 0;
+                reloadVerified |= shotResult.Shot.ShotSequence == 2 && shotResult.RemainingAmmo == 29;
+                automaticFireVerified |= shotResult.Shot.ShotSequence >= 4;
+            }
             bool aimingAtOpponent = elapsed < 1.5d;
             float yaw = TestYaw;
             bool hasAimTarget = false;
@@ -126,8 +138,8 @@ namespace AFPS.Bootstrap
                 }
             }
 
-            // 新会话中首个实体只发射一次；同时覆盖 Host 和纯 Dedicated Server 的客户端组合。
-            // 只选一个射手，避免双方同时射击时最后收到的结果互相覆盖，影响命中验收。
+            // 新会话首个实体先发一枪命中，再验证换弹和连续请求；覆盖 Host 与 Dedicated。
+            // 只选一个射手，所有客户端都观察相同射击序号与换弹后弹量。
             bool requestFire = replicas.LocalEntityId == 1 && hasAimTarget
                 && !fireSent && elapsed >= 0.5d;
             if (requestFire)
@@ -135,13 +147,25 @@ namespace AFPS.Bootstrap
                 fireSent = true;
             }
 
+            bool requestReload = replicas.LocalEntityId == 1 && !reloadSent && elapsed >= 2d;
+            reloadSent |= requestReload;
+            if (replicas.LocalEntityId == 1 && !postReloadFireSent && elapsed >= 4.5d)
+            {
+                requestFire = true;
+                postReloadFireSent = true;
+            }
+            // 一次换弹后单发检查恢复弹量，再持续按住验证多次请求，不依赖画面或实体连接顺序。
+            bool holdFire = replicas.LocalEntityId == 1 && elapsed >= 5.5d && elapsed < 5.85d;
             bool requestJump = !jumpSent && elapsed >= 4d;
             if (requestJump)
             {
                 jumpSent = true;
             }
 
-            inputCollector.SetAutomationInput(aimingAtOpponent ? 0f : 0.2f, aimingAtOpponent ? 0f : 0.65f, yaw, aimingAtOpponent ? 0f : -8f, requestJump, requestFire);
+            inputCollector.SetAutomationInput(
+                aimingAtOpponent ? 0f : 0.2f, aimingAtOpponent ? 0f : 0.65f,
+                yaw, aimingAtOpponent ? 0f : -8f, requestJump, requestFire,
+                fireHeld: holdFire, reloadPressed: requestReload);
             if (elapsed >= TestDurationSeconds)
             {
                 Evaluate(manager, localState);
@@ -166,11 +190,11 @@ namespace AFPS.Bootstrap
             bool jumped = maximumHeight - initialPosition.y >= MinimumJumpHeight;
             bool turned = Mathf.Abs(Mathf.DeltaAngle(localState.Yaw, TestYaw)) <= 1f;
             bool receivedShotResult = manager.ShotResultVersion != initialShotResultVersion;
-            bool authoritativeHit = receivedShotResult && manager.LastReceivedShotResult.DidHit && manager.LastReceivedShotResult.TargetEntityId != 0;
+            bool authoritativeHit = receivedShotResult && authoritativeHitObserved;
             bool timeSynced = manager.HasTimeSync && manager.Metrics.TimeSyncResponsesReceived >= 2;
             bool passed = hasAssignment && hasRemote && sampledRemote && moved && jumped && turned
-                && authoritativeHit && timeSynced;
-            string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0} remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned} sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} timeSynced={timeSynced} rttMs={manager.Metrics.LastNetworkRoundTripMilliseconds:F3} position={localState.Position}";
+                && authoritativeHit && timeSynced && reloadVerified && automaticFireVerified;
+            string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0} remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned} sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} timeSynced={timeSynced} reloadVerified={reloadVerified} autoFire={automaticFireVerified} rttMs={manager.Metrics.LastNetworkRoundTripMilliseconds:F3} position={localState.Position}";
             Finish(passed, details);
         }
 

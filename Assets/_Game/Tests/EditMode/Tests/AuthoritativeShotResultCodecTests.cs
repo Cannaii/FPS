@@ -23,7 +23,7 @@ namespace AFPS.Tests.EditMode
             ArraySegment<byte> packet = new ArraySegment<byte>(bytes, 3, AuthoritativeShotResultCodec.PacketSize);
             Assert.That(AuthoritativeShotResultCodec.TrySerialize(source, 7, packet, out int count), Is.True);
             Assert.That(count, Is.EqualTo(92));
-            Assert.That(bytes[3 + 4], Is.EqualTo(6));
+            Assert.That(bytes[3 + 4], Is.EqualTo(7));
             Assert.That(bytes[3 + PacketHeader.Size + 32], Is.EqualTo(0));
             Assert.That(bytes[3 + PacketHeader.Size + 35], Is.EqualTo(128)); // int.MinValue 小端最高字节。
             Assert.That(AuthoritativeShotResultCodec.TryDeserialize(packet, out PacketHeader header, out var decoded), Is.True);
@@ -66,7 +66,7 @@ namespace AFPS.Tests.EditMode
             byte[] packet = Packet();
             packet[4] = 4;
             Assert.That(AuthoritativeShotResultCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out _), Is.False);
-            packet[4] = 6;
+            packet[4] = 7;
             Assert.That(AuthoritativeShotResultCodec.TryDeserialize(new ArraySegment<byte>(packet, 0, packet.Length - 1), out _, out _), Is.False);
             Assert.That(AuthoritativeShotResultCodec.TrySerialize(Source(), 1,
                 new ArraySegment<byte>(new byte[packet.Length - 1]), out int written), Is.False);

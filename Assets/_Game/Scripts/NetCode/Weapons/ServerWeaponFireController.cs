@@ -8,6 +8,10 @@ namespace AFPS.NetCode.Weapons
     /// <summary>验证客户端射击意图，并仅由权威玩家状态生成射击起点与方向。</summary>
     public sealed class ServerWeaponFireController
     {
+        // 当前基础换弹规则：100 个服务器世界 Tick；50Hz 时约 2 秒。扩展为可配置值时必须加入世界指纹。
+        public const uint ReloadDurationTicks = 100;
+        private uint reloadStartedTick;
+        public bool IsReloading { get; private set; }
         private readonly WeaponSimulationConfig config;
         private bool equipped = true;
         private bool hasObservedSequence;
@@ -29,9 +33,21 @@ namespace AFPS.NetCode.Weapons
             Ammo = config.MagazineCapacity;
         }
 
-        public void SetEquipped(bool value) => equipped = value;
+        public void SetEquipped(bool value)
+        {
+            equipped = value;
+            if (!value)
+            {
+                IsReloading = false;
+            }
+        }
 
-        public void Reload() => Ammo = config.MagazineCapacity;
+        /// <summary>测试/出生重置入口；玩家换弹必须通过 ReloadPressed 和服务器 Tick 计时。</summary>
+        public void Reload()
+        {
+            Ammo = config.MagazineCapacity;
+            IsReloading = false;
+        }
 
         public WeaponFireResult Process(
             uint serverTick,
@@ -39,6 +55,17 @@ namespace AFPS.NetCode.Weapons
             in PlayerInputCommand command,
             in PlayerState authoritativeState)
         {
+            if (IsReloading && unchecked(serverTick - reloadStartedTick) >= ReloadDurationTicks)
+            {
+                Ammo = config.MagazineCapacity;
+                IsReloading = false;
+            }
+            // 同 Tick 换弹优先；重复请求不重置计时，满弹匣忽略换弹请求。
+            if (command.ReloadPressed && equipped && !IsReloading && Ammo < config.MagazineCapacity)
+            {
+                IsReloading = true;
+                reloadStartedTick = serverTick;
+            }
             if (!command.FirePressed)
             {
                 return Reject(WeaponFireRejectReason.NotRequested);
@@ -60,6 +87,11 @@ namespace AFPS.NetCode.Weapons
             if (!equipped)
             {
                 return Reject(WeaponFireRejectReason.WeaponUnavailable);
+            }
+
+            if (IsReloading)
+            {
+                return Reject(WeaponFireRejectReason.Reloading);
             }
 
             if (hasAcceptedShot && unchecked(serverTick - lastAcceptedServerTick) < config.FireIntervalTicks)

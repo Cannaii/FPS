@@ -30,6 +30,11 @@ namespace AFPS.Input
         /// <summary>尚未被模拟 Tick 消费的跳跃按下事件。</summary>
         private bool jumpPressedSinceLastTick;
         private bool firePressedSinceLastTick;
+        private bool reloadPressedSinceLastTick;
+        private bool fireHeld;
+        private bool hasAutomaticShot;
+        private uint lastAutomaticShotTick;
+        private uint fireIntervalTicks = 5; // 启动后由准入上下文的武器规则覆盖，单位为输入 Tick。
         private uint nextShotSequence = 1;
         private bool automationEnabled;
         /// <summary>本地玩家当前未量化的水平观察角，供相机立即显示。</summary>
@@ -44,6 +49,7 @@ namespace AFPS.Input
 
         private void OnDisable()
         {
+            ClearAutomationInput();
             if (lockCursor && Cursor.lockState == CursorLockMode.Locked)
             {
                 Cursor.lockState = CursorLockMode.None;
@@ -83,6 +89,10 @@ namespace AFPS.Input
             bool mouseFire = Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
             bool gamepadFire = Gamepad.current != null && Gamepad.current.rightTrigger.wasPressedThisFrame;
             firePressedSinceLastTick |= mouseFire || gamepadFire;
+            fireHeld = (Mouse.current != null && Mouse.current.leftButton.isPressed)
+                || (Gamepad.current != null && Gamepad.current.rightTrigger.isPressed);
+            reloadPressedSinceLastTick |= (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
+                || (Gamepad.current != null && Gamepad.current.buttonWest.wasPressedThisFrame);
         }
 
         /// <summary>
@@ -98,7 +108,8 @@ namespace AFPS.Input
         /// Supplies deterministic input for standalone smoke tests. Normal device polling is
         /// suspended until <see cref = "ClearAutomationInput"/> is called.
         /// </summary>
-        public void SetAutomationInput(float horizontal, float vertical, float yaw, float pitch, bool jumpPressed, bool firePressed = false)
+        public void SetAutomationInput(float horizontal, float vertical, float yaw, float pitch, bool jumpPressed, bool firePressed = false,
+            bool fireHeld = false, bool reloadPressed = false)
         {
             automationEnabled = true;
             // 对角归一化由模拟统一处理；采集只按独立轴进入整数网格。
@@ -108,15 +119,20 @@ namespace AFPS.Input
             LookPitch = Mathf.Clamp(pitch, -maximumPitch, maximumPitch);
             jumpPressedSinceLastTick |= jumpPressed;
             firePressedSinceLastTick |= firePressed;
+            this.fireHeld = fireHeld;
+            reloadPressedSinceLastTick |= reloadPressed;
         }
 
         public void ClearAutomationInput()
         {
             automationEnabled = false;
+            fireHeld = false;
+            hasAutomaticShot = false;
             moveX = 0f;
             moveY = 0f;
             jumpPressedSinceLastTick = false;
             firePressedSinceLastTick = false;
+            reloadPressedSinceLastTick = false;
         }
 
         /// <summary>
@@ -124,7 +140,13 @@ namespace AFPS.Input
         /// </summary>
         public PlayerInputCommand ConsumeCommand(uint tick)
         {
-            bool firePressed = firePressedSinceLastTick;
+            bool firePressed = firePressedSinceLastTick || (fireHeld
+                && (!hasAutomaticShot || unchecked(tick - lastAutomaticShotTick) >= fireIntervalTicks));
+            if (firePressed)
+            {
+                hasAutomaticShot = true;
+                lastAutomaticShotTick = tick;
+            }
             PlayerInputCommand command = new PlayerInputCommand
             {
                 Tick = tick,
@@ -134,11 +156,24 @@ namespace AFPS.Input
                 LookPitch = LookPitch,
                 JumpPressed = jumpPressedSinceLastTick,
                 FirePressed = firePressed,
+                ReloadPressed = reloadPressedSinceLastTick,
                 ShotSequence = firePressed ? AllocateShotSequence() : 0u
             };
             jumpPressedSinceLastTick = false;
             firePressedSinceLastTick = false;
+            reloadPressedSinceLastTick = false;
             return command;
+        }
+
+        /// <summary>使用双方准入校验过的射击 Tick 间隔；服务器仍独立校验，不信任客户端节流。</summary>
+        public void ConfigureFireInterval(uint ticks)
+        {
+            if (ticks == 0)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(ticks));
+            }
+            fireIntervalTicks = ticks;
+            hasAutomaticShot = false;
         }
 
         private uint AllocateShotSequence()

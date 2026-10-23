@@ -78,6 +78,7 @@ if ($IncludeCombat) {
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Match/DeathmatchState.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Messages/DeathmatchStateCodec.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeathmatchRawCodecTests.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/WeaponReloadTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicCombatTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicCombatScenario.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/AuthoritativeShotGenerationTests.cs'

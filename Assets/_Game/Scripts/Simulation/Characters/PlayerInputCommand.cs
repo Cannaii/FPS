@@ -57,6 +57,7 @@ namespace AFPS.Simulation.Characters
 
             result.JumpPressed = false;
             result.FirePressed = false;
+            result.ReloadPressed = false;
             result.ShotSequence = 0;
             result.ShotServerTick = 0;
             return result;
@@ -97,6 +98,8 @@ namespace AFPS.Simulation.Characters
         public bool JumpPressed;
         /// <summary>玩家是否在当前 Tick 请求射击；这是一次性事件，替代输入不得复用。</summary>
         public bool FirePressed;
+        /// <summary>一次性换弹请求；缺失输入不得重复启动换弹。</summary>
+        public bool ReloadPressed;
         /// <summary>客户端为每次射击请求分配的单调递增序号；未射击时为零。</summary>
         public uint ShotSequence;
         /// <summary>客户端估计的开火服务器 Tick；服务器只在受限历史窗口内使用。</summary>

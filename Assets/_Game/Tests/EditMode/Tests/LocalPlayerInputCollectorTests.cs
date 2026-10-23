@@ -7,6 +7,34 @@ namespace AFPS.Tests.EditMode
     public sealed class LocalPlayerInputCollectorTests
     {
         [Test]
+        public void Automation_HeldFireUsesConfiguredTickCadenceAndReloadIsConsumedOnce()
+        {
+            GameObject target = new GameObject("HeldFireTests");
+            try
+            {
+                LocalPlayerInputCollector collector = target.AddComponent<LocalPlayerInputCollector>();
+                collector.ConfigureFireInterval(3);
+                collector.SetAutomationInput(0, 0, 0, 0, false, fireHeld: true, reloadPressed: true);
+                var first = collector.ConsumeCommand(uint.MaxValue - 1);
+                Assert.That(first.FirePressed, Is.True);
+                Assert.That(first.ReloadPressed, Is.True);
+                Assert.That(collector.ConsumeCommand(uint.MaxValue).FirePressed, Is.False);
+                var wrapped = collector.ConsumeCommand(0);
+                Assert.That(wrapped.FirePressed, Is.False);
+                Assert.That(wrapped.ReloadPressed, Is.False);
+                var next = collector.ConsumeCommand(1);
+                Assert.That(next.FirePressed, Is.True);
+                Assert.That(next.ShotSequence, Is.EqualTo(2));
+                collector.ClearAutomationInput();
+                Assert.That(collector.ConsumeCommand(4).FirePressed, Is.False);
+                Assert.Throws<System.ArgumentOutOfRangeException>(() => collector.ConfigureFireInterval(0));
+            }
+            finally
+            {
+                Object.DestroyImmediate(target);
+            }
+        }
+        [Test]
         public void AutomationInput_StoresIndependentGridAxesAndConsumesEdgesOnce()
         {
             GameObject gameObject = new GameObject("LocalPlayerInputCollectorTests");

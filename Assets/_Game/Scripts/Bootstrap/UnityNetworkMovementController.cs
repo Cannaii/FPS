@@ -228,6 +228,7 @@ namespace AFPS.Bootstrap
             tickRunner.TickOccurred += HandleTickOccurred;
             if (hasLocalClient)
             {
+                inputCollector.ConfigureFireInterval(preparedWorld.WeaponConfiguration.FireIntervalTicks);
                 inputCollector.SetLookAngles(clientInitialState.Yaw, clientInitialState.Pitch);
                 if (firstPersonCameraRig == null && UnityEngine.Camera.main != null)
                 {
@@ -343,6 +344,7 @@ namespace AFPS.Bootstrap
                     command.MoveY = 0f;
                     command.JumpPressed = false;
                     command.FirePressed = false;
+                    command.ReloadPressed = false;
                     command.ShotSequence = 0;
                 }
                 if (command.FirePressed)

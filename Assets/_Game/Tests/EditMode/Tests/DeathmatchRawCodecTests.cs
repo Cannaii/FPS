@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using AFPS.Math;
 using AFPS.NetCode.Match;
 using AFPS.NetCode.Messages;
@@ -43,7 +43,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(DeathmatchStateCodec.TrySerialize(state, 1, new ArraySegment<byte>(bytes), out _), Is.True);
             bytes[4] = 5;
             Assert.That(DeathmatchStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
-            bytes[4] = 6;
+            bytes[4] = 7;
             bytes[PacketHeader.Size + 21] = 128;
             Assert.That(DeathmatchStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out var decoded), Is.False);
             Assert.That(decoded, Is.Null);

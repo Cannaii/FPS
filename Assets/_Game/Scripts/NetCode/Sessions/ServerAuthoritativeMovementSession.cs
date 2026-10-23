@@ -183,16 +183,19 @@ namespace AFPS.NetCode.Sessions
                 appliedCommand.MoveY = 0f;
                 appliedCommand.JumpPressed = false;
                 appliedCommand.FirePressed = false;
+                appliedCommand.ReloadPressed = false;
                 appliedCommand.ShotSequence = 0;
             }
             else if (!WeaponEnabled)
             {
                 appliedCommand.FirePressed = false;
+                appliedCommand.ReloadPressed = false;
                 appliedCommand.ShotSequence = 0;
             }
 
             LastAppliedInput = appliedCommand;
             CurrentState = PlayerSimulation.Simulate(CurrentState, appliedCommand, simulationConfig, tickDeltaTime, collisionWorld);
+            weaponFireController?.SetEquipped(GameplayEnabled && WeaponEnabled);
             LastWeaponFireResult = weaponFireController != null ? weaponFireController.Process(serverWorldTick, entityId, appliedCommand, CurrentState) : default;
             authoritativeState = new AuthoritativePlayerState(serverWorldTick, appliedCommand.Tick, CurrentState);
             stateSender.TrySend(authoritativeState, out sendResult);

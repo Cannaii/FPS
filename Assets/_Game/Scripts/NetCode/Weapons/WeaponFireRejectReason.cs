@@ -10,6 +10,7 @@ namespace AFPS.NetCode.Weapons
         FireRateLimited = 5,
         EmptyMagazine = 6,
         InvalidAim = 7,
-        InvalidOrigin = 8
+        InvalidOrigin = 8,
+        Reloading = 9
     }
 }
