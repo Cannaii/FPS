@@ -35,7 +35,11 @@ namespace AFPS.Simulation.Characters
                 cosine = FixTrig.Cos(radians);
             FixVec3 right = new FixVec3(cosine, Fix.Zero, -sine),
                 forward = new FixVec3(sine, Fix.Zero, cosine);
-            FixVec3 target = (right * move.X + forward * move.Z) * config.MaxGroundSpeedFixed;
+            next.StaminaSpentFixed = FixMath.Clamp(previousState.StaminaSpentFixed, Fix.Zero, Fix.One);
+            bool sprintRequested = PlayerSprintSimulation.CanSprint(previousState, input, move);
+            Fix targetSpeed = sprintRequested
+                ? config.MaxGroundSpeedFixed * config.Sprint.SpeedMultiplier : config.MaxGroundSpeedFixed;
+            FixVec3 target = (right * move.X + forward * move.Z) * targetSpeed;
             FixVec3 horizontal = new FixVec3(previousState.VelocityFixed.X, Fix.Zero, previousState.VelocityFixed.Z);
             Fix vertical = previousState.VelocityFixed.Y;
             if (input.JumpPressed && previousState.IsGrounded)
@@ -61,7 +65,8 @@ namespace AFPS.Simulation.Characters
                 out next.PositionFixed,
                 out next.VelocityFixed,
                 out next.IsGrounded);
-            return next;
+            return PlayerSprintSimulation.Complete(next, previousState, input, config.Sprint,
+                tickDeltaTime, sprintRequested);
         }
     }
 }

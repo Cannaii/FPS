@@ -29,6 +29,8 @@ namespace AFPS.NetCode.Sessions
         /// 客户端执行完最新本地输入后持有的预测状态。
         /// </summary>
         public PlayerState CurrentState { get; private set; }
+        /// <summary>最近通过包序号校验的权威完整状态，用于诊断；不含客户端重放产生的后续状态。</summary>
+        public PlayerState LastAuthoritativeState { get; private set; }
 
         public ClientPredictedMovementSession(
             IGameTransport transport,
@@ -112,6 +114,7 @@ namespace AFPS.NetCode.Sessions
                 return false;
             }
 
+            LastAuthoritativeState = authoritativeState.State;
             if (SequenceMath.IsNewer(authoritativeState.LastProcessedInputTick, CurrentState.Tick))
             {
                 // A client can fall behind while the server keeps advancing neutral fallback

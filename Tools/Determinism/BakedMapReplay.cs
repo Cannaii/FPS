@@ -24,17 +24,22 @@ internal static class BakedMapReplay
         {
             throw new Exception("Combat simulation fingerprint changed");
         }
-        if (hash != 7359184500043852174UL)
+        if (hash != 18027426666003737744UL)
         {
             throw new Exception("Regression fingerprint changed");
         }
 
-        if (context.Identity.AlgorithmVersion != 11 || context.Identity.ConfigurationHash != 3605442539420278840UL)
+        if (context.Identity.AlgorithmVersion != 12 || context.Identity.ConfigurationHash != 17196807303268954290UL)
         {
             throw new Exception("World compatibility fingerprint changed");
         }
 
         Console.WriteLine("ExplosionRawHash=" + AFPS.Tests.EditMode.DeterministicExplosionScenario.Run());
+        Console.WriteLine("SprintRawHash=" + AFPS.Tests.EditMode.DeterministicSprintScenario.Run());
+        if (DeterministicSprintScenario.Run() != DeterministicSprintScenario.ExpectedHash)
+        {
+            throw new Exception("Sprint simulation fingerprint changed");
+        }
         return 0;
     }
 }

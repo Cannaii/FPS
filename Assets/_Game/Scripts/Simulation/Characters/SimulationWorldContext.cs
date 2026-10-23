@@ -95,16 +95,20 @@ namespace AFPS.Simulation.Characters
             in SimulationSessionSpatialConfig sessionSpatial,
             in WeaponSimulationConfig weapon)
         {
-            // AFC5 覆盖双武器、切换和发射器爆炸半径；固定顺序小端 int32。
+            // AFC6 在双武器/爆炸规则外覆盖快跑的全部数值配置；固定顺序小端 int32。
             // 新增会改变模拟结果的参数时必须纳入字段，并升级域版本及黄金值。
             ulong hash = 14695981039346656037UL;
-            Add(ref hash, 0x35434641);
+            Add(ref hash, 0x36434641);
             Add(ref hash, tickDeltaTime.Raw);
             Add(ref hash, collisionLayerMask);
             Add(ref hash, configuration.MaxGroundSpeedFixed.Raw);
             Add(ref hash, configuration.GroundAccelerationFixed.Raw);
             Add(ref hash, configuration.GravityFixed.Raw);
             Add(ref hash, configuration.JumpSpeedFixed.Raw);
+            Add(ref hash, configuration.Sprint.SpeedMultiplier.Raw);
+            Add(ref hash, configuration.Sprint.DrainPerSecond.Raw);
+            Add(ref hash, configuration.Sprint.RecoveryPerSecond.Raw);
+            Add(ref hash, configuration.Sprint.RestartStamina.Raw);
 
             CharacterCollisionConfig collision = configuration.Collision;
             Add(ref hash, collision.RadiusFixed.Raw);

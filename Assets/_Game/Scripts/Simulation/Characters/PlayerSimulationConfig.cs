@@ -15,12 +15,14 @@ namespace AFPS.Simulation.Characters
         /// <summary>起跳时的竖直速度，米/秒，沿 Y 正方向。</summary>
         public readonly Fix JumpSpeedFixed;
         public readonly CharacterCollisionConfig Collision;
+        public readonly PlayerSprintConfig Sprint;
         public PlayerSimulationConfig(
             Fix maxGroundSpeed,
             Fix groundAcceleration,
             Fix gravity,
             Fix jumpSpeed,
-            CharacterCollisionConfig? collision = null)
+            CharacterCollisionConfig? collision = null,
+            PlayerSprintConfig? sprint = null)
         {
             if (maxGroundSpeed.Raw < 0 || groundAcceleration.Raw < 0 || gravity.Raw < 0 || jumpSpeed.Raw < 0)
             {
@@ -32,6 +34,14 @@ namespace AFPS.Simulation.Characters
             GravityFixed = gravity;
             JumpSpeedFixed = jumpSpeed;
             Collision = collision ?? CharacterCollisionConfig.Default;
+            Sprint = sprint ?? PlayerSprintConfig.Default;
+            if (Sprint.SpeedMultiplier < Fix.One || Sprint.DrainPerSecond <= Fix.Zero
+                || Sprint.RecoveryPerSecond <= Fix.Zero || Sprint.RestartStamina <= Fix.Zero
+                || Sprint.RestartStamina > Fix.One
+                || (long)maxGroundSpeed.Raw * Sprint.SpeedMultiplier.Raw > (long)int.MaxValue * Fix.Scale)
+            {
+                throw new ArgumentOutOfRangeException(nameof(sprint));
+            }
         }
     }
 }

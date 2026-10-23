@@ -67,6 +67,16 @@ namespace AFPS.Bootstrap
             statusText.text += sessionManager.HasTimeSync
                 ? $"   RTT {sessionManager.Metrics.LastNetworkRoundTripMilliseconds:F1} ms"
                 : "   RTT --";
+            if (sessionManager.ClientSession != null)
+            {
+                var movement = sessionManager.ClientSession.CurrentState;
+                int stamina = Mathf.RoundToInt((1f - movement.StaminaSpentFixed.ToFloat()) * 100f);
+                statusText.text += $"   STAMINA {stamina:000} [SHIFT]";
+                if (movement.SprintExhausted)
+                {
+                    statusText.text += "   EXHAUSTED";
+                }
+            }
 
             if (sessionManager.ClientWeapon.HasState)
             {
@@ -91,7 +101,10 @@ namespace AFPS.Bootstrap
                 DeathmatchPlayerState player = match.GetPlayer(i);
                 scoreBuilder.Append(player.EntityId == localEntityId ? "> " : "  ");
                 scoreBuilder.Append("P").Append(player.EntityId).Append("   ").Append(player.Kills).Append(" / ").Append(player.Deaths);
-                if (!player.IsAlive) scoreBuilder.Append("   DEAD");
+                if (!player.IsAlive)
+                {
+                    scoreBuilder.Append("   DEAD");
+                }
                 scoreBuilder.AppendLine();
             }
             scoreText.text = scoreBuilder.ToString();

@@ -53,6 +53,7 @@ namespace AFPS.Simulation.Characters
             {
                 result.moveXGrid = 0;
                 result.moveYGrid = 0;
+                result.SprintHeld = false;
             }
 
             result.JumpPressed = false;
@@ -97,6 +98,8 @@ namespace AFPS.Simulation.Characters
         /// 该字段表示一次跳跃输入事件，不表示玩家当前是否处于跳跃状态。
         /// </summary>
         public bool JumpPressed;
+        /// <summary>持续快跑意图；短输入替代可跟随移动保留，进入中性替代时清除。</summary>
+        public bool SprintHeld;
         /// <summary>玩家是否在当前 Tick 请求射击；这是一次性事件，替代输入不得复用。</summary>
         public bool FirePressed;
         /// <summary>一次性换弹请求；缺失输入不得重复启动换弹。</summary>

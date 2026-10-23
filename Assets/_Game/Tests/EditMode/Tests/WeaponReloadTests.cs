@@ -79,7 +79,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(InputCommandBatchCodec.TryDeserialize(new ArraySegment<byte>(packet), decoded, 0, out _, out _), Is.True);
             Assert.That(decoded[0].ReloadPressed, Is.True);
             Assert.That(decoded[0].CreateFallback(2, true).ReloadPressed, Is.False);
-            packet[19] = 16; // 第一个命令的按钮位；未定义 bit4 必须拒绝。
+            packet[19] = 32; // 第一个命令的按钮位；未定义 bit5 必须拒绝。
             Assert.That(InputCommandBatchCodec.TryDeserialize(new ArraySegment<byte>(packet), decoded, 0, out _, out _), Is.False);
         }
 

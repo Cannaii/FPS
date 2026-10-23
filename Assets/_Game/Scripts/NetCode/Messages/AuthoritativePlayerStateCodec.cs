@@ -6,11 +6,11 @@ using AFPS.Simulation.Characters;
 
 namespace AFPS.NetCode.Messages
 {
-    /// <summary>权威状态 v3：位置/速度无损 Raw，观察角沿用无损可逆的百分度网格。</summary>
+    /// <summary>权威状态：位置/速度/体力无损Raw，观察角沿用无损可逆的百分度网格。</summary>
     public static class AuthoritativePlayerStateCodec
     {
-        // 字节布局：服务器/输入 Tick 各 4B，位置/速度各 12B，Yaw/Pitch 各 2B，状态位 1B。
-        public const int PayloadSize = 37;
+        // Tick各4B，位置/速度各12B，Yaw/Pitch各2B，落地/冲刺/耗尽位1B，已消耗体力Raw 4B。
+        public const int PayloadSize = 41;
         public const int PacketSize = PacketHeader.Size + PayloadSize;
         // 以下分辨率暂供旧远端 Snapshot 使用，权威状态不再按这些常量量化。
         public const float PositionResolution = 0.001f;
@@ -21,11 +21,16 @@ namespace AFPS.NetCode.Messages
         public const float RecommendedPositionErrorThreshold = 0f;
         public const float RecommendedVelocityErrorThreshold = 0f;
         private const byte GroundedMask = 1;
+        private const byte SprintingMask = 2;
+        private const byte ExhaustedMask = 4;
+        private const byte KnownFlags = GroundedMask | SprintingMask | ExhaustedMask;
         public static bool TrySerialize(in AuthoritativePlayerState authoritative, uint sequence, ArraySegment<byte> destination, out int bytesWritten)
         {
             bytesWritten = 0;
             PlayerState state = authoritative.State;
-            if (destination.Count < PacketSize || state.Tick != authoritative.LastProcessedInputTick)
+            if (destination.Count < PacketSize || state.Tick != authoritative.LastProcessedInputTick
+                || state.StaminaSpentFixed < Fix.Zero || state.StaminaSpentFixed > Fix.One
+                || (state.IsSprinting && state.SprintExhausted))
             {
                 return false;
             }
@@ -50,7 +55,9 @@ namespace AFPS.NetCode.Messages
                 || !WriteVector(ref writer, state.VelocityFixed)
                 || !writer.TryWriteUInt16(yaw)
                 || !writer.TryWriteInt16(pitch)
-                || !writer.TryWriteByte(state.IsGrounded ? GroundedMask : (byte)0))
+                || !writer.TryWriteByte((byte)((state.IsGrounded ? GroundedMask : 0)
+                    | (state.IsSprinting ? SprintingMask : 0) | (state.SprintExhausted ? ExhaustedMask : 0)))
+                || !writer.TryWriteInt32(state.StaminaSpentFixed.Raw))
             {
                 return false;
             }
@@ -77,12 +84,15 @@ namespace AFPS.NetCode.Messages
                 || !ReadVector(ref reader, out FixVec3 velocity)
                 || !reader.TryReadUInt16(out ushort yaw)
                 || !reader.TryReadInt16(out short pitch)
-                || !reader.TryReadByte(out byte flags))
+                || !reader.TryReadByte(out byte flags)
+                || !reader.TryReadInt32(out int staminaSpent))
             {
                 return false;
             }
 
-            if (reader.BytesRemaining != 0 || (flags & ~GroundedMask) != 0 || !InputAngleGrid.IsValid(yaw, pitch))
+            if (reader.BytesRemaining != 0 || (flags & ~KnownFlags) != 0 || !InputAngleGrid.IsValid(yaw, pitch)
+                || staminaSpent < 0 || staminaSpent > Fix.Scale
+                || ((flags & SprintingMask) != 0 && (flags & ExhaustedMask) != 0))
             {
                 return false;
             }
@@ -94,7 +104,10 @@ namespace AFPS.NetCode.Messages
                 VelocityFixed = velocity,
                 YawFixedDegrees = InputAngleGrid.YawToFix(yaw),
                 PitchFixedDegrees = InputAngleGrid.PitchToFix(pitch),
-                IsGrounded = (flags & GroundedMask) != 0
+                IsGrounded = (flags & GroundedMask) != 0,
+                StaminaSpentFixed = Fix.FromRaw(staminaSpent),
+                IsSprinting = (flags & SprintingMask) != 0,
+                SprintExhausted = (flags & ExhaustedMask) != 0
             };
             authoritative = new AuthoritativePlayerState(serverTick, inputTick, state);
             return true;

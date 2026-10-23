@@ -7,6 +7,25 @@ namespace AFPS.Tests.EditMode
     public sealed class LocalPlayerInputCollectorTests
     {
         [Test]
+        public void Automation_SprintIsHeldAcrossTicksAndClearedWithInput()
+        {
+            var target = new GameObject("Sprint input test");
+            try
+            {
+                var collector = target.AddComponent<LocalPlayerInputCollector>();
+                collector.SetAutomationInput(0f, 1f, 0f, 0f, false, sprintHeld: true);
+                Assert.That(collector.ConsumeCommand(uint.MaxValue).SprintHeld, Is.True);
+                Assert.That(collector.ConsumeCommand(0).SprintHeld, Is.True);
+                collector.ClearAutomationInput();
+                Assert.That(collector.ConsumeCommand(1).SprintHeld, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
         public void Automation_HeldFireUsesConfiguredTickCadenceAndReloadIsConsumedOnce()
         {
             GameObject target = new GameObject("HeldFireTests");

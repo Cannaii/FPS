@@ -77,20 +77,25 @@ namespace AFPS.NetCode.Sessions
             Teleport(new FixVec3(Fix.FromFloat(position.x), Fix.FromFloat(position.y), Fix.FromFloat(position.z)));
         }
 
-        /// <summary>权威传送入口；只替换空间状态，保留输入 Tick 和朝向以继续原输入序列。</summary>
+        /// <summary>权威传送停止当前快跑，保留疲劳、输入Tick和朝向；不能借传送刷新体力。</summary>
         public void Teleport(FixVec3 position)
         {
             PlayerState state = CurrentState;
             state.PositionFixed = position;
             state.VelocityFixed = FixVec3.Zero;
             state.IsGrounded = true;
+            state.IsSprinting = false;
             CurrentState = state;
         }
 
-        /// <summary>权威重生入口，位置单位为米；输入 Tick 与射击序号继续沿用当前连接。</summary>
+        /// <summary>权威重生恢复满体力，位置单位为米；输入Tick与射击序号沿用当前连接。</summary>
         public void Respawn(FixVec3 position)
         {
             Teleport(position);
+            PlayerState restored = CurrentState;
+            restored.StaminaSpentFixed = Fix.Zero;
+            restored.SprintExhausted = false;
+            CurrentState = restored;
             ResetLoadoutForRespawn();
             // 即使弹量恰好未改变，也必须向拥有者立即确认新生命的武器状态。
             hasSentWeaponState = false;
@@ -202,6 +207,7 @@ namespace AFPS.NetCode.Sessions
                 appliedCommand.MoveX = 0f;
                 appliedCommand.MoveY = 0f;
                 appliedCommand.JumpPressed = false;
+                appliedCommand.SprintHeld = false;
                 appliedCommand.FirePressed = false;
                 appliedCommand.ReloadPressed = false;
                 appliedCommand.SwitchWeaponPressed = false;

@@ -16,6 +16,9 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, state.YawFixedDegrees.Raw);
             Add(ref hash, state.PitchFixedDegrees.Raw);
             Add(ref hash, state.IsGrounded ? 1 : 0);
+            Add(ref hash, state.StaminaSpentFixed.Raw);
+            Add(ref hash, state.IsSprinting ? 1 : 0);
+            Add(ref hash, state.SprintExhausted ? 1 : 0);
             return hash;
         }
 

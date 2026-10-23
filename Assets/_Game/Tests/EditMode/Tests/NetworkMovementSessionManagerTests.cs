@@ -21,6 +21,38 @@ namespace AFPS.Tests.EditMode
     public sealed class NetworkMovementSessionManagerTests
     {
         [Test]
+        public void Respawn_RestoresStaminaWhileTeleportPreservesFatigue()
+        {
+            var initial = new PlayerState
+            {
+                Tick = 123, IsGrounded = true, StaminaSpentFixed = Fix.Half, SprintExhausted = true
+            };
+            var session = new ServerAuthoritativeMovementSession(new FakeTransport(TransportRole.Server),
+                new TransportConnectionId(1), initial, new PlayerSimulationConfig(6f, 20f, 20f, 8f),
+                0.02f, 16, fixedCollisionWorld:
+                    AFPS.Simulation.Characters.Collision.FixedFlatGroundCollisionWorld.Instance);
+            session.Teleport(FixVec3.Forward);
+            Assert.That(session.CurrentState.StaminaSpentFixed, Is.EqualTo(Fix.Half));
+            Assert.That(session.CurrentState.SprintExhausted, Is.True);
+            session.Respawn(FixVec3.Zero);
+            Assert.That(session.CurrentState.Tick, Is.EqualTo(123));
+            Assert.That(session.CurrentState.StaminaSpentFixed, Is.EqualTo(Fix.Zero));
+            Assert.That(session.CurrentState.SprintExhausted, Is.False);
+            Assert.That(session.CurrentState.IsSprinting, Is.False);
+            session.GameplayEnabled = false;
+            var command = new PlayerInputCommand { Tick = 124, SprintHeld = true, MoveY = 1f };
+            var bytes = new byte[InputCommandBatchCodec.GetPacketSize(1)];
+            Assert.That(InputCommandBatchCodec.TrySerialize(new InputCommandBatch(
+                new ArraySegment<PlayerInputCommand>(new[] { command })), 1,
+                new ArraySegment<byte>(bytes), out _), Is.True);
+            Assert.That(session.TryReceiveInputPacket(new ArraySegment<byte>(bytes), out _), Is.True);
+            Assert.That(session.TryAdvance(500, out var state, out _), Is.True);
+            Assert.That(state.State.IsSprinting, Is.False);
+            Assert.That(state.State.StaminaSpentFixed, Is.EqualTo(Fix.Zero));
+            Assert.That(state.State.VelocityFixed, Is.EqualTo(FixVec3.Zero));
+        }
+
+        [Test]
         public void SpawnAndTeleport_PreserveRawCoordinatesTickAndLook()
         {
             var initial = new PlayerState

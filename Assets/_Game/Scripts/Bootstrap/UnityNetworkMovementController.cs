@@ -307,7 +307,12 @@ namespace AFPS.Bootstrap
 
             Debug.Log($"AFPS 定点世界已装配：{preparedWorld.Identity.WorldHash}，配置={preparedWorld.Identity.ConfigurationHash}。", this);
             initialized = true;
-            if (hasLocalClient && CombatSmokeTestDriver.IsRequested)
+            if (hasLocalClient && SprintSmokeTestDriver.IsRequested)
+            {
+                var sprint = gameObject.AddComponent<SprintSmokeTestDriver>();
+                sprint.Configure(this, inputCollector);
+            }
+            else if (hasLocalClient && CombatSmokeTestDriver.IsRequested)
             {
                 var combat = gameObject.AddComponent<CombatSmokeTestDriver>();
                 combat.Configure(this, inputCollector);
@@ -430,6 +435,7 @@ namespace AFPS.Bootstrap
                     command.MoveX = 0f;
                     command.MoveY = 0f;
                     command.JumpPressed = false;
+                    command.SprintHeld = false;
                     command.FirePressed = false;
                     command.ReloadPressed = false;
                     command.SwitchWeaponPressed = false;

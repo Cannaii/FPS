@@ -33,6 +33,7 @@ namespace AFPS.Input
         private bool reloadPressedSinceLastTick;
         private bool switchWeaponSinceLastTick;
         private bool fireHeld;
+        private bool sprintHeld;
         private bool hasAutomaticShot;
         private uint lastAutomaticShotTick;
         private uint fireIntervalTicks = 5; // 启动后由准入上下文的武器规则覆盖，单位为输入 Tick。
@@ -92,6 +93,8 @@ namespace AFPS.Input
             firePressedSinceLastTick |= mouseFire || gamepadFire;
             fireHeld = (Mouse.current != null && Mouse.current.leftButton.isPressed)
                 || (Gamepad.current != null && Gamepad.current.rightTrigger.isPressed);
+            sprintHeld = (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed)
+                || (Gamepad.current != null && Gamepad.current.leftStickButton.isPressed);
             reloadPressedSinceLastTick |= (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
                 || (Gamepad.current != null && Gamepad.current.buttonWest.wasPressedThisFrame);
             switchWeaponSinceLastTick |= (Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame)
@@ -112,7 +115,8 @@ namespace AFPS.Input
         /// suspended until <see cref = "ClearAutomationInput"/> is called.
         /// </summary>
         public void SetAutomationInput(float horizontal, float vertical, float yaw, float pitch, bool jumpPressed, bool firePressed = false,
-            bool fireHeld = false, bool reloadPressed = false, bool switchWeaponPressed = false)
+            bool fireHeld = false, bool reloadPressed = false, bool switchWeaponPressed = false,
+            bool sprintHeld = false)
         {
             automationEnabled = true;
             // 对角归一化由模拟统一处理；采集只按独立轴进入整数网格。
@@ -123,6 +127,7 @@ namespace AFPS.Input
             jumpPressedSinceLastTick |= jumpPressed;
             firePressedSinceLastTick |= firePressed;
             this.fireHeld = fireHeld;
+            this.sprintHeld = sprintHeld;
             reloadPressedSinceLastTick |= reloadPressed;
             switchWeaponSinceLastTick |= switchWeaponPressed;
         }
@@ -131,6 +136,7 @@ namespace AFPS.Input
         {
             automationEnabled = false;
             fireHeld = false;
+            sprintHeld = false;
             hasAutomaticShot = false;
             moveX = 0f;
             moveY = 0f;
@@ -160,6 +166,7 @@ namespace AFPS.Input
                 LookYaw = LookYaw,
                 LookPitch = LookPitch,
                 JumpPressed = jumpPressedSinceLastTick,
+                SprintHeld = sprintHeld,
                 FirePressed = firePressed,
                 ReloadPressed = reloadPressedSinceLastTick,
                 SwitchWeaponPressed = switchWeaponSinceLastTick,
