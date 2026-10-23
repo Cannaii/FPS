@@ -77,7 +77,7 @@ namespace AFPS.NetCode.Sessions
             Teleport(new FixVec3(Fix.FromFloat(position.x), Fix.FromFloat(position.y), Fix.FromFloat(position.z)));
         }
 
-        /// <summary>权威传送停止当前快跑，保留疲劳、输入Tick和朝向；不能借传送刷新体力。</summary>
+        /// <summary>权威传送停止快跑/Dash，保留疲劳、充能、输入Tick和朝向；不能借传送刷新资源。</summary>
         public void Teleport(FixVec3 position)
         {
             PlayerState state = CurrentState;
@@ -85,6 +85,7 @@ namespace AFPS.NetCode.Sessions
             state.VelocityFixed = FixVec3.Zero;
             state.IsGrounded = true;
             state.IsSprinting = false;
+            PlayerDashSimulation.Cancel(ref state);
             CurrentState = state;
         }
 
@@ -95,6 +96,8 @@ namespace AFPS.NetCode.Sessions
             PlayerState restored = CurrentState;
             restored.StaminaSpentFixed = Fix.Zero;
             restored.SprintExhausted = false;
+            restored.DashSpentCharges = 0;
+            restored.DashRechargeRemainingFixed = Fix.Zero;
             CurrentState = restored;
             ResetLoadoutForRespawn();
             // 即使弹量恰好未改变，也必须向拥有者立即确认新生命的武器状态。
@@ -208,6 +211,10 @@ namespace AFPS.NetCode.Sessions
                 appliedCommand.MoveY = 0f;
                 appliedCommand.JumpPressed = false;
                 appliedCommand.SprintHeld = false;
+                appliedCommand.DashPressed = false;
+                PlayerState stoppedState = CurrentState;
+                PlayerDashSimulation.Cancel(ref stoppedState);
+                CurrentState = stoppedState;
                 appliedCommand.FirePressed = false;
                 appliedCommand.ReloadPressed = false;
                 appliedCommand.SwitchWeaponPressed = false;

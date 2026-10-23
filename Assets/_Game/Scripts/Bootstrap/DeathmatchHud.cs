@@ -72,6 +72,9 @@ namespace AFPS.Bootstrap
                 var movement = sessionManager.ClientSession.CurrentState;
                 int stamina = Mathf.RoundToInt((1f - movement.StaminaSpentFixed.ToFloat()) * 100f);
                 statusText.text += $"   STAMINA {stamina:000} [SHIFT]";
+                int maximumDashCharges = sessionManager.WorldContext?.Configuration.Dash.MaxCharges
+                    ?? AFPS.Simulation.Characters.PlayerDashConfig.Default.MaxCharges;
+                statusText.text += $"   DASH {maximumDashCharges - movement.DashSpentCharges} [ALT]";
                 if (movement.SprintExhausted)
                 {
                     statusText.text += "   EXHAUSTED";

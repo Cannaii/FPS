@@ -95,10 +95,10 @@ namespace AFPS.Simulation.Characters
             in SimulationSessionSpatialConfig sessionSpatial,
             in WeaponSimulationConfig weapon)
         {
-            // AFC6 在双武器/爆炸规则外覆盖快跑的全部数值配置；固定顺序小端 int32。
+            // AFC7 覆盖Dash的速度、时长、充能与体力消耗；固定顺序小端 int32。
             // 新增会改变模拟结果的参数时必须纳入字段，并升级域版本及黄金值。
             ulong hash = 14695981039346656037UL;
-            Add(ref hash, 0x36434641);
+            Add(ref hash, 0x37434641);
             Add(ref hash, tickDeltaTime.Raw);
             Add(ref hash, collisionLayerMask);
             Add(ref hash, configuration.MaxGroundSpeedFixed.Raw);
@@ -109,6 +109,11 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, configuration.Sprint.DrainPerSecond.Raw);
             Add(ref hash, configuration.Sprint.RecoveryPerSecond.Raw);
             Add(ref hash, configuration.Sprint.RestartStamina.Raw);
+            Add(ref hash, configuration.Dash.Speed.Raw);
+            Add(ref hash, configuration.Dash.Duration.Raw);
+            Add(ref hash, configuration.Dash.RechargeDuration.Raw);
+            Add(ref hash, configuration.Dash.MaxCharges);
+            Add(ref hash, configuration.Dash.StaminaCost.Raw);
 
             CharacterCollisionConfig collision = configuration.Collision;
             Add(ref hash, collision.RadiusFixed.Raw);

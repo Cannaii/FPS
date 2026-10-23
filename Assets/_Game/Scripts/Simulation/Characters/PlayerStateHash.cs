@@ -19,6 +19,12 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, state.StaminaSpentFixed.Raw);
             Add(ref hash, state.IsSprinting ? 1 : 0);
             Add(ref hash, state.SprintExhausted ? 1 : 0);
+            Add(ref hash, state.DashRemainingFixed.Raw);
+            Add(ref hash, state.DashVelocityFixed.X.Raw);
+            Add(ref hash, state.DashVelocityFixed.Y.Raw);
+            Add(ref hash, state.DashVelocityFixed.Z.Raw);
+            Add(ref hash, state.DashSpentCharges);
+            Add(ref hash, state.DashRechargeRemainingFixed.Raw);
             return hash;
         }
 

@@ -16,13 +16,15 @@ namespace AFPS.Simulation.Characters
         public readonly Fix JumpSpeedFixed;
         public readonly CharacterCollisionConfig Collision;
         public readonly PlayerSprintConfig Sprint;
+        public readonly PlayerDashConfig Dash;
         public PlayerSimulationConfig(
             Fix maxGroundSpeed,
             Fix groundAcceleration,
             Fix gravity,
             Fix jumpSpeed,
             CharacterCollisionConfig? collision = null,
-            PlayerSprintConfig? sprint = null)
+            PlayerSprintConfig? sprint = null,
+            PlayerDashConfig? dash = null)
         {
             if (maxGroundSpeed.Raw < 0 || groundAcceleration.Raw < 0 || gravity.Raw < 0 || jumpSpeed.Raw < 0)
             {
@@ -35,6 +37,10 @@ namespace AFPS.Simulation.Characters
             JumpSpeedFixed = jumpSpeed;
             Collision = collision ?? CharacterCollisionConfig.Default;
             Sprint = sprint ?? PlayerSprintConfig.Default;
+            PlayerDashConfig dashValue = dash ?? PlayerDashConfig.Default;
+            // 重建校验也拒绝default(PlayerDashConfig)，不能让零配置绕过构造约束。
+            Dash = new PlayerDashConfig(dashValue.Speed, dashValue.Duration,
+                dashValue.RechargeDuration, dashValue.MaxCharges, dashValue.StaminaCost);
             if (Sprint.SpeedMultiplier < Fix.One || Sprint.DrainPerSecond <= Fix.Zero
                 || Sprint.RecoveryPerSecond <= Fix.Zero || Sprint.RestartStamina <= Fix.Zero
                 || Sprint.RestartStamina > Fix.One

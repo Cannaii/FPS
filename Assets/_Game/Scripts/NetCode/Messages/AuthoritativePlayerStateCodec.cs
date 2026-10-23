@@ -9,8 +9,8 @@ namespace AFPS.NetCode.Messages
     /// <summary>权威状态：位置/速度/体力无损Raw，观察角沿用无损可逆的百分度网格。</summary>
     public static class AuthoritativePlayerStateCodec
     {
-        // Tick各4B，位置/速度各12B，Yaw/Pitch各2B，落地/冲刺/耗尽位1B，已消耗体力Raw 4B。
-        public const int PayloadSize = 41;
+        // 原41B后追加Dash剩余秒4B、水平速度XZ各4B、已用充能1B、充能恢复秒4B。
+        public const int PayloadSize = 58;
         public const int PacketSize = PacketHeader.Size + PayloadSize;
         // 以下分辨率暂供旧远端 Snapshot 使用，权威状态不再按这些常量量化。
         public const float PositionResolution = 0.001f;
@@ -30,7 +30,7 @@ namespace AFPS.NetCode.Messages
             PlayerState state = authoritative.State;
             if (destination.Count < PacketSize || state.Tick != authoritative.LastProcessedInputTick
                 || state.StaminaSpentFixed < Fix.Zero || state.StaminaSpentFixed > Fix.One
-                || (state.IsSprinting && state.SprintExhausted))
+                || (state.IsSprinting && state.SprintExhausted) || !IsValidDash(state))
             {
                 return false;
             }
@@ -57,7 +57,12 @@ namespace AFPS.NetCode.Messages
                 || !writer.TryWriteInt16(pitch)
                 || !writer.TryWriteByte((byte)((state.IsGrounded ? GroundedMask : 0)
                     | (state.IsSprinting ? SprintingMask : 0) | (state.SprintExhausted ? ExhaustedMask : 0)))
-                || !writer.TryWriteInt32(state.StaminaSpentFixed.Raw))
+                || !writer.TryWriteInt32(state.StaminaSpentFixed.Raw)
+                || !writer.TryWriteInt32(state.DashRemainingFixed.Raw)
+                || !writer.TryWriteInt32(state.DashVelocityFixed.X.Raw)
+                || !writer.TryWriteInt32(state.DashVelocityFixed.Z.Raw)
+                || !writer.TryWriteByte((byte)state.DashSpentCharges)
+                || !writer.TryWriteInt32(state.DashRechargeRemainingFixed.Raw))
             {
                 return false;
             }
@@ -85,7 +90,12 @@ namespace AFPS.NetCode.Messages
                 || !reader.TryReadUInt16(out ushort yaw)
                 || !reader.TryReadInt16(out short pitch)
                 || !reader.TryReadByte(out byte flags)
-                || !reader.TryReadInt32(out int staminaSpent))
+                || !reader.TryReadInt32(out int staminaSpent)
+                || !reader.TryReadInt32(out int dashRemaining)
+                || !reader.TryReadInt32(out int dashX)
+                || !reader.TryReadInt32(out int dashZ)
+                || !reader.TryReadByte(out byte dashSpentCharges)
+                || !reader.TryReadInt32(out int dashRechargeRemaining))
             {
                 return false;
             }
@@ -107,10 +117,33 @@ namespace AFPS.NetCode.Messages
                 IsGrounded = (flags & GroundedMask) != 0,
                 StaminaSpentFixed = Fix.FromRaw(staminaSpent),
                 IsSprinting = (flags & SprintingMask) != 0,
-                SprintExhausted = (flags & ExhaustedMask) != 0
+                SprintExhausted = (flags & ExhaustedMask) != 0,
+                DashRemainingFixed = Fix.FromRaw(dashRemaining),
+                DashVelocityFixed = new FixVec3(Fix.FromRaw(dashX), Fix.Zero, Fix.FromRaw(dashZ)),
+                DashSpentCharges = dashSpentCharges,
+                DashRechargeRemainingFixed = Fix.FromRaw(dashRechargeRemaining)
             };
+            if (!IsValidDash(state))
+            {
+                return false;
+            }
             authoritative = new AuthoritativePlayerState(serverTick, inputTick, state);
             return true;
+        }
+
+        private static bool IsValidDash(in PlayerState state)
+        {
+            // 网络只校验所有合法配置共有的范围；具体充能上限由准入指纹保证一致。
+            bool active = state.DashRemainingFixed > Fix.Zero;
+            return state.DashRemainingFixed >= Fix.Zero && state.DashRemainingFixed <= Fix.FromInt(2)
+                && state.DashRechargeRemainingFixed >= Fix.Zero && state.DashRechargeRemainingFixed <= Fix.FromInt(60)
+                && state.DashSpentCharges >= 0 && state.DashSpentCharges <= 8
+                && ((state.DashSpentCharges == 0) == (state.DashRechargeRemainingFixed == Fix.Zero))
+                && state.DashVelocityFixed.Y == Fix.Zero
+                && state.DashVelocityFixed.X >= Fix.FromInt(-100) && state.DashVelocityFixed.X <= Fix.FromInt(100)
+                && state.DashVelocityFixed.Z >= Fix.FromInt(-100) && state.DashVelocityFixed.Z <= Fix.FromInt(100)
+                && (active == (state.DashVelocityFixed != FixVec3.Zero))
+                && (!active || (state.DashSpentCharges > 0 && !state.IsSprinting));
         }
 
         private static bool WriteVector(ref PacketBufferWriter writer, in FixVec3 value) => writer.TryWriteInt32(value.X.Raw) && writer.TryWriteInt32(value.Y.Raw) && writer.TryWriteInt32(value.Z.Raw);

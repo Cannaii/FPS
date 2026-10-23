@@ -7,6 +7,27 @@ namespace AFPS.Tests.EditMode
     public sealed class LocalPlayerInputCollectorTests
     {
         [Test]
+        public void Automation_DashEdgeIsBufferedUntilConsumedAndClearedOnReset()
+        {
+            var target = new GameObject("Dash input test");
+            try
+            {
+                var collector = target.AddComponent<LocalPlayerInputCollector>();
+                collector.SetAutomationInput(0f, 1f, 0f, 0f, false, dashPressed: true);
+                collector.SetAutomationInput(0f, 1f, 90f, 0f, false);
+                Assert.That(collector.ConsumeCommand(uint.MaxValue).DashPressed, Is.True);
+                Assert.That(collector.ConsumeCommand(0).DashPressed, Is.False);
+                collector.SetAutomationInput(0f, 1f, 0f, 0f, false, dashPressed: true);
+                collector.ClearAutomationInput();
+                Assert.That(collector.ConsumeCommand(1).DashPressed, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
         public void Automation_SprintIsHeldAcrossTicksAndClearedWithInput()
         {
             var target = new GameObject("Sprint input test");

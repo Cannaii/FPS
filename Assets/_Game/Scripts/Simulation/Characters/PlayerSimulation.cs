@@ -36,25 +36,33 @@ namespace AFPS.Simulation.Characters
             FixVec3 right = new FixVec3(cosine, Fix.Zero, -sine),
                 forward = new FixVec3(sine, Fix.Zero, cosine);
             next.StaminaSpentFixed = FixMath.Clamp(previousState.StaminaSpentFixed, Fix.Zero, Fix.One);
-            bool sprintRequested = PlayerSprintSimulation.CanSprint(previousState, input, move);
+            bool dashing = PlayerDashSimulation.Begin(ref next, input, config.Dash,
+                right * move.X + forward * move.Z, forward, tickDeltaTime);
+            bool sprintRequested = !dashing && PlayerSprintSimulation.CanSprint(previousState, input, move);
             Fix targetSpeed = sprintRequested
                 ? config.MaxGroundSpeedFixed * config.Sprint.SpeedMultiplier : config.MaxGroundSpeedFixed;
             FixVec3 target = (right * move.X + forward * move.Z) * targetSpeed;
             FixVec3 horizontal = new FixVec3(previousState.VelocityFixed.X, Fix.Zero, previousState.VelocityFixed.Z);
             Fix vertical = previousState.VelocityFixed.Y;
-            if (input.JumpPressed && previousState.IsGrounded)
+            if (!dashing && input.JumpPressed && previousState.IsGrounded)
             {
                 vertical = config.JumpSpeedFixed;
                 next.IsGrounded = false;
             }
 
             // 起跳当 Tick 也施加重力；此顺序属于预测与服务器共同遵守的积分规则。
-            if (!next.IsGrounded)
+            if (!dashing && !next.IsGrounded)
             {
                 vertical -= config.GravityFixed * tickDeltaTime;
             }
 
             horizontal = FixVec3.MoveTowards(horizontal, target, config.GroundAccelerationFixed * tickDeltaTime);
+            if (dashing)
+            {
+                // Dash优先于跳跃和快跑，期间冻结竖直速度；后续Yaw/方向输入不重定向。
+                horizontal = next.DashVelocityFixed;
+                vertical = Fix.Zero;
+            }
             next.VelocityFixed = new FixVec3(horizontal.X, vertical, horizontal.Z);
             KinematicCharacterMotor.Move(
                 previousState.PositionFixed,
@@ -65,8 +73,10 @@ namespace AFPS.Simulation.Characters
                 out next.PositionFixed,
                 out next.VelocityFixed,
                 out next.IsGrounded);
-            return PlayerSprintSimulation.Complete(next, previousState, input, config.Sprint,
-                tickDeltaTime, sprintRequested);
+            next = PlayerSprintSimulation.Complete(next, previousState, input, config.Sprint,
+                tickDeltaTime, sprintRequested, dashing);
+            PlayerDashSimulation.Complete(ref next, tickDeltaTime);
+            return next;
         }
     }
 }

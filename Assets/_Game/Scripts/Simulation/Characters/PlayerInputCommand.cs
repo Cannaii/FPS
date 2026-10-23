@@ -57,6 +57,7 @@ namespace AFPS.Simulation.Characters
             }
 
             result.JumpPressed = false;
+            result.DashPressed = false;
             result.FirePressed = false;
             result.ReloadPressed = false;
             result.SwitchWeaponPressed = false;
@@ -100,6 +101,8 @@ namespace AFPS.Simulation.Characters
         public bool JumpPressed;
         /// <summary>持续快跑意图；短输入替代可跟随移动保留，进入中性替代时清除。</summary>
         public bool SprintHeld;
+        /// <summary>瞬时冲刺按下边沿；所有替代输入必须清除，不能因丢包再次扣充能。</summary>
+        public bool DashPressed;
         /// <summary>玩家是否在当前 Tick 请求射击；这是一次性事件，替代输入不得复用。</summary>
         public bool FirePressed;
         /// <summary>一次性换弹请求；缺失输入不得重复启动换弹。</summary>

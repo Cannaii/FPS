@@ -24,18 +24,23 @@ internal static class BakedMapReplay
         {
             throw new Exception("Combat simulation fingerprint changed");
         }
-        if (hash != 18027426666003737744UL)
+        if (hash != 15394100892528730911UL)
         {
             throw new Exception("Regression fingerprint changed");
         }
 
-        if (context.Identity.AlgorithmVersion != 12 || context.Identity.ConfigurationHash != 17196807303268954290UL)
+        if (context.Identity.AlgorithmVersion != 13 || context.Identity.ConfigurationHash != 2399935639262568197UL)
         {
             throw new Exception("World compatibility fingerprint changed");
         }
 
         Console.WriteLine("ExplosionRawHash=" + AFPS.Tests.EditMode.DeterministicExplosionScenario.Run());
         Console.WriteLine("SprintRawHash=" + AFPS.Tests.EditMode.DeterministicSprintScenario.Run());
+        Console.WriteLine("DashRawHash=" + DeterministicDashScenario.Run());
+        if (DeterministicDashScenario.Run() != DeterministicDashScenario.ExpectedHash)
+        {
+            throw new Exception("Dash simulation fingerprint changed");
+        }
         if (DeterministicSprintScenario.Run() != DeterministicSprintScenario.ExpectedHash)
         {
             throw new Exception("Sprint simulation fingerprint changed");

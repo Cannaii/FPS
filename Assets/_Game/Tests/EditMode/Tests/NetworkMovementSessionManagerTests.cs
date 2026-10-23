@@ -25,7 +25,9 @@ namespace AFPS.Tests.EditMode
         {
             var initial = new PlayerState
             {
-                Tick = 123, IsGrounded = true, StaminaSpentFixed = Fix.Half, SprintExhausted = true
+                Tick = 123, IsGrounded = true, StaminaSpentFixed = Fix.Half, SprintExhausted = true,
+                DashRemainingFixed = Fix.FromRatio(1, 10), DashVelocityFixed = FixVec3.Forward * Fix.FromInt(16),
+                DashSpentCharges = 1, DashRechargeRemainingFixed = Fix.One
             };
             var session = new ServerAuthoritativeMovementSession(new FakeTransport(TransportRole.Server),
                 new TransportConnectionId(1), initial, new PlayerSimulationConfig(6f, 20f, 20f, 8f),
@@ -34,13 +36,19 @@ namespace AFPS.Tests.EditMode
             session.Teleport(FixVec3.Forward);
             Assert.That(session.CurrentState.StaminaSpentFixed, Is.EqualTo(Fix.Half));
             Assert.That(session.CurrentState.SprintExhausted, Is.True);
+            Assert.That(session.CurrentState.DashRemainingFixed, Is.EqualTo(Fix.Zero));
+            Assert.That(session.CurrentState.DashVelocityFixed, Is.EqualTo(FixVec3.Zero));
+            Assert.That(session.CurrentState.DashSpentCharges, Is.EqualTo(1));
+            Assert.That(session.CurrentState.DashRechargeRemainingFixed, Is.EqualTo(Fix.One));
             session.Respawn(FixVec3.Zero);
             Assert.That(session.CurrentState.Tick, Is.EqualTo(123));
             Assert.That(session.CurrentState.StaminaSpentFixed, Is.EqualTo(Fix.Zero));
             Assert.That(session.CurrentState.SprintExhausted, Is.False);
             Assert.That(session.CurrentState.IsSprinting, Is.False);
+            Assert.That(session.CurrentState.DashSpentCharges, Is.EqualTo(0));
+            Assert.That(session.CurrentState.DashRechargeRemainingFixed, Is.EqualTo(Fix.Zero));
             session.GameplayEnabled = false;
-            var command = new PlayerInputCommand { Tick = 124, SprintHeld = true, MoveY = 1f };
+            var command = new PlayerInputCommand { Tick = 124, SprintHeld = true, MoveY = 1f, DashPressed = true };
             var bytes = new byte[InputCommandBatchCodec.GetPacketSize(1)];
             Assert.That(InputCommandBatchCodec.TrySerialize(new InputCommandBatch(
                 new ArraySegment<PlayerInputCommand>(new[] { command })), 1,
@@ -48,6 +56,8 @@ namespace AFPS.Tests.EditMode
             Assert.That(session.TryReceiveInputPacket(new ArraySegment<byte>(bytes), out _), Is.True);
             Assert.That(session.TryAdvance(500, out var state, out _), Is.True);
             Assert.That(state.State.IsSprinting, Is.False);
+            Assert.That(session.LastAppliedInput.DashPressed, Is.False);
+            Assert.That(state.State.DashSpentCharges, Is.EqualTo(0));
             Assert.That(state.State.StaminaSpentFixed, Is.EqualTo(Fix.Zero));
             Assert.That(state.State.VelocityFixed, Is.EqualTo(FixVec3.Zero));
         }

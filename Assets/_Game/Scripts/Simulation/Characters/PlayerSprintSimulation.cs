@@ -10,7 +10,8 @@ namespace AFPS.Simulation.Characters
             && !previous.SprintExhausted && previous.StaminaSpentFixed < Fix.One;
 
         public static PlayerState Complete(PlayerState next, in PlayerState previous,
-            in PlayerInputCommand input, in PlayerSprintConfig config, Fix tickDeltaTime, bool requested)
+            in PlayerInputCommand input, in PlayerSprintConfig config, Fix tickDeltaTime, bool requested,
+            bool suppressRecovery = false)
         {
             // 只有实际落地移动才扣体力；乘法沿用Fix半格远离零舍入，体力最终夹到[0,1]。
             next.IsSprinting = requested && next.IsGrounded
@@ -27,8 +28,12 @@ namespace AFPS.Simulation.Characters
             }
             else
             {
-                next.StaminaSpentFixed = FixMath.Max(Fix.Zero,
-                    next.StaminaSpentFixed - ChangePerTick(config.RecoveryPerSecond, tickDeltaTime));
+                // 冲刺期间不恢复体力；否则同一Tick扣费后立刻回血会绕过精确体力门槛。
+                if (!suppressRecovery)
+                {
+                    next.StaminaSpentFixed = FixMath.Max(Fix.Zero,
+                        next.StaminaSpentFixed - ChangePerTick(config.RecoveryPerSecond, tickDeltaTime));
+                }
                 if (!input.SprintHeld && Fix.One - next.StaminaSpentFixed >= config.RestartStamina)
                 {
                     next.SprintExhausted = false;
