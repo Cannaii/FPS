@@ -9,11 +9,13 @@ using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Runtime;
 using AFPS.NetCode.Sessions;
 using AFPS.NetCode.Transport;
+using AFPS.NetCode.Weapons;
 using AFPS.Presentation.Characters;
 using AFPS.Presentation.Camera;
 using AFPS.Presentation.Weapons;
 using AFPS.Simulation.Characters;
 using AFPS.Simulation.Characters.Collision;
+using AFPS.Simulation.Weapons;
 using UnityEngine;
 
 namespace AFPS.Bootstrap
@@ -349,9 +351,12 @@ namespace AFPS.Bootstrap
                 return;
             }
             // 每帧排空队列，而非只读取 LastReceivedShotResult，避免同时命中/连发覆盖反馈。
+            double estimatedTick = sessionManager.TryGetSynchronizedServerTick(out double synchronizedTick)
+                ? synchronizedTick
+                : double.NaN;
             while (sessionManager.TryDequeueShotPresentation(out var result))
             {
-                shotResultView.Consume(result, localEntityId);
+                shotResultView.Consume(result, localEntityId, estimatedTick, preparedWorld.TickDeltaTime.ToFloat());
             }
         }
 
@@ -396,11 +401,36 @@ namespace AFPS.Bootstrap
                 if (sessionManager.TryPredictAndSend(command, out PlayerState predictedState, out _))
                 {
                     playerView.ApplyState(predictedState);
+                    if (command.FirePressed)
+                    {
+                        PredictProjectileVisual(command, predictedState, serverWorldTick);
+                    }
                 }
             }
 
             sessionManager.AdvanceServerSessions(serverWorldTick);
             RefreshClientAdmission();
+        }
+
+        private void PredictProjectileVisual(in PlayerInputCommand command, in PlayerState state, uint serverWorldTick)
+        {
+            var weapon = preparedWorld.WeaponConfiguration;
+            uint entityId = sessionManager.RemotePlayers != null ? sessionManager.RemotePlayers.LocalEntityId : 0;
+            if (shotResultView == null || entityId == 0 || weapon.FireMode != WeaponFireMode.Projectile
+                || !WeaponAim.TryGetDirection(state.YawFixedDegrees, state.PitchFixedDegrees, out FixVec3 direction))
+            {
+                return;
+            }
+            // 只为视觉复用共用眼高与瞄准规则；宽 Raw 检查与服务器一致，越域不创建代理。
+            long eyeY = (long)state.PositionFixed.Y.Raw + weapon.EyeHeightFixed.Raw;
+            if (eyeY < int.MinValue || eyeY > int.MaxValue)
+            {
+                return;
+            }
+            var origin = new FixVec3(state.PositionFixed.X, Fix.FromRaw((int)eyeY), state.PositionFixed.Z);
+            var shot = new AuthoritativeShot(entityId, command.ShotSequence, serverWorldTick,
+                weapon, origin, direction, command.ShotServerTick);
+            shotResultView.PredictProjectile(shot);
         }
 
         private void UpdateTimeSync()

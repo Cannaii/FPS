@@ -1,26 +1,53 @@
+using AFPS.NetCode.Weapons;
 using UnityEngine;
 
 namespace AFPS.Presentation.Weapons
 {
-    /// <summary>纯表现弹丸；不参与碰撞、命中或伤害判定。</summary>
+    /// <summary>由 ShotResultView 统一推进和回收的无碰撞弹丸；不参与命中或伤害判定。</summary>
     public sealed class PredictedProjectileVisual : MonoBehaviour
     {
-        private Vector3 velocity;
-        private float remainingLifetime;
+        private Vector3 origin;
+        private Vector3 direction;
+        private float speed;
+        private float range;
+        private float ageSeconds;
+        private LineRenderer trail;
 
-        public void Initialize(Vector3 direction, float speed, float lifetime)
+        // 极慢弹丸也不能永久占用代理；只限制表现，不改变服务器弹丸寿命。
+        public const float MaximumLifetimeSeconds = 30f;
+        public float AgeSeconds => ageSeconds;
+
+        public void Initialize(in AuthoritativeShot shot, float initialAgeSeconds)
         {
-            velocity = direction.normalized * Mathf.Max(0f, speed);
-            remainingLifetime = Mathf.Max(0.01f, lifetime);
+            origin = shot.Origin;
+            direction = shot.Direction;
+            speed = shot.ProjectileSpeed;
+            range = shot.Range;
+            ageSeconds = Mathf.Max(0f, initialAgeSeconds);
+            trail = GetComponent<LineRenderer>();
+            ApplyPosition();
         }
 
-        private void Update()
+        public bool Advance(float unscaledDeltaSeconds)
         {
-            transform.position += velocity * Time.deltaTime;
-            remainingLifetime -= Time.deltaTime;
-            if (remainingLifetime <= 0f)
+            ageSeconds += Mathf.Max(0f, unscaledDeltaSeconds);
+            ApplyPosition();
+            return ageSeconds < MaximumLifetimeSeconds && speed * ageSeconds < range;
+        }
+
+        private void ApplyPosition()
+        {
+            float distance = Mathf.Min(range, speed * ageSeconds);
+            transform.position = origin + direction * distance;
+            if (direction.sqrMagnitude > 0f)
             {
-                Destroy(gameObject);
+                transform.rotation = Quaternion.LookRotation(direction);
+            }
+            if (trail != null)
+            {
+                // 默认视觉仅为 0.25 米短尾迹，不能把剩余射程提前画成光束。
+                trail.SetPosition(0, origin + direction * Mathf.Max(0f, distance - 0.25f));
+                trail.SetPosition(1, transform.position);
             }
         }
     }

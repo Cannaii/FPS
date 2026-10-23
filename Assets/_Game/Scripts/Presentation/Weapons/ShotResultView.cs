@@ -5,7 +5,7 @@ using UnityEngine;
 namespace AFPS.Presentation.Weapons
 {
     /// <summary>只读消费权威结果：世界空间曳光/命中点，以及本地射手的确认反馈。</summary>
-    public sealed class ShotResultView : MonoBehaviour
+    public sealed partial class ShotResultView : MonoBehaviour
     {
         // 表现上限与时间均不参与模拟：长度为米，持续时间为真实秒，不受游戏时间缩放影响。
         public const int MaximumLineCount = 96;
@@ -24,9 +24,14 @@ namespace AFPS.Presentation.Weapons
         public bool HitMarkerVisible => hitMarkerRemaining > 0f;
         public bool LastHitWasKill { get; private set; }
 
-        public void Consume(in AuthoritativeShotResult result, uint localEntityId)
+        public void Consume(
+            in AuthoritativeShotResult result,
+            uint localEntityId,
+            double estimatedServerTick = double.NaN,
+            float tickDeltaSeconds = 0.02f)
         {
             ConsumedResultCount++;
+            ConsumeProjectile(result, estimatedServerTick, tickDeltaSeconds);
             Vector3 end = result.HitPoint;
             if (result.Shot.FireMode == WeaponFireMode.Hitscan)
             {
@@ -56,6 +61,7 @@ namespace AFPS.Presentation.Weapons
         public void Advance(float unscaledDeltaSeconds)
         {
             float elapsed = Mathf.Max(0f, unscaledDeltaSeconds);
+            AdvanceProjectiles(elapsed);
             hitMarkerRemaining = Mathf.Max(0f, hitMarkerRemaining - elapsed);
             for (int i = 0; i < lines.Length; i++)
             {
@@ -73,6 +79,7 @@ namespace AFPS.Presentation.Weapons
             LastHitWasKill = false;
             ConsumedResultCount = 0;
             LocalHitConfirmationCount = 0;
+            ClearProjectiles();
             for (int i = 0; i < lines.Length; i++)
             {
                 remainingSeconds[i] = 0f;
@@ -85,15 +92,9 @@ namespace AFPS.Presentation.Weapons
 
         private void DrawLine(Vector3 start, Vector3 end, Color color, float lifetimeSeconds)
         {
-            if (lineMaterial == null)
+            if (!EnsureLineMaterial())
             {
-                // Built-in 管线已有的精灵 Shader；缺失时保留确认反馈，不制造粉色错误材质。
-                Shader shader = Shader.Find("Sprites/Default");
-                if (shader == null)
-                {
-                    return;
-                }
-                lineMaterial = new Material(shader);
+                return;
             }
 
             int index = nextLine;
@@ -119,6 +120,21 @@ namespace AFPS.Presentation.Weapons
             renderer.SetPosition(1, end);
             renderer.enabled = true;
             remainingSeconds[index] = lifetimeSeconds;
+        }
+
+        private bool EnsureLineMaterial()
+        {
+            if (lineMaterial == null)
+            {
+                // Built-in 管线已有的精灵 Shader；缺失时保留确认反馈，不制造粉色错误材质。
+                Shader shader = Shader.Find("Sprites/Default");
+                if (shader == null)
+                {
+                    return false;
+                }
+                lineMaterial = new Material(shader);
+            }
+            return true;
         }
 
         private void OnDestroy()

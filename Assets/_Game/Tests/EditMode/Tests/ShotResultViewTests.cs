@@ -60,13 +60,18 @@ namespace AFPS.Tests.EditMode
             {
                 var view = target.AddComponent<ShotResultView>();
                 view.Consume(Result(WeaponFireMode.Projectile, false, 0), 1);
-                Assert.That(target.GetComponentsInChildren<LineRenderer>().Length, Is.Zero);
+                Assert.That(view.ActiveProjectileCount, Is.EqualTo(1));
+                foreach (var line in target.GetComponentsInChildren<LineRenderer>())
+                {
+                    Assert.That(Vector3.Distance(line.GetPosition(0), line.GetPosition(1)), Is.LessThanOrEqualTo(0.25f));
+                }
                 Assert.That(view.HitMarkerVisible, Is.False);
                 view.Consume(Result(WeaponFireMode.Projectile, true, 0), 1);
                 Assert.That(view.LocalHitConfirmationCount, Is.EqualTo(1));
                 Assert.That(view.ConsumedResultCount, Is.EqualTo(2));
                 Assert.That(view.HitMarkerVisible, Is.True);
                 Assert.That(view.LastHitWasKill, Is.True);
+                Assert.That(view.ActiveProjectileCount, Is.Zero);
             }
             finally
             {

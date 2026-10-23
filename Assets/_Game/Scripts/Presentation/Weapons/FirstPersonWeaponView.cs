@@ -21,10 +21,6 @@ namespace AFPS.Presentation.Weapons
         [SerializeField] private Transform recoilPivot;
         [SerializeField, Min(0f)] private float recoilAngle = 3f;
         [SerializeField, Min(0f)] private float recoilReturnSpeed = 18f;
-        [SerializeField] private PredictedProjectileVisual predictedProjectilePrefab;
-        [SerializeField] private Transform projectileSpawnPoint;
-        [SerializeField, Min(0f)] private float predictedProjectileSpeed = 30f;
-        [SerializeField, Min(0.01f)] private float predictedProjectileLifetime = 3f;
 
         private bool hasSpeedParameter;
         private bool hasGroundedParameter;
@@ -89,12 +85,7 @@ namespace AFPS.Presentation.Weapons
             }
 
             currentRecoil += recoilAngle;
-            if (predictedProjectilePrefab != null)
-            {
-                Transform spawn = projectileSpawnPoint != null ? projectileSpawnPoint : transform;
-                PredictedProjectileVisual projectile = Instantiate(predictedProjectilePrefab, spawn.position, spawn.rotation);
-                projectile.Initialize(spawn.forward, predictedProjectileSpeed, predictedProjectileLifetime);
-            }
+            // 弹丸由 ShotResultView 按射击身份统一管理，避免创建无法关联权威结果的匿名代理。
         }
 
         private void CacheParameters()
