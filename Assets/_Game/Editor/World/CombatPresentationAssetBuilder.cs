@@ -37,6 +37,15 @@ namespace AFPS.World.Editor
             skin.color = new Color(0.64f, 0.41f, 0.28f);
             skin.SetFloat("_Glossiness", 0.2f);
             EditorUtility.SetDirty(skin);
+            string effectsPath = Root + "Effects.mat";
+            Material effects = AssetDatabase.LoadAssetAtPath<Material>(effectsPath);
+            if (effects == null)
+            {
+                effects = new Material(Shader.Find("Sprites/Default"));
+                AssetDatabase.CreateAsset(effects, effectsPath);
+            }
+            // 显式资源引用使 Player 构建保留特效 Shader，不依赖运行时 Shader.Find 恰好成功。
+            EditorUtility.SetDirty(effects);
             AssetDatabase.SaveAssets();
         }
 

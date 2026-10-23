@@ -42,14 +42,17 @@ namespace AFPS.NetCode.SnapshotInterpolation
 
         /// <summary>本次结果采用插值、外推、冻结还是传送处理。</summary>
         public readonly RemotePlayerSamplingStatus Status;
+        public readonly bool IsGrounded;
 
-        public RemotePlayerRenderState(double serverTickTime, Vector3 position, Quaternion rotation, Vector3 velocity, RemotePlayerSamplingStatus status)
+        public RemotePlayerRenderState(double serverTickTime, Vector3 position, Quaternion rotation,
+            Vector3 velocity, RemotePlayerSamplingStatus status, bool isGrounded = false)
         {
             ServerTickTime = serverTickTime;
             Position = position;
             Rotation = rotation;
             Velocity = velocity;
             Status = status;
+            IsGrounded = isGrounded;
         }
     }
 }

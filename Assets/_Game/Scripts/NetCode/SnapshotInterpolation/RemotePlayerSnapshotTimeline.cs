@@ -105,7 +105,8 @@ namespace AFPS.NetCode.SnapshotInterpolation
                     Vector3.LerpUnclamped(before.Position, after.Position, interpolation),
                     Quaternion.SlerpUnclamped(before.Rotation, after.Rotation, interpolation),
                     Vector3.LerpUnclamped(before.Velocity, after.Velocity, interpolation),
-                    RemotePlayerSamplingStatus.Interpolated);
+                    // 离散落地状态保持前快照，直到真正到达后快照 Tick，避免提前落地播脚步。
+                    RemotePlayerSamplingStatus.Interpolated, before.IsGrounded);
                 return true;
             }
 
@@ -113,13 +114,15 @@ namespace AFPS.NetCode.SnapshotInterpolation
             double appliedExtrapolationTicks = System.Math.Min(requestedExtrapolationTicks, maxExtrapolationTicks);
             Vector3 extrapolatedPosition = newest.Position + newest.Velocity * (float)(appliedExtrapolationTicks * tickDeltaTime);
             RemotePlayerSamplingStatus extrapolationStatus = requestedExtrapolationTicks <= 0.0 ? RemotePlayerSamplingStatus.Held : requestedExtrapolationTicks <= maxExtrapolationTicks ? RemotePlayerSamplingStatus.Extrapolated : RemotePlayerSamplingStatus.ExtrapolationLimitReached;
-            state = new RemotePlayerRenderState(targetTick, extrapolatedPosition, newest.Rotation, newest.Velocity, extrapolationStatus);
+            state = new RemotePlayerRenderState(targetTick, extrapolatedPosition,
+                newest.Rotation, newest.Velocity, extrapolationStatus, newest.IsGrounded);
             return true;
         }
 
         private static RemotePlayerRenderState FromSnapshot(in RemotePlayerSnapshot snapshot, double targetTick, RemotePlayerSamplingStatus status)
         {
-            return new RemotePlayerRenderState(targetTick, snapshot.Position, snapshot.Rotation, snapshot.Velocity, status);
+            return new RemotePlayerRenderState(targetTick, snapshot.Position,
+                snapshot.Rotation, snapshot.Velocity, status, snapshot.IsGrounded);
         }
     }
 }

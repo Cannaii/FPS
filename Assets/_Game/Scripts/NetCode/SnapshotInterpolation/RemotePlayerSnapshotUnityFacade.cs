@@ -19,7 +19,8 @@ namespace AFPS.NetCode.SnapshotInterpolation
             Vector3 position,
             Quaternion rotation,
             Vector3 velocity,
-            bool isTeleport = false)
+            bool isTeleport = false,
+            bool isGrounded = false)
         {
             EntityId = entityId;
             ServerTick = serverTick;
@@ -35,6 +36,7 @@ namespace AFPS.NetCode.SnapshotInterpolation
             PitchFixedDegrees = Fix.FromRaw(System.Math.Max(-MaximumPitchRaw,
                 System.Math.Min(MaximumPitchRaw, pitchRaw)));
             IsTeleport = isTeleport;
+            IsGrounded = isGrounded;
         }
     }
 }

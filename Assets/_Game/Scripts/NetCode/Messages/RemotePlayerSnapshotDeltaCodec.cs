@@ -14,8 +14,8 @@ namespace AFPS.NetCode.Messages
         private const byte PositionMask = 1 << 0;
         private const byte VelocityMask = 1 << 1;
         private const byte RotationMask = 1 << 2;
-        private const byte TeleportMask = 1 << 3;
-        private const byte KnownMask = PositionMask | VelocityMask | RotationMask | TeleportMask;
+        private const byte StateMask = 1 << 3;
+        private const byte KnownMask = PositionMask | VelocityMask | RotationMask | StateMask;
 
         public static bool TrySerialize(
             in RemotePlayerSnapshot current,
@@ -44,16 +44,16 @@ namespace AFPS.NetCode.Messages
             {
                 mask |= RotationMask;
             }
-            if (current.IsTeleport != baseline.IsTeleport)
+            if (current.StateFlags != baseline.StateFlags)
             {
-                mask |= TeleportMask;
+                mask |= StateMask;
             }
 
             int payloadSize = FixedPayloadSize
                 + ((mask & PositionMask) != 0 ? 12 : 0)
                 + ((mask & VelocityMask) != 0 ? 12 : 0)
                 + ((mask & RotationMask) != 0 ? 8 : 0)
-                + ((mask & TeleportMask) != 0 ? 1 : 0);
+                + ((mask & StateMask) != 0 ? 1 : 0);
             if (destination.Count < PacketHeader.Size + payloadSize
                 || !PacketHeaderCodec.TryWrite(new PacketHeader(
                     NetworkMessageType.RemotePlayerSnapshotDelta, (ushort)payloadSize, sequence), destination))
@@ -88,8 +88,8 @@ namespace AFPS.NetCode.Messages
             {
                 return false;
             }
-            if ((mask & TeleportMask) != 0
-                && !writer.TryWriteByte(current.IsTeleport ? (byte)1 : (byte)0))
+            if ((mask & StateMask) != 0
+                && !writer.TryWriteByte(current.StateFlags))
             {
                 return false;
             }
@@ -131,6 +131,7 @@ namespace AFPS.NetCode.Messages
             int yaw = baseline.YawFixedDegrees.Raw;
             int pitch = baseline.PitchFixedDegrees.Raw;
             bool teleport = baseline.IsTeleport;
+            bool grounded = baseline.IsGrounded;
             if ((mask & PositionMask) != 0
                 && !RemotePlayerSnapshotCodec.ReadVector(ref reader, out position))
             {
@@ -146,17 +147,18 @@ namespace AFPS.NetCode.Messages
             {
                 return false;
             }
-            if ((mask & TeleportMask) != 0)
+            if ((mask & StateMask) != 0)
             {
-                if (!reader.TryReadByte(out byte rawTeleport) || rawTeleport > 1)
+                if (!reader.TryReadByte(out byte flags) || flags > 3)
                 {
                     return false;
                 }
-                teleport = rawTeleport != 0;
+                teleport = (flags & 1) != 0;
+                grounded = (flags & 2) != 0;
             }
 
             var candidate = new RemotePlayerSnapshot(entityId, serverTick, position,
-                Fix.FromRaw(yaw), Fix.FromRaw(pitch), velocity, teleport);
+                Fix.FromRaw(yaw), Fix.FromRaw(pitch), velocity, teleport, grounded);
             // 解码在本地候选上完成；非法尾部或角域不能留下一个有效前缀给调用方。
             if (reader.BytesRemaining != 0 || !candidate.IsValid)
             {

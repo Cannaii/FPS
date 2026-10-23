@@ -199,10 +199,19 @@ namespace AFPS.Bootstrap
             bool timeSynced = manager.HasTimeSync && manager.Metrics.TimeSyncResponsesReceived >= 2;
             bool shotPresented = movementController.PresentedShotResultCount > 0
                 && (replicas.LocalEntityId != 1 || movementController.ConfirmedLocalHitCount > 0);
+            bool footstepsPresented = movementController.LocalFootstepCount > 0
+                && movementController.RemoteFootstepCount > 0;
             bool passed = hasAssignment && hasRemote && sampledRemote && moved && jumped && turned
-                && authoritativeHit && timeSynced && reloadVerified && automaticFireVerified && weaponSynced && shotPresented;
-            string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0} remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned} sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} timeSynced={timeSynced} reloadVerified={reloadVerified} autoFire={automaticFireVerified} weaponSynced={weaponSynced} rttMs={manager.Metrics.LastNetworkRoundTripMilliseconds:F3} position={localState.Position}";
+                && authoritativeHit && timeSynced && reloadVerified && automaticFireVerified
+                && weaponSynced && shotPresented && footstepsPresented;
+            string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0}"
+                + $" remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned}"
+                + $" sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} timeSynced={timeSynced}"
+                + $" reloadVerified={reloadVerified} autoFire={automaticFireVerified} weaponSynced={weaponSynced}"
+                + $" rttMs={manager.Metrics.LastNetworkRoundTripMilliseconds:F3} position={localState.Position}";
             details += $" shotPresented={shotPresented} presentedCount={movementController.PresentedShotResultCount}";
+            details += $" footsteps={footstepsPresented} localSteps={movementController.LocalFootstepCount}"
+                + $" remoteSteps={movementController.RemoteFootstepCount}";
             Finish(passed, details);
         }
 

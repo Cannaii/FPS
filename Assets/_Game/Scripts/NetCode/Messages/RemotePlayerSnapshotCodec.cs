@@ -6,7 +6,7 @@ using AFPS.NetCode.SnapshotInterpolation;
 
 namespace AFPS.NetCode.Messages
 {
-    /// <summary>全量快照：小端 Entity/Tick + 位置/速度/角度 Raw + 传送标志，无浮点量化。</summary>
+    /// <summary>全量快照：小端 Entity/Tick + 位置/速度/角度 Raw + 传送/落地标志，无浮点量化。</summary>
     public static class RemotePlayerSnapshotCodec
     {
         public const int PayloadSize = 41;
@@ -38,7 +38,7 @@ namespace AFPS.NetCode.Messages
                 && WriteVector(ref writer, snapshot.VelocityFixed)
                 && writer.TryWriteInt32(snapshot.YawFixedDegrees.Raw)
                 && writer.TryWriteInt32(snapshot.PitchFixedDegrees.Raw)
-                && writer.TryWriteByte(snapshot.IsTeleport ? (byte)1 : (byte)0);
+                && writer.TryWriteByte(snapshot.StateFlags);
             bytesWritten = success ? PacketSize : 0;
             return success;
         }
@@ -65,14 +65,14 @@ namespace AFPS.NetCode.Messages
                 || !ReadVector(ref reader, out FixVec3 velocity)
                 || !reader.TryReadInt32(out int yaw)
                 || !reader.TryReadInt32(out int pitch)
-                || !reader.TryReadByte(out byte teleport)
-                || teleport > 1 || reader.BytesRemaining != 0)
+                || !reader.TryReadByte(out byte flags)
+                || flags > 3 || reader.BytesRemaining != 0)
             {
                 return false;
             }
 
             var candidate = new RemotePlayerSnapshot(entityId, serverTick, position,
-                Fix.FromRaw(yaw), Fix.FromRaw(pitch), velocity, teleport != 0);
+                Fix.FromRaw(yaw), Fix.FromRaw(pitch), velocity, (flags & 1) != 0, (flags & 2) != 0);
             if (!candidate.IsValid)
             {
                 return false;

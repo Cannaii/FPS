@@ -9,6 +9,37 @@ namespace AFPS.Tests.EditMode
 {
     public sealed class FixedRemoteSnapshotTests
     {
+        [TestCase(false, false)]
+        [TestCase(false, true)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        public void StateFlags_RoundtripAndUnchangedDeltaPreservesGrounded(bool teleport, bool grounded)
+        {
+            var baseline = new RemotePlayerSnapshot(7, 10, FixVec3.Zero, Fix.Zero, Fix.Zero,
+                FixVec3.Zero, !teleport, !grounded);
+            var current = new RemotePlayerSnapshot(7, 11, FixVec3.Zero, Fix.Zero, Fix.Zero,
+                FixVec3.Zero, teleport, grounded);
+            var bytes = new byte[RemotePlayerSnapshotDeltaCodec.MaximumPacketSize];
+            Assert.That(RemotePlayerSnapshotCodec.TrySerialize(current, 1, new ArraySegment<byte>(bytes), out int count), Is.True);
+            Assert.That(count, Is.EqualTo(53));
+            Assert.That(RemotePlayerSnapshotCodec.TryDeserialize(new ArraySegment<byte>(bytes, 0, count),
+                out _, out var full), Is.True);
+            Assert.That(full.RawEquals(current), Is.True);
+            Assert.That(RemotePlayerSnapshotDeltaCodec.TrySerialize(current, baseline, 2,
+                new ArraySegment<byte>(bytes), out count), Is.True);
+            Assert.That(count, Is.EqualTo(26));
+            Assert.That(RemotePlayerSnapshotDeltaCodec.TryDeserialize(new ArraySegment<byte>(bytes, 0, count),
+                baseline, out _, out var delta), Is.True);
+            Assert.That(delta.RawEquals(current), Is.True);
+            Assert.That(RemotePlayerSnapshotDeltaCodec.TrySerialize(current, current, 3,
+                new ArraySegment<byte>(bytes), out count), Is.True);
+            Assert.That(count, Is.EqualTo(25));
+            Assert.That(RemotePlayerSnapshotDeltaCodec.TryDeserialize(new ArraySegment<byte>(bytes, 0, count),
+                current, out _, out var unchanged), Is.True);
+            Assert.That(unchanged.IsGrounded, Is.EqualTo(grounded));
+            Assert.That(unchanged.IsTeleport, Is.EqualTo(teleport));
+        }
+
         private static FixVec3 V(int x, int y, int z) => new FixVec3(
             Fix.FromRaw(x), Fix.FromRaw(y), Fix.FromRaw(z));
 
@@ -121,7 +152,7 @@ namespace AFPS.Tests.EditMode
                     bytes[4] = 3;
                     break;
                 case 2:
-                    bytes[52] = 2;
+                    bytes[52] = 4;
                     break;
                 case 3:
                     WriteInt(bytes, 44, -1);
@@ -157,7 +188,7 @@ namespace AFPS.Tests.EditMode
                     bytes[24] |= 0x80;
                     break;
                 case 1:
-                    bytes[57] = 2;
+                    bytes[57] = 4;
                     break;
                 case 2:
                     WriteInt(bytes, 49, -1);

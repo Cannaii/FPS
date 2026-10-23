@@ -16,3 +16,10 @@
 使用 AFPS/Combat/Rebuild Presentation Assets 菜单配置 Generic 动画、清除动画事件并重建自有控制器和材质。枪模姿态由表现层归一化，不参与命中或伤害。
 
 模型原始出处说明见 CombatModelLicense.txt；部分模型由 Cowsins 修改自 Tasty Tony 的 CC Attribution 模型，作者：https://sketchfab.com/TastyTony 。保留作者署名及修改说明。
+
+基础位置化脚步使用以下原始 WAV（当前不区分地表材质）：
+
+|目标文件|来源（Assets/ThirdParty/Cowsins/）|SHA256|
+|---|---|---|
+|Footstep1.wav|SFX/Footsteps/wood_Footstep01.wav|8499BB970F214C3B6B5D8C96DC5C76613722F1D4DCCB42A87E9DE316B6E6A46B|
+|Footstep2.wav|SFX/Footsteps/wood_Footstep02.wav|B682197C4A72202D7815B21694AFF161E0CC27A65E20A3222D4A266831C2F97D|

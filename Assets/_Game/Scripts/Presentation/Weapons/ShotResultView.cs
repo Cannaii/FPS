@@ -132,6 +132,12 @@ namespace AFPS.Presentation.Weapons
         {
             if (lineMaterial == null)
             {
+                Material template = CombatPresentationAssets.Load<Material>("Effects");
+                if (template != null)
+                {
+                    lineMaterial = new Material(template);
+                    return true;
+                }
                 // Built-in 管线已有的精灵 Shader；缺失时保留确认反馈，不制造粉色错误材质。
                 Shader shader = Shader.Find("Sprites/Default");
                 if (shader == null)

@@ -17,6 +17,18 @@ namespace AFPS.Presentation.Characters
         private readonly Dictionary<uint, RemotePlayerView> views = new Dictionary<uint, RemotePlayerView>();
         private readonly List<uint> entityIds = new List<uint>();
         private readonly List<uint> staleEntityIds = new List<uint>();
+        public ulong FootstepCount
+        {
+            get
+            {
+                ulong result = 0;
+                foreach (var view in views.Values)
+                {
+                    result += view.FootstepCount;
+                }
+                return result;
+            }
+        }
 
         /// <summary>按照客户端估算的服务器时间渲染所有远端玩家。</summary>
         public void Render(RemotePlayerReplicaSet replicas, double estimatedServerTick, DeathmatchState deathmatchState = null)
@@ -42,8 +54,10 @@ namespace AFPS.Presentation.Characters
                     views.Add(entityId, view);
                 }
 
-                bool isAlive = deathmatchState == null || !deathmatchState.TryGetPlayer(entityId, out DeathmatchPlayerState playerState) || playerState.IsAlive;
-                view.ApplyRenderState(state, isAlive);
+                bool isAlive = deathmatchState == null
+                    || !deathmatchState.TryGetPlayer(entityId, out DeathmatchPlayerState playerState) || playerState.IsAlive;
+                view.ApplyRenderState(state, isAlive,
+                    deathmatchState == null || deathmatchState.Phase == DeathmatchPhase.Playing);
             }
 
             staleEntityIds.Clear();

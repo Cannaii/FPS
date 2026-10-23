@@ -79,6 +79,7 @@ namespace AFPS.Bootstrap
         private ShotResultView shotResultView;
         private ushort inputWeaponId;
         private bool weaponViewWasActive;
+        private FootstepAudioView localFootsteps;
         private SimulationWorldContext preparedWorld;
         private ClientPredictedMovementSession presentedClientSession;
         private ConnectionAdmissionStatus observedAdmissionStatus;
@@ -89,6 +90,8 @@ namespace AFPS.Bootstrap
         public bool PresentedReloading => firstPersonWeaponView != null && firstPersonWeaponView.Reloading;
         public ulong RemoteMuzzleCount => shotResultView != null ? shotResultView.RemoteMuzzleCount : 0;
         public ulong ExplosionEffectCount => shotResultView != null ? shotResultView.ExplosionEffectCount : 0;
+        public ulong LocalFootstepCount => localFootsteps != null ? localFootsteps.StepCount : 0;
+        public ulong RemoteFootstepCount => remotePlayerWorldView != null ? remotePlayerWorldView.FootstepCount : 0;
 
         public bool CanEnterGame => initialized
             && sessionManager.ClientAdmissionStatus == ConnectionAdmissionStatus.Admitted
@@ -299,6 +302,7 @@ namespace AFPS.Bootstrap
                 }
                 deathmatchHud.Configure(sessionManager, tickRunner.TickDeltaTime, shotResultView);
                 weaponViewWasActive = firstPersonWeaponView != null && firstPersonWeaponView.gameObject.activeSelf;
+                localFootsteps = gameObject.AddComponent<FootstepAudioView>();
             }
 
             Debug.Log($"AFPS 定点世界已装配：{preparedWorld.Identity.WorldHash}，配置={preparedWorld.Identity.ConfigurationHash}。", this);
@@ -370,6 +374,10 @@ namespace AFPS.Bootstrap
                 }
 
                 RenderRemotePlayers();
+                if (localFootsteps != null && playerView.TryGetLatestState(out PlayerState footstepState))
+                {
+                    localFootsteps.Render(footstepState.Position, footstepState.IsGrounded, IsLocalGameplayActive());
+                }
             }
         }
 
@@ -518,6 +526,10 @@ namespace AFPS.Bootstrap
             {
                 presentedClientSession = client;
                 inputWeaponId = 0;
+                if (localFootsteps != null)
+                {
+                    localFootsteps.Clear();
+                }
                 if (client == null && firstPersonWeaponView != null)
                 {
                     firstPersonWeaponView.StopPresentation();

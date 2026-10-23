@@ -14,6 +14,8 @@ namespace AFPS.Presentation.Characters
         [SerializeField] private Color deadColor = new Color(0.35f, 0.08f, 0.08f);
         private Vector3 initialScale;
         private bool? lastAlive;
+        private FootstepAudioView footsteps;
+        public ulong FootstepCount => footsteps != null ? footsteps.StepCount : 0;
 
         private void Awake()
         {
@@ -29,14 +31,21 @@ namespace AFPS.Presentation.Characters
             }
         }
 
-        public void ApplyRenderState(in RemotePlayerRenderState state, bool isAlive = true)
+        public void ApplyRenderState(in RemotePlayerRenderState state, bool isAlive = true, bool gameplayActive = true)
         {
+            if (footsteps == null)
+            {
+                footsteps = gameObject.AddComponent<FootstepAudioView>();
+            }
             float speed = new Vector2(state.Velocity.x, state.Velocity.z).magnitude;
-            float bob = isAlive && speed > 0.15f ? Mathf.Sin((float)state.ServerTickTime * 0.7f) * Mathf.Min(0.045f, speed * 0.008f) : 0f;
+            float bob = isAlive && gameplayActive && state.IsGrounded && speed > 0.15f
+                ? Mathf.Sin((float)state.ServerTickTime * 0.7f) * Mathf.Min(0.045f, speed * 0.008f) : 0f;
             Quaternion rotation = isAlive ? state.Rotation : state.Rotation * Quaternion.Euler(0f, 0f, 90f);
             Vector3 position = state.Position + Vector3.up * (isAlive ? bob : -0.5f);
             presentationTransform.SetPositionAndRotation(position, rotation);
             presentationTransform.localScale = isAlive ? initialScale : new Vector3(initialScale.x, initialScale.y * 0.65f, initialScale.z);
+            footsteps.Render(state.Position, state.IsGrounded, isAlive && gameplayActive,
+                state.Status == RemotePlayerSamplingStatus.Teleported);
 
             if (lastAlive == isAlive)
             {

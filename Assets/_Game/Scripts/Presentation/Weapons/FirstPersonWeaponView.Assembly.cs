@@ -219,10 +219,11 @@ namespace AFPS.Presentation.Weapons
             }
             if (flash == null && FlashRemaining > 0f)
             {
-                Shader shader = Shader.Find("Sprites/Default");
+                Material template = CombatPresentationAssets.Load<Material>("Effects");
+                Shader shader = template != null ? template.shader : Shader.Find("Sprites/Default");
                 if (shader != null)
                 {
-                    flashMaterial = new Material(shader);
+                    flashMaterial = template != null ? new Material(template) : new Material(shader);
                     flash = new GameObject("Local Muzzle Flash").AddComponent<LineRenderer>();
                     flash.transform.SetParent(modelPivot != null ? modelPivot : transform, false);
                     flash.gameObject.layer = ViewLayer;

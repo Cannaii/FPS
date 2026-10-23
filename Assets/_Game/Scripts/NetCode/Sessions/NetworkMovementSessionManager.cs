@@ -992,7 +992,7 @@ namespace AFPS.NetCode.Sessions
             RemotePlayerSnapshot snapshot = new RemotePlayerSnapshot(
                 candidate.EntityId, serverWorldTick, candidate.State.PositionFixed,
                 candidate.State.YawFixedDegrees, candidate.State.PitchFixedDegrees,
-                candidate.State.VelocityFixed);
+                candidate.State.VelocityFixed, isGrounded: candidate.State.IsGrounded);
             Dictionary<uint, RemotePlayerSnapshot> baselines = serverSnapshotBaselines[targetConnectionId];
             bool sendFull = !baselines.TryGetValue(candidate.EntityId, out RemotePlayerSnapshot baseline)
                 || unchecked(serverWorldTick - baseline.ServerTick) >= fullSnapshotIntervalTicks;
