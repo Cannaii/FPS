@@ -20,6 +20,12 @@ namespace AFPS.NetCode.Weapons
         private readonly List<ProjectileState> active = new List<ProjectileState>();
         public int Count => active.Count;
 
+        /// <summary>丢弃整个对局的在途弹丸；不能让旧房间的射击影响下一批玩家。</summary>
+        public void Clear()
+        {
+            active.Clear();
+        }
+
         public bool Spawn(in AuthoritativeShot shot, int remainingAmmo = 0)
         {
             if (shot.FireMode != WeaponFireMode.Projectile || shot.ProjectileSpeedFixed.Raw <= 0

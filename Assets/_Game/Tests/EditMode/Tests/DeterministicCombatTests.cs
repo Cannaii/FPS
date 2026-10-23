@@ -225,6 +225,21 @@ namespace AFPS.Tests.EditMode
         }
 
         [Test]
+        public void Projectile_ClearPreventsOldImpactsAndAllowsNextRoundSpawns()
+        {
+            var simulation = new ServerProjectileSimulation();
+            var impacts = new List<AuthoritativeShotResult>();
+            var target = Target(2, new FixVec3(Fix.Zero, Fix.Zero, Fix.FromInt(5)));
+            var shot = Projectile(new FixVec3(Fix.Zero, Fix.One, Fix.Zero), Fix.FromInt(20), Fix.FromInt(10));
+            Assert.That(simulation.Spawn(shot), Is.True);
+            simulation.Clear();
+            Assert.That(simulation.Advance(Fix.One, new[] { target }, impacts), Is.Zero);
+            Assert.That(impacts.Count, Is.Zero);
+            Assert.That(simulation.Spawn(shot), Is.True);
+            Assert.That(simulation.Advance(Fix.One, new[] { target }, impacts), Is.EqualTo(1));
+        }
+
+        [Test]
         public void Combat_GoldenRawReplay()
         {
             Assert.That(DeterministicCombatScenario.Run(), Is.EqualTo(DeterministicCombatScenario.ExpectedHash));

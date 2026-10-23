@@ -902,6 +902,266 @@ namespace AFPS.Tests.EditMode
             Assert.That(session.LastWeaponFireResult.Accepted, Is.False);
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Deathmatch_EmptyRoomStartsFreshRoundWithoutReusingIdentity(bool finished)
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, deathmatchDurationSeconds: 0.2f);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            manager.TryGetServerEntityId(second, out uint previousEntity);
+            SendTick(manager, first, second, 1, 100, default, default);
+            if (finished)
+            {
+                SendTick(manager, first, second, 2, 110, default, default);
+            }
+            var previousPhase = manager.ServerDeathmatchPhase;
+            Assert.That(DeathmatchStateCodec.TryDeserialize(
+                FindPacket(transport, NetworkMessageType.DeathmatchState, true), out var previousHeader, out _), Is.True);
+            Assert.That(manager.HandleDisconnected(NetworkTransportSide.Server, first), Is.True);
+            Assert.That(manager.ServerDeathmatchPhase, Is.EqualTo(previousPhase));
+            Assert.That(manager.HandleDisconnected(NetworkTransportSide.Server, second), Is.True);
+            Assert.That(manager.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.WaitingForPlayers));
+            Assert.That(manager.AdvanceServerSessions(500), Is.Zero);
+
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.TryGetServerEntityId(first, out uint newEntity);
+            Assert.That(newEntity, Is.GreaterThan(previousEntity));
+            manager.TryHandleData(NetworkTransportSide.Server, first,
+                CreateInputPacket(new PlayerInputCommand { Tick = 1 }), out _);
+            Assert.That(manager.AdvanceServerSessions(600), Is.EqualTo(1));
+            Assert.That(manager.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.WaitingForPlayers));
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            manager.TryHandleData(NetworkTransportSide.Server, first,
+                CreateInputPacket(new PlayerInputCommand { Tick = 2 }), out _);
+            manager.TryHandleData(NetworkTransportSide.Server, second,
+                CreateInputPacket(new PlayerInputCommand { Tick = 1 }), out _);
+            Assert.That(manager.AdvanceServerSessions(700), Is.EqualTo(2));
+            Assert.That(DeathmatchStateCodec.TryDeserialize(
+                FindPacket(transport, NetworkMessageType.DeathmatchState, true), out var newHeader, out var state), Is.True);
+            Assert.That(newHeader.Sequence, Is.GreaterThan(previousHeader.Sequence));
+            Assert.That(state.Phase, Is.EqualTo(DeathmatchPhase.Playing));
+            Assert.That(state.RemainingTicks, Is.EqualTo(10));
+            Assert.That(state.WinnerEntityId, Is.Zero);
+            Assert.That(state.PlayerCount, Is.EqualTo(2));
+            for (int i = 0; i < state.PlayerCount; i++)
+            {
+                Assert.That(state.GetPlayer(i).Health, Is.EqualTo(100));
+                Assert.That(state.GetPlayer(i).Kills, Is.Zero);
+                Assert.That(state.GetPlayer(i).Deaths, Is.Zero);
+            }
+        }
+
+        [Test]
+        public void Deathmatch_EmptyRoomDiscardsPreviousRoundProjectiles()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var weapon = new WeaponSimulationConfig(1, WeaponFireMode.Projectile, 30, 5, 20f, 100f, 1f, 1.6f);
+            var manager = CreateManager(transport, null, weaponConfig: weapon);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            SendTick(manager, first, second, 1, 100,
+                new PlayerInputCommand { FirePressed = true, ShotSequence = 1, LookYaw = 90f }, default);
+            Assert.That(FindLastShotResult(transport, out var shot), Is.True);
+            Assert.That(shot.DidHit, Is.False);
+            manager.HandleDisconnected(NetworkTransportSide.Server, first);
+            manager.HandleDisconnected(NetworkTransportSide.Server, second);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            manager.TryGetServerEntityId(first, out uint nextEntity);
+            manager.TryGetServerSession(first, out var session);
+            // 把新玩家放在旧弹道前方 0.6 米；若未清除旧弹丸，约数个 Tick 后会受到伤害。
+            session.Teleport(new FixVec3(Fix.FromFloat(0.6f), Fix.Zero, Fix.Zero));
+            transport.SentPackets.Clear();
+            for (uint tick = 1; tick <= 10; tick++)
+            {
+                SendTick(manager, first, second, tick, 199 + tick, default, default);
+            }
+            Assert.That(manager.TryGetServerHealthFixed(nextEntity, out Fix health), Is.True);
+            Assert.That(health, Is.EqualTo(Fix.FromInt(100)));
+            Assert.That(FindLastShotResult(transport, out _), Is.False);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Deathmatch_LateJoinReceivesExistingRoundAndWeaponPermission(bool finished)
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, deathmatchDurationSeconds: 0.2f);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            var late = new TransportConnectionId(30);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            SendTick(manager, first, second, 1, 100, default, default);
+            if (finished)
+            {
+                SendTick(manager, first, second, 2, 110, default, default);
+            }
+            manager.HandleConnected(NetworkTransportSide.Server, late);
+            manager.TryGetServerEntityId(late, out uint lateEntity);
+            uint inputTick = finished ? 3u : 2u;
+            uint serverTick = finished ? 111u : 105u;
+            manager.TryHandleData(NetworkTransportSide.Server, first,
+                CreateInputPacket(new PlayerInputCommand { Tick = inputTick }), out _);
+            manager.TryHandleData(NetworkTransportSide.Server, second,
+                CreateInputPacket(new PlayerInputCommand { Tick = inputTick }), out _);
+            manager.TryHandleData(NetworkTransportSide.Server, late,
+                CreateInputPacket(new PlayerInputCommand { Tick = 1 }), out _);
+            Assert.That(manager.AdvanceServerSessions(serverTick), Is.EqualTo(3));
+            bool receivedRound = false;
+            bool receivedWeapon = false;
+            for (int i = 0; i < transport.SentPackets.Count; i++)
+            {
+                if (transport.SentConnectionIds[i] != late)
+                {
+                    continue;
+                }
+                if (DeathmatchStateCodec.TryDeserialize(transport.SentPackets[i], out _, out var state))
+                {
+                    receivedRound = true;
+                    Assert.That(state.Phase, Is.EqualTo(finished ? DeathmatchPhase.Finished : DeathmatchPhase.Playing));
+                    Assert.That(state.RemainingTicks, Is.EqualTo(finished ? 0 : 5));
+                    Assert.That(state.WinnerEntityId, Is.Zero);
+                    Assert.That(state.PlayerCount, Is.EqualTo(3));
+                    Assert.That(state.TryGetPlayer(lateEntity, out var player), Is.True);
+                    Assert.That(player.Kills, Is.Zero);
+                    Assert.That(player.Health, Is.EqualTo(100));
+                }
+                if (AuthoritativeWeaponStateCodec.TryDeserialize(transport.SentPackets[i], out _, out var weapon))
+                {
+                    receivedWeapon = true;
+                    Assert.That(weapon.EntityId, Is.EqualTo(lateEntity));
+                    Assert.That(weapon.IsEquipped, Is.EqualTo(!finished));
+                }
+            }
+            Assert.That(receivedRound, Is.True);
+            Assert.That(receivedWeapon, Is.True);
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        public void Deathmatch_TimeoutSelectsUniqueLeaderOrDraw(int scoringMode)
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var weapon = new WeaponSimulationConfig(1, WeaponFireMode.Hitscan, 30, 5, 100f, 100f, 0f, 1.6f);
+            var manager = CreateManager(transport, null, weaponConfig: weapon,
+                deathmatchRespawnSeconds: 0.04f, deathmatchDurationSeconds: 0.2f);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            manager.TryGetServerEntityId(first, out uint firstEntity);
+            SendTick(manager, first, second, 1, 100,
+                new PlayerInputCommand
+                {
+                    FirePressed = scoringMode > 0,
+                    ShotSequence = scoringMode > 0 ? 1u : 0u,
+                    LookYaw = 90f
+                }, default);
+            SendTick(manager, first, second, 2, 102, default, default);
+            SendTick(manager, first, second, 3, 105, default,
+                new PlayerInputCommand
+                {
+                    FirePressed = scoringMode == 2,
+                    ShotSequence = scoringMode == 2 ? 1u : 0u,
+                    LookYaw = 270f
+                });
+            SendTick(manager, first, second, 4, 110, default, default);
+            Assert.That(DeathmatchStateCodec.TryDeserialize(
+                FindPacket(transport, NetworkMessageType.DeathmatchState, true), out _, out var state), Is.True);
+            Assert.That(state.Phase, Is.EqualTo(DeathmatchPhase.Finished));
+            Assert.That(state.WinnerEntityId, Is.EqualTo(scoringMode == 1 ? firstEntity : 0u));
+            Assert.That(state.RemainingTicks, Is.Zero);
+            Assert.That(state.GetPlayer(0).Kills, Is.EqualTo(scoringMode > 0 ? 1 : 0));
+            Assert.That(state.GetPlayer(1).Kills, Is.EqualTo(scoringMode == 2 ? 1 : 0));
+        }
+
+        [Test]
+        public void Deathmatch_PlayerDepartureKeepsClockAndRemovesScoreEntry()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, deathmatchDurationSeconds: 0.2f);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            manager.TryGetServerEntityId(first, out uint remainingEntity);
+            manager.TryGetServerEntityId(second, out uint departedEntity);
+            SendTick(manager, first, second, 1, 100, default, default);
+            manager.HandleDisconnected(NetworkTransportSide.Server, second);
+            manager.TryHandleData(NetworkTransportSide.Server, first,
+                CreateInputPacket(new PlayerInputCommand { Tick = 2 }), out _);
+            Assert.That(manager.AdvanceServerSessions(105), Is.EqualTo(1));
+            Assert.That(DeathmatchStateCodec.TryDeserialize(
+                FindPacket(transport, NetworkMessageType.DeathmatchState, true), out _, out var state), Is.True);
+            Assert.That(state.Phase, Is.EqualTo(DeathmatchPhase.Playing));
+            Assert.That(state.RemainingTicks, Is.EqualTo(5));
+            Assert.That(state.PlayerCount, Is.EqualTo(1));
+            Assert.That(state.TryGetPlayer(departedEntity, out _), Is.False);
+            manager.TryHandleData(NetworkTransportSide.Server, first,
+                CreateInputPacket(new PlayerInputCommand { Tick = 3 }), out _);
+            manager.AdvanceServerSessions(110);
+            Assert.That(DeathmatchStateCodec.TryDeserialize(
+                FindPacket(transport, NetworkMessageType.DeathmatchState, true), out _, out state), Is.True);
+            Assert.That(state.WinnerEntityId, Is.EqualTo(remainingEntity));
+        }
+
+        [Test]
+        public void Deathmatch_FinishedWinnerStaysFixedAfterDepartureAndLateJoin()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var weapon = new WeaponSimulationConfig(1, WeaponFireMode.Hitscan, 30, 5, 100f, 100f, 0f, 1.6f);
+            var manager = CreateManager(transport, null, weaponConfig: weapon, deathmatchKillLimit: 1);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            var late = new TransportConnectionId(30);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            manager.TryGetServerEntityId(first, out uint winnerEntity);
+            SendTick(manager, first, second, 1, 100,
+                new PlayerInputCommand { FirePressed = true, ShotSequence = 1, LookYaw = 90f }, default);
+            manager.HandleDisconnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, late);
+            manager.TryHandleData(NetworkTransportSide.Server, second,
+                CreateInputPacket(new PlayerInputCommand { Tick = 2 }), out _);
+            manager.TryHandleData(NetworkTransportSide.Server, late,
+                CreateInputPacket(new PlayerInputCommand { Tick = 1 }), out _);
+            Assert.That(manager.AdvanceServerSessions(105), Is.EqualTo(2));
+            Assert.That(DeathmatchStateCodec.TryDeserialize(
+                FindPacket(transport, NetworkMessageType.DeathmatchState, true), out _, out var state), Is.True);
+            Assert.That(state.Phase, Is.EqualTo(DeathmatchPhase.Finished));
+            // 终局结果引用获胜时的实体身份；赢家离开不能把比赛改判给其他人或晚加入者。
+            Assert.That(state.WinnerEntityId, Is.EqualTo(winnerEntity));
+            Assert.That(state.TryGetPlayer(winnerEntity, out _), Is.False);
+        }
+
+        [Test]
+        public void Deathmatch_TimeoutSupportsServerTickWrap()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, deathmatchDurationSeconds: 0.2f);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            SendTick(manager, first, second, 1, uint.MaxValue - 4, default, default);
+            SendTick(manager, first, second, 2, 4, default, default);
+            // 经过 9 Tick 尚未到时，也尚未达到 10 Tick 广播周期，直接检查服务器阶段。
+            Assert.That(manager.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.Playing));
+            SendTick(manager, first, second, 3, 5, default, default);
+            Assert.That(DeathmatchStateCodec.TryDeserialize(
+                FindPacket(transport, NetworkMessageType.DeathmatchState, true), out _, out var state), Is.True);
+            Assert.That(state.Phase, Is.EqualTo(DeathmatchPhase.Finished));
+            Assert.That(state.RemainingTicks, Is.Zero);
+        }
+
         private static NetworkMovementSessionManager CreateManager(
             IGameTransport serverTransport,
             IGameTransport clientTransport,

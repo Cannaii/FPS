@@ -390,6 +390,10 @@ namespace AFPS.NetCode.Sessions
                 }
                 snapshotSequences.Remove(entityId);
                 BroadcastDespawn(entityId);
+                if (serverSessions.Count == 0)
+                {
+                    ResetEmptyDeathmatch();
+                }
                 deathmatchStateDirty = true;
                 return true;
             }
@@ -682,6 +686,21 @@ namespace AFPS.NetCode.Sessions
                         historical.RadiusFixed, historical.HeightFixed, serverHealth[pair.Key]));
                 }
             }
+        }
+
+        private void ResetEmptyDeathmatch()
+        {
+            // 一人离开不打断当前比赛；最后一人离开才恢复等待，供常驻服务器开启下一局。
+            deathmatchPhase = DeathmatchPhase.WaitingForPlayers;
+            deathmatchStartTick = 0;
+            deathmatchWinnerEntityId = 0;
+            serverRespawnTicks.Clear();
+            projectileSimulation.Clear();
+            pendingWeaponFireResults.Clear();
+            projectileImpacts.Clear();
+            combatTargets.Clear();
+            deathmatchEntityIds.Clear();
+            // 保留实体 ID 分配器和包序号的单调性；迟到的旧包不能与新玩家身份碰撞。
         }
 
         private void UpdateDeathmatchBeforeSimulation(uint serverWorldTick)
