@@ -77,7 +77,7 @@ namespace AFPS.NetCode.Sessions
             Teleport(new FixVec3(Fix.FromFloat(position.x), Fix.FromFloat(position.y), Fix.FromFloat(position.z)));
         }
 
-        /// <summary>权威传送/复活入口；只替换空间状态，保留输入 Tick 和朝向以继续原输入序列。</summary>
+        /// <summary>权威传送入口；只替换空间状态，保留输入 Tick 和朝向以继续原输入序列。</summary>
         public void Teleport(FixVec3 position)
         {
             PlayerState state = CurrentState;
@@ -85,6 +85,15 @@ namespace AFPS.NetCode.Sessions
             state.VelocityFixed = FixVec3.Zero;
             state.IsGrounded = true;
             CurrentState = state;
+        }
+
+        /// <summary>权威重生入口，位置单位为米；输入 Tick 与射击序号继续沿用当前连接。</summary>
+        public void Respawn(FixVec3 position)
+        {
+            Teleport(position);
+            weaponFireController?.ResetForRespawn();
+            // 即使弹量恰好未改变，也必须向拥有者立即确认新生命的武器状态。
+            hasSentWeaponState = false;
         }
 
         public ServerAuthoritativeMovementSession(IGameTransport transport, TransportConnectionId clientConnectionId, in PlayerState initialState, in PlayerSimulationConfig simulationConfig, float tickDeltaTime, int inputWindowCapacity, int maxMissingInputWaitTicks = 2, int maxRepeatedMovementTicks = 2, ICharacterCollisionWorld collisionWorld = null, uint entityId = 0, WeaponSimulationConfig? weaponConfig = null, IFixedCharacterCollisionWorld fixedCollisionWorld = null)

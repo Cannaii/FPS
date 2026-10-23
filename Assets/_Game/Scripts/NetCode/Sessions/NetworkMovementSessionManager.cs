@@ -698,6 +698,13 @@ namespace AFPS.NetCode.Sessions
                 return;
             }
 
+            // 到时优先于复活和当 Tick 战斗，避免终局边界先恢复生命再冻结。
+            if (unchecked(serverWorldTick - deathmatchStartTick) >= deathmatchDurationTicks)
+            {
+                FinishDeathmatch(FindLeadingPlayer());
+                return;
+            }
+
             deathmatchEntityIds.Clear();
             foreach (uint entityId in serverRespawnTicks.Keys)
             {
@@ -720,7 +727,7 @@ namespace AFPS.NetCode.Sessions
                     if (pair.Value == entityId && serverSessions.TryGetValue(pair.Key, out ServerAuthoritativeMovementSession session))
                     {
                         // 空间配置不可变，且该实体已在准入时通过坐标域校验，复活复用同一个出生位置。
-                        session.Teleport(sessionSpatial.GetSpawnPosition(entityId));
+                        session.Respawn(sessionSpatial.GetSpawnPosition(entityId));
                         break;
                     }
                 }
@@ -728,10 +735,6 @@ namespace AFPS.NetCode.Sessions
                 deathmatchStateDirty = true;
             }
 
-            if (unchecked(serverWorldTick - deathmatchStartTick) >= deathmatchDurationTicks)
-            {
-                FinishDeathmatch(FindLeadingPlayer());
-            }
         }
 
         private Fix ApplyDamage(uint attackerEntityId, uint targetEntityId, Fix damage, uint serverWorldTick)
@@ -750,6 +753,8 @@ namespace AFPS.NetCode.Sessions
             }
 
             serverDeaths[targetEntityId] = (ushort)Mathf.Min(ushort.MaxValue, serverDeaths[targetEntityId] + 1);
+            // 同实体 ID 会用于重生；死亡即清空历史，禁止延迟射击把上一条生命的位置命中新生命。
+            rewindHistories[targetEntityId].Clear();
             serverRespawnTicks[targetEntityId] = unchecked(serverWorldTick + deathmatchRespawnTicks);
             if (attackerEntityId != targetEntityId && serverKills.ContainsKey(attackerEntityId))
             {
@@ -826,7 +831,10 @@ namespace AFPS.NetCode.Sessions
 
             DeathmatchState state = new DeathmatchState(deathmatchPhase, serverWorldTick, remainingTicks, deathmatchWinnerEntityId, players);
             uint sequence = deathmatchPacketSequence++;
-            if (deathmatchPacketSequence == 0) deathmatchPacketSequence = 1;
+            if (deathmatchPacketSequence == 0)
+            {
+                deathmatchPacketSequence = 1;
+            }
             if (!DeathmatchStateCodec.TrySerialize(state, sequence, new ArraySegment<byte>(deathmatchStateBuffer), out int packetBytes))
             {
                 return;

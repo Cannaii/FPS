@@ -46,11 +46,19 @@ namespace AFPS.NetCode.Weapons
             }
         }
 
-        /// <summary>测试/出生重置入口；玩家换弹必须通过 ReloadPressed 和服务器 Tick 计时。</summary>
+        /// <summary>补满弹匣；玩家换弹必须通过 ReloadPressed 和服务器 Tick 计时。</summary>
         public void Reload()
         {
             Ammo = config.MagazineCapacity;
             IsReloading = false;
+        }
+
+        /// <summary>新生命恢复满弹并清除旧生命冷却；装备许可由会话重新裁决。</summary>
+        public void ResetForRespawn()
+        {
+            Reload();
+            hasAcceptedShot = false;
+            // 射击序号属于连接输入流，重生不能清除，否则旧请求可以在新生命重放。
         }
 
         public WeaponFireResult Process(

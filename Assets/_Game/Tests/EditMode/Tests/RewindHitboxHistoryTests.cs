@@ -42,6 +42,23 @@ namespace AFPS.Tests.EditMode
             Assert.That(history.TryGetAtOrBefore(1, 3, 3, out _, out _), Is.False);
         }
 
+        [Test]
+        public void Clear_SeparatesLivesAfterRingWrapAndTickWrap()
+        {
+            var history = new RewindHitboxHistory(2);
+            history.Record(uint.MaxValue - 2, Target(1f));
+            history.Record(uint.MaxValue - 1, Target(2f));
+            history.Record(uint.MaxValue, Target(3f));
+            history.Clear();
+            Assert.That(history.Count, Is.Zero);
+            Assert.That(history.TryGetAtOrBefore(uint.MaxValue, 1, 5, out _, out _), Is.False);
+            history.Record(0, Target(4f));
+            Assert.That(history.TryGetAtOrBefore(uint.MaxValue, 1, 5, out _, out _), Is.False);
+            Assert.That(history.TryGetAtOrBefore(0, 1, 5, out var target, out uint tick), Is.True);
+            Assert.That(target.Position.x, Is.EqualTo(4f));
+            Assert.That(tick, Is.Zero);
+        }
+
         private static ServerCombatTarget Target(float x) => new ServerCombatTarget(2, new Vector3(x, 0f, 0f), 0.5f, 2f, 100f);
     }
 }

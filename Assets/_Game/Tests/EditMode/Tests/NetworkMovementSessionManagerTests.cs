@@ -799,6 +799,109 @@ namespace AFPS.Tests.EditMode
             manager.HandleDisconnected(NetworkTransportSide.Client, client);
             Assert.That(manager.ClientWeapon.HasState, Is.False);
         }
+        [Test]
+        public void Respawn_RestoresWeaponAndRejectsDeadActions()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var weapon = new WeaponSimulationConfig(1, WeaponFireMode.Hitscan, 2, 5, 100f, 100f, 0f, 1.6f);
+            var manager = CreateManager(transport, null, weaponConfig: weapon, deathmatchRespawnSeconds: 0.04f);
+            var shooter = new TransportConnectionId(10);
+            var target = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, shooter);
+            manager.HandleConnected(NetworkTransportSide.Server, target);
+            manager.TryGetServerSession(target, out var session);
+            SendTick(manager, shooter, target, 1, 100, default,
+                new PlayerInputCommand { FirePressed = true, ShotSequence = 1, LookYaw = 90f });
+            SendTick(manager, shooter, target, 2, 101,
+                new PlayerInputCommand { FirePressed = true, ShotSequence = 1, LookYaw = 90f },
+                new PlayerInputCommand { ReloadPressed = true, LookYaw = 90f });
+            FixVec3 deadPosition = session.CurrentState.PositionFixed;
+            SendTick(manager, shooter, target, 3, 102, default,
+                new PlayerInputCommand { MoveY = 1f, JumpPressed = true, FirePressed = true, ShotSequence = 2 });
+            Assert.That(session.CurrentState.PositionFixed, Is.EqualTo(deadPosition));
+            Assert.That(session.LastWeaponFireResult.Accepted, Is.False);
+
+            transport.SentPackets.Clear();
+            transport.SentConnectionIds.Clear();
+            SendTick(manager, shooter, target, 4, 103, default,
+                new PlayerInputCommand { FirePressed = true, ShotSequence = 3, LookYaw = 90f });
+            Assert.That(session.LastWeaponFireResult.Accepted, Is.True, "新生命不应沿用旧生命的冷却或换弹。");
+            Assert.That(session.LastWeaponFireResult.RemainingAmmo, Is.EqualTo(1));
+            bool received = false;
+            for (int i = 0; i < transport.SentPackets.Count; i++)
+            {
+                if (transport.SentConnectionIds[i] == target &&
+                    AuthoritativeWeaponStateCodec.TryDeserialize(transport.SentPackets[i], out _, out var state))
+                {
+                    received = true;
+                    Assert.That(state.Ammo, Is.EqualTo(1));
+                    Assert.That(state.IsEquipped, Is.True);
+                    Assert.That(state.IsReloading, Is.False);
+                }
+            }
+            Assert.That(received, Is.True);
+            SendTick(manager, shooter, target, 5, 108, default,
+                new PlayerInputCommand { FirePressed = true, ShotSequence = 1 });
+            Assert.That(session.LastWeaponFireResult.RejectReason,
+                Is.EqualTo(AFPS.NetCode.Weapons.WeaponFireRejectReason.DuplicateOrOldSequence));
+        }
+
+        [TestCase(100u, false)]
+        [TestCase(101u, false)]
+        [TestCase(102u, false)]
+        [TestCase(103u, true)]
+        public void Respawn_RewindCannotHitPreviousLife(uint requestedTick, bool expectedHit)
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var weapon = new WeaponSimulationConfig(1, WeaponFireMode.Hitscan, 30, 5, 100f, 100f, 0f, 1.6f);
+            var manager = CreateManager(transport, null, weaponConfig: weapon, deathmatchRespawnSeconds: 0.04f);
+            var shooter = new TransportConnectionId(10);
+            var target = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, shooter);
+            manager.HandleConnected(NetworkTransportSide.Server, target);
+            SendTick(manager, shooter, target, 1, 100, default, default);
+            SendTick(manager, shooter, target, 2, 101,
+                new PlayerInputCommand { FirePressed = true, ShotSequence = 1, LookYaw = 90f }, default);
+            SendTick(manager, shooter, target, 3, 103, default, default);
+            transport.SentPackets.Clear();
+            SendTick(manager, shooter, target, 4, 106,
+                new PlayerInputCommand
+                {
+                    FirePressed = true,
+                    ShotSequence = 2,
+                    LookYaw = 90f,
+                    ShotServerTick = requestedTick
+                }, default);
+            Assert.That(FindLastShotResult(transport, out var result), Is.True);
+            Assert.That(result.DidHit, Is.EqualTo(expectedHit));
+        }
+
+        [Test]
+        public void Deathmatch_TimeoutPrecedesRespawnAndDisablesActions()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var weapon = new WeaponSimulationConfig(1, WeaponFireMode.Hitscan, 30, 5, 100f, 100f, 0f, 1.6f);
+            var manager = CreateManager(transport, null, weaponConfig: weapon,
+                deathmatchRespawnSeconds: 0.04f, deathmatchDurationSeconds: 0.06f);
+            var shooter = new TransportConnectionId(10);
+            var target = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, shooter);
+            manager.HandleConnected(NetworkTransportSide.Server, target);
+            manager.TryGetServerEntityId(target, out uint targetEntity);
+            manager.TryGetServerSession(shooter, out var session);
+            SendTick(manager, shooter, target, 1, 100, default, default);
+            SendTick(manager, shooter, target, 2, 101,
+                new PlayerInputCommand { FirePressed = true, ShotSequence = 1, LookYaw = 90f }, default);
+            FixVec3 lastPosition = session.CurrentState.PositionFixed;
+            SendTick(manager, shooter, target, 3, 103,
+                new PlayerInputCommand { MoveY = 1f, JumpPressed = true, FirePressed = true, ShotSequence = 2 }, default);
+            Assert.That(manager.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.Finished));
+            Assert.That(manager.TryGetServerDeathmatchPlayer(targetEntity, out var targetState), Is.True);
+            Assert.That(targetState.IsAlive, Is.False);
+            Assert.That(session.CurrentState.PositionFixed, Is.EqualTo(lastPosition));
+            Assert.That(session.LastWeaponFireResult.Accepted, Is.False);
+        }
+
         private static NetworkMovementSessionManager CreateManager(
             IGameTransport serverTransport,
             IGameTransport clientTransport,
@@ -810,7 +913,8 @@ namespace AFPS.Tests.EditMode
             PlayerState? spawnState = null,
             float spawnSpacing = 2.5f,
             WeaponSimulationConfig? weaponConfig = null,
-            Func<ulong> clock = null)
+            Func<ulong> clock = null,
+            float deathmatchDurationSeconds = 300f)
         {
             PlayerState initialState = spawnState ?? new PlayerState { Tick = 0, IsGrounded = true };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
@@ -826,6 +930,7 @@ namespace AFPS.Tests.EditMode
                 snapshotBudgetPerClientPerTick: snapshotBudget,
                 deathmatchKillLimit: deathmatchKillLimit,
                 deathmatchRespawnSeconds: deathmatchRespawnSeconds,
+                deathmatchDurationSeconds: deathmatchDurationSeconds,
                 monotonicMicroseconds: clock);
         }
         private static void SendTick(NetworkMovementSessionManager manager, TransportConnectionId shooter, TransportConnectionId target, uint inputTick, uint serverTick, PlayerInputCommand shooterCommand, PlayerInputCommand targetCommand)

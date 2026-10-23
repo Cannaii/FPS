@@ -56,6 +56,27 @@ namespace AFPS.Tests.EditMode
             Assert.That(controller.Process(0, 1, Fire(1), state).Accepted, Is.True);
         }
 
+        [Test]
+        public void Respawn_RestoresAmmoAndCooldownButPreservesSequenceAndEquipment()
+        {
+            var config = new WeaponSimulationConfig(1, WeaponFireMode.Hitscan, 2, 5, 20f, 100f, 0f, 1.6f);
+            var controller = new ServerWeaponFireController(config);
+            PlayerState state = default;
+            Assert.That(controller.Process(100, 1, Fire(1), state).Accepted, Is.True);
+            controller.Process(101, 1, new PlayerInputCommand { ReloadPressed = true }, state);
+            Assert.That(controller.IsReloading, Is.True);
+
+            controller.SetEquipped(false);
+            controller.ResetForRespawn();
+            Assert.That(controller.Ammo, Is.EqualTo(2));
+            Assert.That(controller.IsReloading, Is.False);
+            Assert.That(controller.IsEquipped, Is.False);
+            controller.SetEquipped(true);
+            Assert.That(controller.Process(102, 1, Fire(1), state).RejectReason,
+                Is.EqualTo(WeaponFireRejectReason.DuplicateOrOldSequence));
+            Assert.That(controller.Process(102, 1, Fire(2), state).Accepted, Is.True);
+        }
+
         private static PlayerInputCommand Fire(uint sequence) => new PlayerInputCommand { FirePressed = true, ShotSequence = sequence };
     }
 }

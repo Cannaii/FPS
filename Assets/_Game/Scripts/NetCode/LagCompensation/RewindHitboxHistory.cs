@@ -23,6 +23,13 @@ namespace AFPS.NetCode.LagCompensation
             targets = new ServerCombatTarget[capacity];
         }
 
+        /// <summary>隔离不同生命的历史；清空后旧 Tick 查询必须失败，直到记录新生命。</summary>
+        public void Clear()
+        {
+            nextIndex = 0;
+            count = 0;
+        }
+
         public void Record(uint serverTick, in ServerCombatTarget target)
         {
             ticks[nextIndex] = serverTick;
