@@ -24,6 +24,9 @@ namespace AFPS.NetCode.Runtime
         /// <summary>
         /// 只启动服务器，不创建本地玩家客户端，供无图形专用服务器使用。
         /// </summary>
-        DedicatedServer = 3
+        DedicatedServer = 3,
+
+        /// <summary>单进程单人练习；本地内存传输，不监听网络端口。</summary>
+        Practice = 4
     }
 }

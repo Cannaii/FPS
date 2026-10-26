@@ -27,6 +27,7 @@ namespace AFPS.Bootstrap
         private TextMeshProUGUI statusText;
         private Button hostButton;
         private Button joinButton;
+        private Button practiceButton;
         private Button enterButton;
         private bool initialized;
         private string localAddress;
@@ -70,6 +71,11 @@ namespace AFPS.Bootstrap
             enterButton.gameObject.SetActive(ready);
             if (ready)
             {
+                if (bootstrap.ActiveMode == NetworkLaunchMode.Practice)
+                {
+                    EnterGame();
+                    return;
+                }
                 string message = bootstrap.ActiveMode == NetworkLaunchMode.Host
                     ? $"Room at {localAddress}:{portInput.text}. World verified."
                     : "World verified. Ready to enter.";
@@ -93,7 +99,8 @@ namespace AFPS.Bootstrap
             }
 
             SetButtonsInteractable(false);
-            SetStatus(mode == NetworkLaunchMode.Host ? "Starting host..." : "Connecting...", false);
+            SetStatus(mode == NetworkLaunchMode.Practice ? "Starting solo practice..."
+                : mode == NetworkLaunchMode.Host ? "Starting host..." : "Connecting...", false);
             if (!bootstrap.TryStartNetwork(options, out error))
             {
                 SetStatus(error, true);
@@ -137,7 +144,7 @@ namespace AFPS.Bootstrap
 
             RectTransform backdrop = CreateRect("Backdrop", canvasRoot.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             backdrop.gameObject.AddComponent<Image>().color = BackdropColor;
-            RectTransform panel = CreateRect("Panel", backdrop, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(660f, 570f), Vector2.zero);
+            RectTransform panel = CreateRect("Panel", backdrop, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(660f, 700f), Vector2.zero);
             panel.gameObject.AddComponent<Image>().color = PanelColor;
 
             CreateText(panel, "AFPS LAN", 38f, FontStyles.Bold, TextAlignmentOptions.Center, new Vector2(0f, 224f), new Vector2(560f, 54f), Color.white);
@@ -150,9 +157,11 @@ namespace AFPS.Bootstrap
 
             hostButton = CreateButton(panel, "Host Button", "HOST GAME", new Vector2(-135f, -91f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Host));
             joinButton = CreateButton(panel, "Join Button", "JOIN GAME", new Vector2(135f, -91f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Client));
-            statusText = CreateText(panel, $"Local address: {localAddress}", 18f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, -159f), new Vector2(560f, 54f), new Color(0.66f, 0.75f, 0.84f));
+            practiceButton = CreateButton(panel, "Practice Button", "SOLO PRACTICE", new Vector2(0f, -162f),
+                new Vector2(520f, 58f), () => StartNetwork(NetworkLaunchMode.Practice));
+            statusText = CreateText(panel, $"Local address: {localAddress}", 18f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, -229f), new Vector2(560f, 54f), new Color(0.66f, 0.75f, 0.84f));
             statusText.enableWordWrapping = true;
-            enterButton = CreateButton(panel, "Enter Button", "ENTER GAME", new Vector2(0f, -224f), new Vector2(520f, 58f), EnterGame);
+            enterButton = CreateButton(panel, "Enter Button", "ENTER GAME", new Vector2(0f, -294f), new Vector2(520f, 58f), EnterGame);
             enterButton.gameObject.SetActive(false);
         }
 
@@ -160,6 +169,7 @@ namespace AFPS.Bootstrap
         {
             hostButton.interactable = interactable;
             joinButton.interactable = interactable;
+            practiceButton.interactable = interactable;
             addressInput.interactable = interactable;
             portInput.interactable = interactable;
         }

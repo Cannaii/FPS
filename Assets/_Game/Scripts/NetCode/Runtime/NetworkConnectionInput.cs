@@ -14,6 +14,13 @@ namespace AFPS.NetCode.Runtime
 
         public static bool TryCreateOptions(NetworkLaunchMode mode, string addressText, string portText, int maxConnections, out NetworkLaunchOptions options, out string error)
         {
+            if (mode == NetworkLaunchMode.Practice)
+            {
+                // 练习不读取IP和端口，用户无需先修正联网输入框才能测试本机操作。
+                options = new NetworkLaunchOptions(mode, HostLoopbackAddress, 0, 1);
+                error = null;
+                return true;
+            }
             if (mode != NetworkLaunchMode.Host && mode != NetworkLaunchMode.Client)
             {
                 options = default;

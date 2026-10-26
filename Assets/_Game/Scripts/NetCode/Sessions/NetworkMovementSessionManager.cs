@@ -99,6 +99,7 @@ namespace AFPS.NetCode.Sessions
         /// 当前服务器侧维护的已连接玩家权威会话数量。
         /// </summary>
         public int ServerSessionCount => serverSessions.Count;
+        public bool IsLocalPractice { get; }
 
         /// <summary>
         /// 当前客户端与服务器连接成功后创建的本地预测会话。
@@ -169,8 +170,14 @@ namespace AFPS.NetCode.Sessions
             // 本地模拟 Tick；50Hz 默认等待 5 秒，每 0.5 秒重试，等待连接期间也必须推进时钟。
             uint admissionTimeoutTicks = 250,
             uint admissionRetryTicks = 25,
-            Func<ulong> monotonicMicroseconds = null)
+            Func<ulong> monotonicMicroseconds = null,
+            bool isLocalPractice = false)
         {
+            if (isLocalPractice && (!(serverTransport is LocalGameTransport) || !(clientTransport is LocalGameTransport)))
+            {
+                throw new ArgumentException("单人练习只能使用本地传输对，不能改变联网对局规则。", nameof(isLocalPractice));
+            }
+            IsLocalPractice = isLocalPractice;
             if (serverTransport == null && clientTransport == null)
             {
                 throw new ArgumentException("至少需要一个服务器或客户端传输实例。");
@@ -718,7 +725,7 @@ namespace AFPS.NetCode.Sessions
 
         private void UpdateDeathmatchBeforeSimulation(uint serverWorldTick)
         {
-            if (deathmatchPhase == DeathmatchPhase.WaitingForPlayers && serverSessions.Count >= 2)
+            if (deathmatchPhase == DeathmatchPhase.WaitingForPlayers && serverSessions.Count >= (IsLocalPractice ? 1 : 2))
             {
                 deathmatchPhase = DeathmatchPhase.Playing;
                 deathmatchStartTick = serverWorldTick;
@@ -731,7 +738,7 @@ namespace AFPS.NetCode.Sessions
             }
 
             // 到时优先于复活和当 Tick 战斗，避免终局边界先恢复生命再冻结。
-            if (unchecked(serverWorldTick - deathmatchStartTick) >= deathmatchDurationTicks)
+            if (!IsLocalPractice && unchecked(serverWorldTick - deathmatchStartTick) >= deathmatchDurationTicks)
             {
                 FinishDeathmatch(FindLeadingPlayer());
                 return;
@@ -855,7 +862,7 @@ namespace AFPS.NetCode.Sessions
             }
 
             uint remainingTicks = 0;
-            if (deathmatchPhase == DeathmatchPhase.Playing)
+            if (deathmatchPhase == DeathmatchPhase.Playing && !IsLocalPractice)
             {
                 uint elapsed = unchecked(serverWorldTick - deathmatchStartTick);
                 remainingTicks = elapsed >= deathmatchDurationTicks ? 0 : deathmatchDurationTicks - elapsed;

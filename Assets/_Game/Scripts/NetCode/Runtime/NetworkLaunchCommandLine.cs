@@ -30,7 +30,7 @@ namespace AFPS.NetCode.Runtime
                     if (!TryParseMode(modeValue, out mode))
                     {
                         options = default;
-                        error = $"无法识别 AFPS 启动模式“{modeValue}”。可用值为 client、host、server。";
+                        error = $"无法识别 AFPS 启动模式“{modeValue}”。可用值为 client、host、server、practice。";
                         return false;
                     }
 
@@ -97,7 +97,9 @@ namespace AFPS.NetCode.Runtime
                 }
             }
 
-            options = new NetworkLaunchOptions(mode, address, port, maxConnections);
+            options = mode == NetworkLaunchMode.Practice
+                ? new NetworkLaunchOptions(mode, "127.0.0.1", 0, 1)
+                : new NetworkLaunchOptions(mode, address, port, maxConnections);
             error = null;
             return true;
         }
@@ -134,6 +136,11 @@ namespace AFPS.NetCode.Runtime
 
         private static bool TryParseMode(string value, out NetworkLaunchMode mode)
         {
+            if (value.Equals("practice", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = NetworkLaunchMode.Practice;
+                return true;
+            }
             if (value.Equals("client", StringComparison.OrdinalIgnoreCase))
             {
                 mode = NetworkLaunchMode.Client;

@@ -16,7 +16,7 @@ namespace AFPS.NetCode.Runtime
         public readonly string ServerAddress;
 
         /// <summary>
-        /// 服务器监听或客户端连接的 UDP 端口。
+        /// 服务器监听或客户端连接的 UDP 端口；Practice不使用端口，允许为零。
         /// </summary>
         public readonly ushort Port;
 

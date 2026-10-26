@@ -67,6 +67,10 @@ namespace AFPS.Bootstrap
             statusText.text += sessionManager.HasTimeSync
                 ? $"   RTT {sessionManager.Metrics.LastNetworkRoundTripMilliseconds:F1} ms"
                 : "   RTT --";
+            if (sessionManager.IsLocalPractice)
+            {
+                statusText.text = $"PRACTICE   HP {local.Health:000}";
+            }
             if (sessionManager.ClientSession != null)
             {
                 var movement = sessionManager.ClientSession.CurrentState;

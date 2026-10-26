@@ -147,6 +147,10 @@ namespace AFPS.Bootstrap
 
         private void Awake()
         {
+            if (PracticeSmokeTestDriver.IsRequested)
+            {
+                gameObject.AddComponent<PracticeSmokeTestDriver>().Configure(this);
+            }
             if (showConnectionMenu && !HasExplicitLaunchMode(Environment.GetCommandLineArgs()))
             {
                 NetworkConnectionMenu menu = GetComponent<NetworkConnectionMenu>();
@@ -236,7 +240,7 @@ namespace AFPS.Bootstrap
                 return false;
             }
 
-            if (options.Port == 0)
+            if (options.Port == 0 && options.Mode != NetworkLaunchMode.Practice)
             {
                 error = "UDP port must be from 1 to 65535.";
                 return false;

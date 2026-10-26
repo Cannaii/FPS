@@ -39,6 +39,7 @@ namespace AFPS.NetCode.Runtime
                     case NetworkLaunchMode.Client:
                         return ClientTransport != null && ClientTransport.IsRunning;
                     case NetworkLaunchMode.Host:
+                    case NetworkLaunchMode.Practice:
                         return ServerTransport != null && ServerTransport.IsRunning && ClientTransport != null && ClientTransport.IsRunning;
                     case NetworkLaunchMode.DedicatedServer:
                         return ServerTransport != null && ServerTransport.IsRunning;
@@ -74,6 +75,11 @@ namespace AFPS.NetCode.Runtime
             {
                 switch (options.Mode)
                 {
+                    case NetworkLaunchMode.Practice:
+                        LocalGameTransport.CreatePair(out var localServer, out var localClient);
+                        ServerTransport = localServer;
+                        ClientTransport = localClient;
+                        break;
                     case NetworkLaunchMode.Client:
                         ClientTransport = CreateTransport();
                         if (!ClientTransport.TryStartClient(options.ServerAddress, options.Port, out error))
@@ -165,13 +171,14 @@ namespace AFPS.NetCode.Runtime
 
         private static bool ValidateOptions(in NetworkLaunchOptions options, out string error)
         {
-            if (options.Mode == NetworkLaunchMode.None)
+            if (options.Mode != NetworkLaunchMode.Client && options.Mode != NetworkLaunchMode.Host
+                && options.Mode != NetworkLaunchMode.DedicatedServer && options.Mode != NetworkLaunchMode.Practice)
             {
-                error = "必须选择 Client、Host 或 Dedicated Server 启动模式。";
+                error = "必须选择 Client、Host、Dedicated Server 或 Practice 启动模式。";
                 return false;
             }
 
-            if (options.Port == 0)
+            if (options.Port == 0 && options.Mode != NetworkLaunchMode.Practice)
             {
                 error = "UDP 端口必须在 1 到 65535 之间。";
                 return false;

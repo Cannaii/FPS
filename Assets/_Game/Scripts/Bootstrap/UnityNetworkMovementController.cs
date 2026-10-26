@@ -233,7 +233,8 @@ namespace AFPS.Bootstrap
                     deathmatchDurationSeconds: deathmatchDurationSeconds,
                     deathmatchRespawnSeconds: deathmatchRespawnSeconds,
                     deathmatchReplicationIntervalSeconds: deathmatchReplicationIntervalSeconds,
-                    simulationWorld: preparedWorld);
+                    simulationWorld: preparedWorld,
+                    isLocalPractice: networkBootstrap.ActiveMode == NetworkLaunchMode.Practice);
             }
             catch (ArgumentException exception)
             {
