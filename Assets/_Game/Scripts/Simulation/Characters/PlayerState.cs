@@ -20,6 +20,9 @@ namespace AFPS.Simulation.Characters
         public FixVec3 DashVelocityFixed; // 触发时锁定的世界水平速度，Y恒为零；结束时清零。
         public int DashSpentCharges; // 已用充能；零初始化即满充能，不使用特殊出生哨兵。
         public Fix DashRechargeRemainingFixed; // 恢复下一次充能的剩余秒数；满充能时为零。
+        public Fix CoyoteRemainingFixed; // 当前Tick后的离地宽限剩余秒数；零不允许宽限跳。
+        public bool GroundJumpConsumed; // 主动起跳已消耗地面机会；防止再用宽限伪造地面跳。
+        public int AirJumpsUsed; // 最近一次真实落地后已用的额外空中跳次数；零即全部可用。
         public bool RawEquals(in PlayerState other) =>
             Tick == other.Tick
             && PositionFixed == other.PositionFixed
@@ -32,6 +35,9 @@ namespace AFPS.Simulation.Characters
             && DashRemainingFixed == other.DashRemainingFixed
             && DashVelocityFixed == other.DashVelocityFixed
             && DashSpentCharges == other.DashSpentCharges
-            && DashRechargeRemainingFixed == other.DashRechargeRemainingFixed;
+            && DashRechargeRemainingFixed == other.DashRechargeRemainingFixed
+            && CoyoteRemainingFixed == other.CoyoteRemainingFixed
+            && GroundJumpConsumed == other.GroundJumpConsumed
+            && AirJumpsUsed == other.AirJumpsUsed;
     }
 }

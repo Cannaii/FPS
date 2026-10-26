@@ -83,7 +83,9 @@ namespace AFPS.NetCode.Sessions
             PlayerState state = CurrentState;
             state.PositionFixed = position;
             state.VelocityFixed = FixVec3.Zero;
-            state.IsGrounded = true;
+            // 目标未经过碰撞确认，不能凭传送授予落地和新的空中跳；下一Tick由运动器重新判定。
+            state.IsGrounded = false;
+            PlayerJumpSimulation.CancelGroundOpportunity(ref state);
             state.IsSprinting = false;
             PlayerDashSimulation.Cancel(ref state);
             CurrentState = state;
@@ -98,6 +100,7 @@ namespace AFPS.NetCode.Sessions
             restored.SprintExhausted = false;
             restored.DashSpentCharges = 0;
             restored.DashRechargeRemainingFixed = Fix.Zero;
+            restored.AirJumpsUsed = 0;
             CurrentState = restored;
             ResetLoadoutForRespawn();
             // 即使弹量恰好未改变，也必须向拥有者立即确认新生命的武器状态。

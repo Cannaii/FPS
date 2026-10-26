@@ -20,16 +20,21 @@ internal static class BakedMapReplay
         }
         ulong combatHash = DeterministicCombatScenario.Run();
         Console.WriteLine($"CombatTicks=512; CombatRawHash={combatHash}");
+        Console.WriteLine("JumpRawHash=" + DeterministicJumpScenario.Run());
+        if (DeterministicJumpScenario.Run() != DeterministicJumpScenario.ExpectedHash)
+        {
+            throw new Exception("Jump simulation fingerprint changed");
+        }
         if (combatHash != DeterministicCombatScenario.ExpectedHash)
         {
             throw new Exception("Combat simulation fingerprint changed");
         }
-        if (hash != 15394100892528730911UL)
+        if (hash != 4434517806960951115UL)
         {
             throw new Exception("Regression fingerprint changed");
         }
 
-        if (context.Identity.AlgorithmVersion != 13 || context.Identity.ConfigurationHash != 2399935639262568197UL)
+        if (context.Identity.AlgorithmVersion != 14 || context.Identity.ConfigurationHash != 4198265158017506703UL)
         {
             throw new Exception("World compatibility fingerprint changed");
         }

@@ -84,7 +84,7 @@ namespace AFPS.Tests.EditMode
             };
             byte[] packet = new byte[AuthoritativePlayerStateCodec.PacketSize];
             Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, 5, state), 1, new ArraySegment<byte>(packet), out _), Is.True);
-            packet[PacketHeader.Size + 36] = 1 << 3; // 状态标志后的未知位，不能依赖包尾偏移。
+            packet[PacketHeader.Size + 36] = 1 << 4; // 状态标志后的未知位，不能依赖包尾偏移。
             Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out _), Is.False);
         }
 

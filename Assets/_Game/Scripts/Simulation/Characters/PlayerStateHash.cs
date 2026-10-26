@@ -25,6 +25,9 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, state.DashVelocityFixed.Z.Raw);
             Add(ref hash, state.DashSpentCharges);
             Add(ref hash, state.DashRechargeRemainingFixed.Raw);
+            Add(ref hash, state.CoyoteRemainingFixed.Raw);
+            Add(ref hash, state.GroundJumpConsumed ? 1 : 0);
+            Add(ref hash, state.AirJumpsUsed);
             return hash;
         }
 

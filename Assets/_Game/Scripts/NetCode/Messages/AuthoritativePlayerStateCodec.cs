@@ -9,8 +9,8 @@ namespace AFPS.NetCode.Messages
     /// <summary>权威状态：位置/速度/体力无损Raw，观察角沿用无损可逆的百分度网格。</summary>
     public static class AuthoritativePlayerStateCodec
     {
-        // 原41B后追加Dash剩余秒4B、水平速度XZ各4B、已用充能1B、充能恢复秒4B。
-        public const int PayloadSize = 58;
+        // 原58B后追加宽限秒4B、已用空中跳1B；地面跳消耗标志使用原状态字节bit3。
+        public const int PayloadSize = 63;
         public const int PacketSize = PacketHeader.Size + PayloadSize;
         // 以下分辨率暂供旧远端 Snapshot 使用，权威状态不再按这些常量量化。
         public const float PositionResolution = 0.001f;
@@ -23,14 +23,15 @@ namespace AFPS.NetCode.Messages
         private const byte GroundedMask = 1;
         private const byte SprintingMask = 2;
         private const byte ExhaustedMask = 4;
-        private const byte KnownFlags = GroundedMask | SprintingMask | ExhaustedMask;
+        private const byte GroundJumpConsumedMask = 8;
+        private const byte KnownFlags = GroundedMask | SprintingMask | ExhaustedMask | GroundJumpConsumedMask;
         public static bool TrySerialize(in AuthoritativePlayerState authoritative, uint sequence, ArraySegment<byte> destination, out int bytesWritten)
         {
             bytesWritten = 0;
             PlayerState state = authoritative.State;
             if (destination.Count < PacketSize || state.Tick != authoritative.LastProcessedInputTick
                 || state.StaminaSpentFixed < Fix.Zero || state.StaminaSpentFixed > Fix.One
-                || (state.IsSprinting && state.SprintExhausted) || !IsValidDash(state))
+                || (state.IsSprinting && state.SprintExhausted) || !IsValidDash(state) || !IsValidJump(state))
             {
                 return false;
             }
@@ -56,13 +57,16 @@ namespace AFPS.NetCode.Messages
                 || !writer.TryWriteUInt16(yaw)
                 || !writer.TryWriteInt16(pitch)
                 || !writer.TryWriteByte((byte)((state.IsGrounded ? GroundedMask : 0)
-                    | (state.IsSprinting ? SprintingMask : 0) | (state.SprintExhausted ? ExhaustedMask : 0)))
+                    | (state.IsSprinting ? SprintingMask : 0) | (state.SprintExhausted ? ExhaustedMask : 0)
+                    | (state.GroundJumpConsumed ? GroundJumpConsumedMask : 0)))
                 || !writer.TryWriteInt32(state.StaminaSpentFixed.Raw)
                 || !writer.TryWriteInt32(state.DashRemainingFixed.Raw)
                 || !writer.TryWriteInt32(state.DashVelocityFixed.X.Raw)
                 || !writer.TryWriteInt32(state.DashVelocityFixed.Z.Raw)
                 || !writer.TryWriteByte((byte)state.DashSpentCharges)
-                || !writer.TryWriteInt32(state.DashRechargeRemainingFixed.Raw))
+                || !writer.TryWriteInt32(state.DashRechargeRemainingFixed.Raw)
+                || !writer.TryWriteInt32(state.CoyoteRemainingFixed.Raw)
+                || !writer.TryWriteByte((byte)state.AirJumpsUsed))
             {
                 return false;
             }
@@ -95,7 +99,9 @@ namespace AFPS.NetCode.Messages
                 || !reader.TryReadInt32(out int dashX)
                 || !reader.TryReadInt32(out int dashZ)
                 || !reader.TryReadByte(out byte dashSpentCharges)
-                || !reader.TryReadInt32(out int dashRechargeRemaining))
+                || !reader.TryReadInt32(out int dashRechargeRemaining)
+                || !reader.TryReadInt32(out int coyoteRemaining)
+                || !reader.TryReadByte(out byte airJumpsUsed))
             {
                 return false;
             }
@@ -121,14 +127,27 @@ namespace AFPS.NetCode.Messages
                 DashRemainingFixed = Fix.FromRaw(dashRemaining),
                 DashVelocityFixed = new FixVec3(Fix.FromRaw(dashX), Fix.Zero, Fix.FromRaw(dashZ)),
                 DashSpentCharges = dashSpentCharges,
-                DashRechargeRemainingFixed = Fix.FromRaw(dashRechargeRemaining)
+                DashRechargeRemainingFixed = Fix.FromRaw(dashRechargeRemaining),
+                CoyoteRemainingFixed = Fix.FromRaw(coyoteRemaining),
+                GroundJumpConsumed = (flags & GroundJumpConsumedMask) != 0,
+                AirJumpsUsed = airJumpsUsed
             };
-            if (!IsValidDash(state))
+            if (!IsValidDash(state) || !IsValidJump(state))
             {
                 return false;
             }
             authoritative = new AuthoritativePlayerState(serverTick, inputTick, state);
             return true;
+        }
+
+        private static bool IsValidJump(in PlayerState state)
+        {
+            // 允许零初始化的落地状态；活动宽限与已消耗地面机会互斥，空中跳必须先烧掉地面机会。
+            return state.CoyoteRemainingFixed >= Fix.Zero && state.CoyoteRemainingFixed <= Fix.Half
+                && state.AirJumpsUsed >= 0 && state.AirJumpsUsed <= 8
+                && (!state.GroundJumpConsumed || state.CoyoteRemainingFixed == Fix.Zero)
+                && (state.AirJumpsUsed == 0 || state.GroundJumpConsumed)
+                && (!state.IsGrounded || (!state.GroundJumpConsumed && state.AirJumpsUsed == 0));
         }
 
         private static bool IsValidDash(in PlayerState state)

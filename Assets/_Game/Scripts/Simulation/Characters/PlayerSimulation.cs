@@ -44,7 +44,7 @@ namespace AFPS.Simulation.Characters
             FixVec3 target = (right * move.X + forward * move.Z) * targetSpeed;
             FixVec3 horizontal = new FixVec3(previousState.VelocityFixed.X, Fix.Zero, previousState.VelocityFixed.Z);
             Fix vertical = previousState.VelocityFixed.Y;
-            if (!dashing && input.JumpPressed && previousState.IsGrounded)
+            if (PlayerJumpSimulation.TryJump(ref next, input, config.Jump, dashing))
             {
                 vertical = config.JumpSpeedFixed;
                 next.IsGrounded = false;
@@ -76,6 +76,7 @@ namespace AFPS.Simulation.Characters
             next = PlayerSprintSimulation.Complete(next, previousState, input, config.Sprint,
                 tickDeltaTime, sprintRequested, dashing);
             PlayerDashSimulation.Complete(ref next, tickDeltaTime);
+            PlayerJumpSimulation.Complete(ref next, config.Jump, tickDeltaTime);
             return next;
         }
     }

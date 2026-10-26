@@ -322,17 +322,19 @@ namespace AFPS.Tests.EditMode
         }
 
         /// <summary>
-        /// 验证玩家处于空中时，再次按下跳跃键不会重置向上速度。
+        /// 验证额外空中跳次数耗尽后，再次按下跳跃键不会重置向上速度。
         /// </summary>
         [Test]
-        public void Simulate_JumpPressedWhileAirborne_DoesNotJumpAgain()
+        public void Simulate_JumpPressedWhileAirborneWithoutCharges_DoesNotJumpAgain()
         {
             PlayerState previousState = new PlayerState
             {
                 Tick = 10,
                 Position = new Vector3(0f, 2f, 0f),
                 Velocity = new Vector3(0f, 3f, 0f),
-                IsGrounded = false
+                IsGrounded = false,
+                GroundJumpConsumed = true,
+                AirJumpsUsed = 1
             };
 
             PlayerInputCommand input = new PlayerInputCommand
@@ -357,7 +359,7 @@ namespace AFPS.Tests.EditMode
                 config,
                 tickDeltaTime);
 
-            // 空中跳跃输入应被忽略，只应用重力：
+            // 空中跳次数已耗尽时输入应被忽略，只应用重力：
             // 3 - 20 × 0.02 = 2.6 米/秒
             Assert.AreEqual(
                 2.6f,

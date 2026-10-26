@@ -307,7 +307,12 @@ namespace AFPS.Bootstrap
 
             Debug.Log($"AFPS 定点世界已装配：{preparedWorld.Identity.WorldHash}，配置={preparedWorld.Identity.ConfigurationHash}。", this);
             initialized = true;
-            if (hasLocalClient && DashSmokeTestDriver.IsRequested)
+            if (hasLocalClient && JumpSmokeTestDriver.IsRequested)
+            {
+                var jump = gameObject.AddComponent<JumpSmokeTestDriver>();
+                jump.Configure(this, inputCollector);
+            }
+            else if (hasLocalClient && DashSmokeTestDriver.IsRequested)
             {
                 var dash = gameObject.AddComponent<DashSmokeTestDriver>();
                 dash.Configure(this, inputCollector);

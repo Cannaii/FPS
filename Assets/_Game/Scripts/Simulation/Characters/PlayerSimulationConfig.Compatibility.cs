@@ -17,8 +17,10 @@ namespace AFPS.Simulation.Characters
             float jumpSpeed,
             CharacterCollisionConfig? collision = null,
             PlayerSprintConfig? sprint = null,
-            PlayerDashConfig? dash = null) : this(Fix.FromFloat(maxGroundSpeed),
-                Fix.FromFloat(groundAcceleration), Fix.FromFloat(gravity), Fix.FromFloat(jumpSpeed), collision, sprint, dash)
+            PlayerDashConfig? dash = null,
+            PlayerJumpConfig? jump = null) : this(Fix.FromFloat(maxGroundSpeed),
+                Fix.FromFloat(groundAcceleration), Fix.FromFloat(gravity), Fix.FromFloat(jumpSpeed),
+                collision, sprint, dash, jump)
         {
         }
     }

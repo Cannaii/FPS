@@ -13,7 +13,7 @@ $taskSources += @('InputAxisGrid.cs', 'InputAngleGrid.cs', 'PlayerInputCommand.c
 $taskSources += @('InputCommandBatch.cs', 'InputCommandBatchCodec.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Messages/' + $_) }
 $taskSources += @('PacketHeader.cs', 'PacketHeaderCodec.cs', 'NetworkMessageType.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Protocol/' + $_) }
 $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Serialization/PacketBuffer.cs'
-$taskSources += @('PlayerState.cs','PlayerStateHash.cs','PlayerSimulation.cs','PlayerSimulationConfig.cs','PlayerSprintConfig.cs','PlayerSprintSimulation.cs','PlayerDashConfig.cs','PlayerDashSimulation.cs','SimulationStep.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/Simulation/Characters/' + $_) }
+$taskSources += @('PlayerState.cs','PlayerStateHash.cs','PlayerSimulation.cs','PlayerSimulationConfig.cs','PlayerSprintConfig.cs','PlayerSprintSimulation.cs','PlayerDashConfig.cs','PlayerDashSimulation.cs','PlayerJumpConfig.cs','PlayerJumpSimulation.cs','SimulationStep.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/Simulation/Characters/' + $_) }
 $taskSources += @('CharacterCollisionConfig.cs','IFixedCharacterCollisionWorld.cs','FixedFlatGroundCollisionWorld.cs','KinematicCharacterMotor.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/Simulation/Characters/Collision/' + $_) }
 $taskSources += @('AuthoritativePlayerState.cs','AuthoritativePlayerStateCodec.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Messages/' + $_) }
 $taskSources += @('ClientPredictionComparer.cs','ClientPredictionReconciler.cs','PredictionError.cs','ReconciliationResult.cs','ReconciliationStatus.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Prediction/' + $_) }
@@ -31,6 +31,7 @@ $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/De
 $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicExplosionScenario.cs'
 $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicSprintScenario.cs'
 $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicDashScenario.cs'
+$taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicJumpScenario.cs'
 $taskSources += Join-Path $PSScriptRoot 'BakedMapReplay.cs'
 $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicMapReplayScenario.cs'
 $taskArguments = @('-nologo', '-langversion:9', '-checked+', '-optimize+', '-target:exe', ('-out:' + (Join-Path $taskOutput 'BakedMapReplay.exe')))
@@ -51,10 +52,12 @@ $taskConfig = @{ runtimeOptions = @{ framework = @{ name = 'Microsoft.NETCore.Ap
 [IO.File]::WriteAllText((Join-Path $taskOutput 'BakedMapReplay.runtimeconfig.json'), $taskConfig)
 $taskMonoResult = & (Join-Path $taskEditorDirectory 'Data/MonoBleedingEdge/bin/mono.exe') (Join-Path $taskOutput 'BakedMapReplay.exe') (Join-Path $taskProjectRoot 'Assets/_Game/Worlds/SampleScene.bytes')
 if ($LASTEXITCODE -ne 0) {
+    Write-Output ($taskMonoResult -join ' ')
     exit $LASTEXITCODE
 }
 $taskCoreResult = & $taskRuntime (Join-Path $taskOutput 'BakedMapReplay.exe') (Join-Path $taskProjectRoot 'Assets/_Game/Worlds/SampleScene.bytes')
 if ($LASTEXITCODE -ne 0) {
+    Write-Output ($taskCoreResult -join ' ')
     exit $LASTEXITCODE
 }
 Write-Output ('Mono: ' + ($taskMonoResult -join ' '))
