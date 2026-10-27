@@ -21,6 +21,11 @@ internal static class BakedMapReplay
         ulong combatHash = DeterministicCombatScenario.Run();
         Console.WriteLine($"CombatTicks=512; CombatRawHash={combatHash}");
         Console.WriteLine("JumpRawHash=" + DeterministicJumpScenario.Run());
+        Console.WriteLine("WallContactRawHash=" + DeterministicContactScenario.Run());
+        if (DeterministicContactScenario.Run() != DeterministicContactScenario.ExpectedHash)
+        {
+            throw new Exception("Wall contact fingerprint changed");
+        }
         if (DeterministicJumpScenario.Run() != DeterministicJumpScenario.ExpectedHash)
         {
             throw new Exception("Jump simulation fingerprint changed");
@@ -34,7 +39,7 @@ internal static class BakedMapReplay
             throw new Exception("Regression fingerprint changed");
         }
 
-        if (context.Identity.AlgorithmVersion != 14 || context.Identity.ConfigurationHash != 4198265158017506703UL)
+        if (context.Identity.AlgorithmVersion != 15 || context.Identity.ConfigurationHash != 4198265158017506703UL)
         {
             throw new Exception("World compatibility fingerprint changed");
         }
