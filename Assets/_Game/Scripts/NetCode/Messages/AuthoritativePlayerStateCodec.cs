@@ -9,8 +9,8 @@ namespace AFPS.NetCode.Messages
     /// <summary>权威状态：位置/速度/体力无损Raw，观察角沿用无损可逆的百分度网格。</summary>
     public static class AuthoritativePlayerStateCodec
     {
-        // 原99B后追加累计墙跑秒4B；墙跑状态使用flags的bit5。
-        public const int PayloadSize = 103;
+        // 原103B后追加脱梯冷却4B、梯ID4B、梯法线XZ8B；攀爬使用flags的bit6。
+        public const int PayloadSize = 119;
         public const int PacketSize = PacketHeader.Size + PayloadSize;
         // 以下分辨率暂供旧远端 Snapshot 使用，权威状态不再按这些常量量化。
         public const float PositionResolution = 0.001f;
@@ -26,8 +26,9 @@ namespace AFPS.NetCode.Messages
         private const byte GroundJumpConsumedMask = 8;
         private const byte CrouchedMask = 16;
         private const byte WallRunningMask = 32;
+        private const byte ClimbingMask = 64;
         private const byte KnownFlags = GroundedMask | SprintingMask | ExhaustedMask
-            | GroundJumpConsumedMask | CrouchedMask | WallRunningMask;
+            | GroundJumpConsumedMask | CrouchedMask | WallRunningMask | ClimbingMask;
         public static bool TrySerialize(in AuthoritativePlayerState authoritative, uint sequence, ArraySegment<byte> destination, out int bytesWritten)
         {
             bytesWritten = 0;
@@ -36,7 +37,7 @@ namespace AFPS.NetCode.Messages
                 || state.StaminaSpentFixed < Fix.Zero || state.StaminaSpentFixed > Fix.One
                 || (state.IsSprinting && state.SprintExhausted)
                 || !IsValidDash(state) || !IsValidJump(state) || !IsValidWall(state) || !IsValidStance(state)
-                || !IsValidWallRun(state))
+                || !IsValidWallRun(state) || !IsValidClimb(state))
             {
                 return false;
             }
@@ -64,7 +65,7 @@ namespace AFPS.NetCode.Messages
                 || !writer.TryWriteByte((byte)((state.IsGrounded ? GroundedMask : 0)
                     | (state.IsSprinting ? SprintingMask : 0) | (state.SprintExhausted ? ExhaustedMask : 0)
                     | (state.GroundJumpConsumed ? GroundJumpConsumedMask : 0) | (state.IsCrouched ? CrouchedMask : 0)
-                    | (state.IsWallRunning ? WallRunningMask : 0)))
+                    | (state.IsWallRunning ? WallRunningMask : 0) | (state.IsClimbing ? ClimbingMask : 0)))
                 || !writer.TryWriteInt32(state.StaminaSpentFixed.Raw)
                 || !writer.TryWriteInt32(state.DashRemainingFixed.Raw)
                 || !writer.TryWriteInt32(state.DashVelocityFixed.X.Raw)
@@ -80,7 +81,11 @@ namespace AFPS.NetCode.Messages
                 || !writer.TryWriteInt32(state.SlideRemainingFixed.Raw)
                 || !writer.TryWriteInt32(state.SlideVelocityFixed.X.Raw)
                 || !writer.TryWriteInt32(state.SlideVelocityFixed.Z.Raw)
-                || !writer.TryWriteInt32(state.WallRunUsedFixed.Raw))
+                || !writer.TryWriteInt32(state.WallRunUsedFixed.Raw)
+                || !writer.TryWriteInt32(state.ClimbCooldownRemainingFixed.Raw)
+                || !writer.TryWriteUInt32(state.ClimbShapeId)
+                || !writer.TryWriteInt32(state.ClimbNormalFixed.X.Raw)
+                || !writer.TryWriteInt32(state.ClimbNormalFixed.Z.Raw))
             {
                 return false;
             }
@@ -123,7 +128,11 @@ namespace AFPS.NetCode.Messages
                 || !reader.TryReadInt32(out int slideRemaining)
                 || !reader.TryReadInt32(out int slideX)
                 || !reader.TryReadInt32(out int slideZ)
-                || !reader.TryReadInt32(out int wallRunUsed))
+                || !reader.TryReadInt32(out int wallRunUsed)
+                || !reader.TryReadInt32(out int climbCooldown)
+                || !reader.TryReadUInt32(out uint climbShape)
+                || !reader.TryReadInt32(out int climbX)
+                || !reader.TryReadInt32(out int climbZ))
             {
                 return false;
             }
@@ -160,15 +169,36 @@ namespace AFPS.NetCode.Messages
                 SlideRemainingFixed = Fix.FromRaw(slideRemaining),
                 SlideVelocityFixed = new FixVec3(Fix.FromRaw(slideX), Fix.Zero, Fix.FromRaw(slideZ)),
                 IsWallRunning = (flags & WallRunningMask) != 0,
-                WallRunUsedFixed = Fix.FromRaw(wallRunUsed)
+                WallRunUsedFixed = Fix.FromRaw(wallRunUsed),
+                IsClimbing = (flags & ClimbingMask) != 0,
+                ClimbCooldownRemainingFixed = Fix.FromRaw(climbCooldown),
+                ClimbShapeId = climbShape,
+                ClimbNormalFixed = new FixVec3(Fix.FromRaw(climbX), Fix.Zero, Fix.FromRaw(climbZ))
             };
             if (!IsValidDash(state) || !IsValidJump(state) || !IsValidWall(state) || !IsValidStance(state)
-                || !IsValidWallRun(state))
+                || !IsValidWallRun(state) || !IsValidClimb(state))
             {
                 return false;
             }
             authoritative = new AuthoritativePlayerState(serverTick, inputTick, state);
             return true;
+        }
+
+        private static bool IsValidClimb(in PlayerState state)
+        {
+            var normal = state.ClimbNormalFixed;
+            if (state.ClimbCooldownRemainingFixed < Fix.Zero || state.ClimbCooldownRemainingFixed > Fix.FromInt(5)
+                || normal.Y != Fix.Zero || normal.X < -Fix.One || normal.X > Fix.One
+                || normal.Z < -Fix.One || normal.Z > Fix.One)
+            {
+                return false;
+            }
+            return state.IsClimbing
+                ? state.ClimbShapeId != 0 && FixMath.Abs(normal.Magnitude - Fix.One) <= Fix.FromRaw(4)
+                    && state.ClimbCooldownRemainingFixed == Fix.Zero && !state.IsGrounded && !state.IsSprinting
+                    && !state.IsCrouched && !state.IsWallRunning && state.DashRemainingFixed == Fix.Zero
+                    && state.SlideRemainingFixed == Fix.Zero
+                : state.ClimbShapeId == 0 && normal == FixVec3.Zero;
         }
 
         private static bool IsValidWallRun(in PlayerState state) =>

@@ -38,6 +38,7 @@ namespace AFPS.Simulation.Characters
             next.StaminaSpentFixed = FixMath.Clamp(previousState.StaminaSpentFixed, Fix.Zero, Fix.One);
             PlayerStanceSimulation.Begin(ref next, previousState, input, config, collisionWorld);
             PlayerWallSimulation.AdvanceTimers(ref next, tickDeltaTime);
+            PlayerClimbSimulation.AdvanceTimers(ref next, tickDeltaTime);
             bool wallAction = PlayerWallSimulation.TryBounce(ref next, previousState, input, config.Wall);
             PlayerInputCommand dashInput = input;
             if (wallAction)
@@ -49,7 +50,8 @@ namespace AFPS.Simulation.Characters
                 right * move.X + forward * move.Z, forward, tickDeltaTime);
             if (!dashing && !wallAction)
             {
-                wallAction = PlayerWallSimulation.TryJump(ref next, previousState, input, config.Wall);
+                wallAction = PlayerClimbSimulation.TryJump(ref next, previousState, input, config)
+                    || PlayerWallSimulation.TryJump(ref next, previousState, input, config.Wall);
             }
             bool sprintRequested = !next.IsCrouched && !dashing && !wallAction
                 && PlayerSprintSimulation.CanSprint(previousState, input, move);
@@ -77,12 +79,16 @@ namespace AFPS.Simulation.Characters
                 PlayerStanceSimulation.CancelSlide(ref next);
             }
             bool sliding = next.SlideRemainingFixed > Fix.Zero;
+            var ladder = PlayerClimbSimulation.Begin(ref next, previousState, input, config,
+                collisionWorld, forward, dashing || wallAction);
+            bool climbing = next.IsClimbing;
+            sprintRequested &= !climbing;
             PlayerWallRunSimulation.Begin(ref next, previousState, input, config, collisionWorld,
-                right * move.X + forward * move.Z, tickDeltaTime, dashing || wallAction, out FixVec3 wallRunTarget);
+                right * move.X + forward * move.Z, tickDeltaTime, dashing || wallAction || climbing, out FixVec3 wallRunTarget);
             bool wallRunning = next.IsWallRunning;
 
             // 起跳当 Tick 也施加重力；此顺序属于预测与服务器共同遵守的积分规则。
-            if (!dashing && !next.IsGrounded)
+            if (!dashing && !climbing && !next.IsGrounded)
             {
                 Fix gravity = wallRunning ? config.GravityFixed * config.WallRun.GravityMultiplier : config.GravityFixed;
                 vertical -= gravity * tickDeltaTime;
@@ -92,7 +98,12 @@ namespace AFPS.Simulation.Characters
                 }
             }
 
-            if (wallRunning)
+            if (climbing)
+            {
+                horizontal = FixVec3.Zero;
+                vertical = input.MoveYFixed * config.Climb.Speed;
+            }
+            else if (wallRunning)
             {
                 horizontal = FixVec3.MoveTowards(horizontal, wallRunTarget, config.WallRun.Acceleration * tickDeltaTime);
                 // 墙跑水平限速也覆盖刚结束的Dash余速；只限制水平量，保留起跳的竖直动量。
@@ -127,6 +138,7 @@ namespace AFPS.Simulation.Characters
                 out FixedCharacterContacts contacts);
             next.WallNormalFixed = contacts.HasWall ? contacts.WallNormal : FixVec3.Zero;
             next.WallIncomingVelocityFixed = contacts.HasWall ? incoming : FixVec3.Zero;
+            PlayerClimbSimulation.Complete(ref next, input, ladder, config.Climb);
             next = PlayerSprintSimulation.Complete(next, previousState, input, config.Sprint,
                 tickDeltaTime, sprintRequested, dashing || wallAction || wallRunning);
             PlayerDashSimulation.Complete(ref next, tickDeltaTime);

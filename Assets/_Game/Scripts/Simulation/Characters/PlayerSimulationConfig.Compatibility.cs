@@ -21,9 +21,10 @@ namespace AFPS.Simulation.Characters
             PlayerJumpConfig? jump = null,
             PlayerWallConfig? wall = null,
             PlayerStanceConfig? stance = null,
-            PlayerWallRunConfig? wallRun = null) : this(Fix.FromFloat(maxGroundSpeed),
+            PlayerWallRunConfig? wallRun = null,
+            PlayerClimbConfig? climb = null) : this(Fix.FromFloat(maxGroundSpeed),
                 Fix.FromFloat(groundAcceleration), Fix.FromFloat(gravity), Fix.FromFloat(jumpSpeed),
-                collision, sprint, dash, jump, wall, stance, wallRun)
+                collision, sprint, dash, jump, wall, stance, wallRun, climb)
         {
         }
     }

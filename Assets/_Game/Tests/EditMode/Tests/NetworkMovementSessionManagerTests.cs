@@ -13,6 +13,8 @@ using AFPS.NetCode.StateReplication;
 using AFPS.NetCode.Transport;
 using AFPS.NetCode.Weapons;
 using AFPS.Simulation.Characters;
+using AFPS.Simulation.Characters.Collision;
+using AFPS.Simulation.World;
 using AFPS.Simulation.Weapons;
 using NUnit.Framework;
 
@@ -36,7 +38,10 @@ namespace AFPS.Tests.EditMode
                 SlideRemainingFixed = Fix.Half,
                 SlideVelocityFixed = FixVec3.Right,
                 IsWallRunning = true,
-                WallRunUsedFixed = Fix.Half
+                WallRunUsedFixed = Fix.Half,
+                IsClimbing = true,
+                ClimbShapeId = 7,
+                ClimbNormalFixed = -FixVec3.Right
             };
             var session = new ServerAuthoritativeMovementSession(new FakeTransport(TransportRole.Server),
                 new TransportConnectionId(1), initial, new PlayerSimulationConfig(6f, 20f, 20f, 8f),
@@ -54,6 +59,10 @@ namespace AFPS.Tests.EditMode
             Assert.That(session.CurrentState.SlideVelocityFixed, Is.EqualTo(FixVec3.Zero));
             Assert.That(session.CurrentState.IsWallRunning, Is.False);
             Assert.That(session.CurrentState.WallRunUsedFixed, Is.EqualTo(Fix.Half));
+            Assert.That(session.CurrentState.IsClimbing, Is.False);
+            Assert.That(session.CurrentState.ClimbShapeId, Is.Zero);
+            Assert.That(session.CurrentState.ClimbNormalFixed, Is.EqualTo(FixVec3.Zero));
+            Assert.That(session.CurrentState.ClimbCooldownRemainingFixed, Is.EqualTo(PlayerClimbConfig.Default.ReattachDelay));
             session.Respawn(FixVec3.Up * Fix.FromInt(10));
             Assert.That(session.CurrentState.IsGrounded, Is.False);
             Assert.That(session.CurrentState.AirJumpsUsed, Is.EqualTo(0));
@@ -61,6 +70,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(session.CurrentState.WallCooldownRemainingFixed, Is.EqualTo(Fix.Zero));
             Assert.That(session.CurrentState.IsCrouched, Is.False);
             Assert.That(session.CurrentState.WallRunUsedFixed, Is.EqualTo(Fix.Zero));
+            Assert.That(session.CurrentState.ClimbCooldownRemainingFixed, Is.EqualTo(Fix.Zero));
             Assert.That(session.CurrentState.CoyoteRemainingFixed, Is.EqualTo(Fix.Zero));
         }
 
@@ -114,6 +124,29 @@ namespace AFPS.Tests.EditMode
             Assert.That(state.State.DashSpentCharges, Is.EqualTo(0));
             Assert.That(state.State.StaminaSpentFixed, Is.EqualTo(Fix.Zero));
             Assert.That(state.State.VelocityFixed, Is.EqualTo(FixVec3.Zero));
+        }
+
+        [Test]
+        public void DisabledGameplay_DetachesClimberInsteadOfHoldingInAir()
+        {
+            var config = new PlayerSimulationConfig(6f, 30f, 20f, 8f);
+            var box = new FixedWorldBox(1, 0, FixedSurface.Ladder, new FixedAabb(
+                new FixVec3(Fix.FromInt(2), Fix.Zero, Fix.FromInt(-1)),
+                new FixVec3(Fix.FromRatio(21, 10), Fix.FromInt(4), Fix.One)));
+            var world = new FixedCharacterCollisionWorld(new FixedWorld(new[] { box }));
+            var initial = new PlayerState
+            {
+                PositionFixed = new FixVec3(Fix.FromRatio(3, 2), Fix.One, Fix.Zero),
+                IsClimbing = true, ClimbShapeId = 1, ClimbNormalFixed = -FixVec3.Right,
+                YawFixedDegrees = Fix.FromInt(90), GroundJumpConsumed = true
+            };
+            var session = new ServerAuthoritativeMovementSession(new FakeTransport(TransportRole.Server),
+                new TransportConnectionId(1), initial, config, 0.02f, 16,
+                maxMissingInputWaitTicks: 0, fixedCollisionWorld: world);
+            session.GameplayEnabled = false;
+            Assert.That(session.TryAdvance(1, out _, out _), Is.True);
+            Assert.That(session.CurrentState.IsClimbing, Is.False);
+            Assert.That(session.CurrentState.VelocityFixed.Y, Is.LessThan(Fix.Zero));
         }
 
         [Test]

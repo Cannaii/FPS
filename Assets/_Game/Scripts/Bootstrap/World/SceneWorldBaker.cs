@@ -26,7 +26,7 @@ namespace AFPS.Bootstrap.World
                     || !seen.Add(collider)
                     || !collider.enabled
                     || !collider.gameObject.activeInHierarchy
-                    || collider.isTrigger
+                    || (collider.isTrigger && !IsLadder(collider))
                     || (excluded != null
                     && excluded.Contains(collider))
                     || (layerMask & (1 << collider.gameObject.layer)) == 0)
@@ -52,6 +52,15 @@ namespace AFPS.Bootstrap.World
                 int layer = collider.gameObject.layer;
                 WorldSurfaceAuthoring authoring = collider.GetComponentInParent<WorldSurfaceAuthoring>();
                 FixedSurface surface = authoring != null ? authoring.Surfaces : FixedSurface.Solid | FixedSurface.Ground | FixedSurface.Wall | FixedSurface.Grapple;
+                if ((surface & FixedSurface.Ladder) != 0 && !(collider is BoxCollider))
+                {
+                    throw new NotSupportedException("竖直梯子必须使用轴对齐BoxCollider：" + collider.name);
+                }
+                if (collider.isTrigger)
+                {
+                    // 梯子触发盒只提供攀爬体积，不能因默认勾选Solid/Ground而变成实体墙或隐形地面。
+                    surface = FixedSurface.Ladder;
+                }
                 if (collider is TerrainCollider terrain)
                 {
                     AddTerrain(terrain, triangles, surface, ref id);
@@ -118,8 +127,20 @@ namespace AFPS.Bootstrap.World
             triangles.Add(new FixedWorldTriangle(id++, layer, surface, a, b, c));
         }
 
+        private static bool IsLadder(Collider collider)
+        {
+            var authoring = collider.GetComponentInParent<WorldSurfaceAuthoring>();
+            return authoring != null && (authoring.Surfaces & FixedSurface.Ladder) != 0;
+        }
+
         private static void AddBox(BoxCollider box, List<FixedWorldBox> boxes, List<FixedWorldTriangle> triangles, FixedSurface surface, ref uint id)
         {
+            if ((surface & FixedSurface.Ladder) != 0
+                && Mathf.Abs(Vector3.Dot(box.transform.up, Vector3.up)) < 0.99999f)
+            {
+                // 爬升轴固定为世界Y；即使横倒90°后仍是AABB，也不能误当成一架短竖梯。
+                throw new NotSupportedException("梯子本地Y轴必须沿世界竖直方向：" + box.name);
+            }
             var vertices = new FixVec3[8];
             Vector3 half = box.size * 0.5f;
             for (int i = 0; i < 8; i++)
@@ -154,6 +175,10 @@ namespace AFPS.Bootstrap.World
                 }
 
                 corners.Add((v.X.Raw == maxX ? 1 : 0) | (v.Y.Raw == maxY ? 2 : 0) | (v.Z.Raw == maxZ ? 4 : 0));
+            }
+            if (!axisAligned && (surface & FixedSurface.Ladder) != 0)
+            {
+                throw new NotSupportedException("梯子体积不能用旋转三角面近似，请使用世界轴对齐梯盒：" + box.name);
             }
 
             // 量化后的八个角严格组成 AABB 才保留实体盒；旋转盒不能用更大的包围盒替代。

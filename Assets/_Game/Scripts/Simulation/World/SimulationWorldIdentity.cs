@@ -6,8 +6,8 @@ namespace AFPS.Simulation.World
     public readonly struct SimulationWorldIdentity : IEquatable<SimulationWorldIdentity>
     {
         // 改变积分顺序、舍入、三角 LUT 或接触裁决时必须升级；代码排版与注释不升级。
-        // v19：带标签墙面上的墙跑、累计离地预算、体力和重力/吸墙积分。
-        public const uint CurrentAlgorithmVersion = 19;
+        // v20：竖直梯盒查询/触发器烘焙、攀爬与跳离/顶底退出的状态优先级。
+        public const uint CurrentAlgorithmVersion = 20;
 
         /// <summary>模拟和查询的算法语义版本；零保留为未初始化状态。</summary>
         public readonly uint AlgorithmVersion;

@@ -6,6 +6,9 @@ namespace AFPS.Simulation.World
     public interface IWorldQuery
     {
         ulong VersionHash { get; }
+        /// <summary>竖直梯盒查询；参数米，优先保留仍可接触的旧梯子，再按距离/ShapeId裁决。</summary>
+        FixedLadderContact LadderCheck(in FixVec3 feet, Fix radius, Fix height, Fix reach,
+            uint preferredShapeId = 0, int layerMask = ~0);
 
         /// <summary>方向无需预归一化；距离单位为米。相同距离按 ShapeId、X/Y/Z 面顺序裁决。</summary>
         DeterministicHit Raycast(

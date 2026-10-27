@@ -21,6 +21,7 @@ namespace AFPS.Simulation.Characters
         public readonly PlayerWallConfig Wall;
         public readonly PlayerStanceConfig Stance;
         public readonly PlayerWallRunConfig WallRun;
+        public readonly PlayerClimbConfig Climb;
         public PlayerSimulationConfig(
             Fix maxGroundSpeed,
             Fix groundAcceleration,
@@ -32,7 +33,8 @@ namespace AFPS.Simulation.Characters
             PlayerJumpConfig? jump = null,
             PlayerWallConfig? wall = null,
             PlayerStanceConfig? stance = null,
-            PlayerWallRunConfig? wallRun = null)
+            PlayerWallRunConfig? wallRun = null,
+            PlayerClimbConfig? climb = null)
         {
             if (maxGroundSpeed.Raw < 0 || groundAcceleration.Raw < 0 || gravity.Raw < 0 || jumpSpeed.Raw < 0)
             {
@@ -75,6 +77,9 @@ namespace AFPS.Simulation.Characters
                 wallRunValue.Duration, wallRunValue.GravityMultiplier, wallRunValue.AdhesionSpeed,
                 wallRunValue.MaximumFallSpeed, wallRunValue.DrainPerSecond,
                 wallRunValue.ProbeDistance, wallRunValue.MinimumAlignment);
+            var climbValue = climb ?? PlayerClimbConfig.Default;
+            Climb = new PlayerClimbConfig(climbValue.Speed, climbValue.Reach, climbValue.ExitPushSpeed,
+                climbValue.ReattachDelay, climbValue.FacingAlignment);
             if (Sprint.SpeedMultiplier < Fix.One || Sprint.DrainPerSecond <= Fix.Zero
                 || Sprint.RecoveryPerSecond <= Fix.Zero || Sprint.RestartStamina <= Fix.Zero
                 || Sprint.RestartStamina > Fix.One

@@ -31,6 +31,10 @@ namespace AFPS.Simulation.Characters
         public FixVec3 SlideVelocityFixed; // 滑铲实际水平速度，米/秒，Y恒零；结束时清零。
         public bool IsWallRunning;
         public Fix WallRunUsedFixed; // 最近真实落地后的累计墙跑秒数；松键/换墙/传送不刷新。
+        public bool IsClimbing;
+        public uint ClimbShapeId; // 当前竖直梯盒的规范ShapeId；未攀爬时为零。
+        public FixVec3 ClimbNormalFixed; // 当前梯面的水平向外单位法线；未攀爬时清零。
+        public Fix ClimbCooldownRemainingFixed; // 脱梯后重挂禁止时间，秒。
         public bool RawEquals(in PlayerState other) =>
             Tick == other.Tick
             && PositionFixed == other.PositionFixed
@@ -54,6 +58,9 @@ namespace AFPS.Simulation.Characters
             && SlideRemainingFixed == other.SlideRemainingFixed
             && SlideVelocityFixed == other.SlideVelocityFixed
             && IsWallRunning == other.IsWallRunning
-            && WallRunUsedFixed == other.WallRunUsedFixed;
+            && WallRunUsedFixed == other.WallRunUsedFixed
+            && IsClimbing == other.IsClimbing && ClimbShapeId == other.ClimbShapeId
+            && ClimbNormalFixed == other.ClimbNormalFixed
+            && ClimbCooldownRemainingFixed == other.ClimbCooldownRemainingFixed;
     }
 }

@@ -25,6 +25,11 @@ internal static class BakedMapReplay
         Console.WriteLine("WallAbilityRawHash=" + DeterministicWallScenario.Run());
         Console.WriteLine("StanceRawHash=" + DeterministicStanceScenario.Run());
         Console.WriteLine("WallRunRawHash=" + DeterministicWallRunScenario.Run());
+        Console.WriteLine("ClimbRawHash=" + DeterministicClimbScenario.Run());
+        if (DeterministicClimbScenario.Run() != DeterministicClimbScenario.ExpectedHash)
+        {
+            throw new Exception("Climb fingerprint changed");
+        }
         if (DeterministicWallRunScenario.Run() != DeterministicWallRunScenario.ExpectedHash)
         {
             throw new Exception("Wall run fingerprint changed");
@@ -49,12 +54,12 @@ internal static class BakedMapReplay
         {
             throw new Exception("Combat simulation fingerprint changed");
         }
-        if (hash != 13933247832230064910UL)
+        if (hash != 358315015629672780UL)
         {
             throw new Exception("Regression fingerprint changed");
         }
 
-        if (context.Identity.AlgorithmVersion != 19 || context.Identity.ConfigurationHash != 10662951786405915128UL)
+        if (context.Identity.AlgorithmVersion != 20 || context.Identity.ConfigurationHash != 4741918475648299837UL)
         {
             throw new Exception("World compatibility fingerprint changed");
         }

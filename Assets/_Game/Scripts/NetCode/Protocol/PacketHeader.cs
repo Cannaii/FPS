@@ -12,7 +12,7 @@ namespace AFPS.NetCode.Protocol
         /// <summary>
         /// 当前协议版本；产生不兼容的二进制布局变化时必须递增。
         /// </summary>
-        public const byte CurrentProtocolVersion = 18;
+        public const byte CurrentProtocolVersion = 19;
         /// <summary>
         /// 固定包头占用的字节数。
         /// </summary>

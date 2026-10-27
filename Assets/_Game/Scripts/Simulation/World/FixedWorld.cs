@@ -8,6 +8,7 @@ namespace AFPS.Simulation.World
     public sealed partial class FixedWorld : IWorldQuery
     {
         private readonly FixedWorldBox[] boxes;
+        private readonly FixedWorldBox[] ladderBoxes;
         private readonly FixedWorldPlane[] planes;
         private readonly FixedWorldTriangle[] triangles;
         private readonly TriangleTree triangleTree;
@@ -69,6 +70,8 @@ namespace AFPS.Simulation.World
             Array.Sort(this.triangles, (a, b) => a.ShapeId.CompareTo(b.ShapeId));
             triangleTree = new TriangleTree(this.triangles);
             Array.Sort(this.boxes, (a, b) => a.ShapeId.CompareTo(b.ShapeId));
+            // 从快照派生索引；没有梯子的关卡不应让每个玩家每Tick扫描全部盒体。
+            ladderBoxes = Array.FindAll(this.boxes, box => (box.Surface & FixedSurface.Ladder) != 0);
             Array.Sort(this.planes, (a, b) => a.ShapeId.CompareTo(b.ShapeId));
             snapshot = FixedWorldCodec.WriteCanonical(this);
             VersionHash = FixedWorldCodec.ComputeHash(snapshot);

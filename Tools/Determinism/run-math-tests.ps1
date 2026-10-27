@@ -51,7 +51,7 @@ if ($IncludeInput) {
     $taskSources += @('InputGridTests.cs', 'InputCommandBatchCodecTests.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Tests/EditMode/Tests/' + $_) }
 }
 if ($IncludeMovement) {
-    $taskSources += @('PlayerState.cs','PlayerStateHash.cs','PlayerSimulation.cs','PlayerSimulationConfig.cs','PlayerSprintConfig.cs','PlayerSprintSimulation.cs','PlayerDashConfig.cs','PlayerDashSimulation.cs','PlayerJumpConfig.cs','PlayerJumpSimulation.cs','PlayerWallConfig.cs','PlayerWallSimulation.cs','PlayerStanceConfig.cs','PlayerStanceSimulation.cs','PlayerWallRunConfig.cs','PlayerWallRunSimulation.cs','SimulationStep.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/Simulation/Characters/' + $_) }
+    $taskSources += @('PlayerState.cs','PlayerStateHash.cs','PlayerSimulation.cs','PlayerSimulationConfig.cs','PlayerSprintConfig.cs','PlayerSprintSimulation.cs','PlayerDashConfig.cs','PlayerDashSimulation.cs','PlayerJumpConfig.cs','PlayerJumpSimulation.cs','PlayerWallConfig.cs','PlayerWallSimulation.cs','PlayerStanceConfig.cs','PlayerStanceSimulation.cs','PlayerWallRunConfig.cs','PlayerWallRunSimulation.cs','PlayerClimbConfig.cs','PlayerClimbSimulation.cs','SimulationStep.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/Simulation/Characters/' + $_) }
     $taskSources += @('CharacterCollisionConfig.cs','IFixedCharacterCollisionWorld.cs','FixedFlatGroundCollisionWorld.cs','KinematicCharacterMotor.cs','KinematicCharacterMotor.Contacts.cs','KinematicCharacterMotor.Resize.cs','FixedCharacterContacts.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/Simulation/Characters/Collision/' + $_) }
     $taskSources += @('AuthoritativePlayerState.cs','AuthoritativePlayerStateCodec.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Messages/' + $_) }
     $taskSources += @('ClientPredictionComparer.cs','ClientPredictionReconciler.cs','PredictionError.cs','ReconciliationResult.cs','ReconciliationStatus.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Prediction/' + $_) }
@@ -77,11 +77,13 @@ if ($IncludeCollision) {
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/CharacterResizeTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/TraversalQueryBoundaryTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/WallRunSimulationTests.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/ClimbSimulationTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/WallSimulationTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicContactScenario.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicWallScenario.cs'
 $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicStanceScenario.cs'
 $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicWallRunScenario.cs'
+$taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicClimbScenario.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/TriangleWorldTests.cs'
 }
 if ($IncludeReplication) {

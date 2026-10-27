@@ -11,6 +11,10 @@ namespace AFPS.Simulation.Characters.Collision
         private readonly int layerMask;
         public ulong VersionHash => world.VersionHash;
 
+        public FixedLadderContact LadderCheck(in FixVec3 feet, Fix radius, Fix height, Fix reach,
+            uint preferredShapeId = 0, int layerMask = ~0) =>
+            world.LadderCheck(feet, radius, height, reach, preferredShapeId, this.layerMask & layerMask);
+
         public FixedCharacterCollisionWorld(FixedWorld world, int layerMask = ~0)
         {
             this.world = world ?? throw new ArgumentNullException(nameof(world));

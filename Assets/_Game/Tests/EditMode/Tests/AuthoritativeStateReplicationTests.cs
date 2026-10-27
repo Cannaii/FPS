@@ -74,7 +74,8 @@ namespace AFPS.Tests.EditMode
                 Assert.That(server.TryStartServer(TestPort, 2, out string serverError), Is.True, serverError);
                 Assert.That(client.TryStartClient("127.0.0.1", TestPort, out string clientError), Is.True, clientError);
 
-                byte[] receiveBuffer = new byte[128];
+                // Owner状态会随能力扩展；接收缓冲必须跟随协议长度，不能静默截断新增字段。
+                byte[] receiveBuffer = new byte[AuthoritativePlayerStateCodec.PacketSize];
                 TransportConnectionId serverConnection = default;
                 TransportConnectionId clientConnection = default;
                 PumpUntil(server, client, () =>

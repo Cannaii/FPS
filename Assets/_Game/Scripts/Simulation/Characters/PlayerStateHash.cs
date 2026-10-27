@@ -42,6 +42,12 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, state.SlideVelocityFixed.Z.Raw);
             Add(ref hash, state.IsWallRunning ? 1 : 0);
             Add(ref hash, state.WallRunUsedFixed.Raw);
+            Add(ref hash, state.IsClimbing ? 1 : 0);
+            Add(ref hash, unchecked((int)state.ClimbShapeId));
+            Add(ref hash, state.ClimbNormalFixed.X.Raw);
+            Add(ref hash, state.ClimbNormalFixed.Y.Raw);
+            Add(ref hash, state.ClimbNormalFixed.Z.Raw);
+            Add(ref hash, state.ClimbCooldownRemainingFixed.Raw);
             return hash;
         }
 

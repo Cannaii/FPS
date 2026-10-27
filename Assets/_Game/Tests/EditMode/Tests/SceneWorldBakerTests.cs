@@ -115,6 +115,59 @@ namespace AFPS.Tests.EditMode
         }
 
         [Test]
+        public void Bake_LadderTriggerPreservesVolumeWithoutCreatingSolidOrGround()
+        {
+            var go = Create("Ladder trigger");
+            var collider = go.AddComponent<BoxCollider>();
+            collider.isTrigger = true;
+            collider.size = new Vector3(0.2f, 4f, 1f);
+            go.AddComponent<WorldSurfaceAuthoring>().Surfaces = FixedSurface.Ladder | FixedSurface.Solid | FixedSurface.Ground;
+            var world = SceneWorldBaker.Bake(new[] { collider });
+            Assert.That(world.BoxCount, Is.EqualTo(1));
+            Assert.That(world.GetBox(0).Surface, Is.EqualTo(FixedSurface.Ladder));
+            Assert.That(world.LadderCheck(V(-1, 0, 0), Fix.Half, Fix.FromInt(2), Fix.One).HasLadder, Is.True);
+            Assert.That(world.CapsuleCast(V(-2, 0, 0), Fix.Half, Fix.FromInt(2),
+                FixVec3.Right, Fix.FromInt(4)).DidHit, Is.False);
+        }
+
+        [TestCase(0f, 30f)]
+        [TestCase(90f, 0f)]
+        public void Bake_LadderRejectsUnsupportedShapeAndRotation(float pitch, float yaw)
+        {
+            var go = Create("Rotated ladder");
+            var box = go.AddComponent<BoxCollider>();
+            go.AddComponent<WorldSurfaceAuthoring>().Surfaces = FixedSurface.Ladder;
+            go.transform.rotation = Quaternion.Euler(pitch, yaw, 0f);
+            Assert.Throws<NotSupportedException>(() => SceneWorldBaker.Bake(new[] { box }));
+            var other = Create("Capsule ladder");
+            var capsule = other.AddComponent<CapsuleCollider>();
+            capsule.isTrigger = true;
+            other.AddComponent<WorldSurfaceAuthoring>().Surfaces = FixedSurface.Ladder;
+            Assert.Throws<NotSupportedException>(() => SceneWorldBaker.Bake(new[] { capsule }));
+        }
+
+        [Test]
+        public void LadderMenu_CreatesSingleQueryableVolumeAndVisualRungs()
+        {
+            var ladder = AFPS.Editor.World.VerticalLadderMenu.Create(new Vector3(3f, 0f, 4f));
+            try
+            {
+                var colliders = ladder.GetComponentsInChildren<Collider>();
+                Assert.That(colliders.Length, Is.EqualTo(1));
+                Assert.That(colliders[0].isTrigger, Is.True);
+                Assert.That(ladder.GetComponentsInChildren<Renderer>().Length, Is.EqualTo(14));
+                var world = SceneWorldBaker.Bake(colliders);
+                Assert.That(world.BoxCount, Is.EqualTo(1));
+                Assert.That(world.GetBox(0).Bounds.Min.Y, Is.EqualTo(Fix.Zero));
+                Assert.That(world.GetBox(0).Bounds.Max.Y, Is.EqualTo(Fix.FromInt(4)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(ladder);
+            }
+        }
+
+        [Test]
         public void Bake_RotatedBoxKeepsActualFacesRatherThanItsBounds()
         {
             var collider = Create("Rotated").AddComponent<BoxCollider>();

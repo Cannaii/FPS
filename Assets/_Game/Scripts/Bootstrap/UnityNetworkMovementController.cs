@@ -120,7 +120,11 @@ namespace AFPS.Bootstrap
                         Fix.FromFloat(serverSpawnPosition.y), Fix.FromFloat(serverSpawnPosition.z)),
                     Fix.FromFloat(serverSpawnSpacing), SimulationSessionSpatialConfig.Default.InterestRadius);
                 Fix simulationStep = Fix.FromFloat(tickRunner.TickDeltaTime);
-                if (WallRunSmokeTestDriver.IsRequested)
+                if (ClimbSmokeTestDriver.IsRequested)
+                {
+                    preparedWorld = ClimbSmokeTestDriver.CreateFixture(configuration, simulationStep, collisionLayers.value);
+                }
+                else if (WallRunSmokeTestDriver.IsRequested)
                 {
                     preparedWorld = WallRunSmokeTestDriver.CreateFixture(configuration, simulationStep, collisionLayers.value);
                 }
@@ -326,7 +330,12 @@ namespace AFPS.Bootstrap
 
             Debug.Log($"AFPS 定点世界已装配：{preparedWorld.Identity.WorldHash}，配置={preparedWorld.Identity.ConfigurationHash}。", this);
             initialized = true;
-            if (hasLocalClient && WallRunSmokeTestDriver.IsRequested)
+            if (hasLocalClient && ClimbSmokeTestDriver.IsRequested)
+            {
+                var climb = gameObject.AddComponent<ClimbSmokeTestDriver>();
+                climb.Configure(this, inputCollector);
+            }
+            else if (hasLocalClient && WallRunSmokeTestDriver.IsRequested)
             {
                 var wallRun = gameObject.AddComponent<WallRunSmokeTestDriver>();
                 wallRun.Configure(this, inputCollector);

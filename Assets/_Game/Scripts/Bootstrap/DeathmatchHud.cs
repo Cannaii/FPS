@@ -85,6 +85,10 @@ namespace AFPS.Bootstrap
                 {
                     statusText.text += "   WALL RUN [SHIFT]";
                 }
+                if (movement.IsClimbing)
+                {
+                    statusText.text += "   CLIMB [W/S] JUMP OFF [SPACE]";
+                }
                 if (movement.SprintExhausted)
                 {
                     statusText.text += "   EXHAUSTED";
