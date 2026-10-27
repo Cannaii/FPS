@@ -44,9 +44,12 @@ namespace AFPS.NetCode.SnapshotInterpolation
         public readonly RemotePlayerSamplingStatus Status;
         public readonly bool IsGrounded;
         public readonly bool IsCrouched;
+        public readonly bool IsGrappling;
+        public readonly Vector3 GrapplePoint;
 
         public RemotePlayerRenderState(double serverTickTime, Vector3 position, Quaternion rotation,
-            Vector3 velocity, RemotePlayerSamplingStatus status, bool isGrounded = false, bool isCrouched = false)
+            Vector3 velocity, RemotePlayerSamplingStatus status, bool isGrounded = false, bool isCrouched = false,
+            bool isGrappling = false, Vector3 grapplePoint = default)
         {
             ServerTickTime = serverTickTime;
             Position = position;
@@ -55,6 +58,8 @@ namespace AFPS.NetCode.SnapshotInterpolation
             Status = status;
             IsGrounded = isGrounded;
             IsCrouched = isCrouched;
+            IsGrappling = isGrappling;
+            GrapplePoint = grapplePoint;
         }
     }
 }

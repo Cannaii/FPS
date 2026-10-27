@@ -29,10 +29,25 @@ namespace AFPS.Presentation.Characters
                 return result;
             }
         }
+        public int VisibleGrappleRopeCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (var view in views.Values)
+                {
+                    if (view != null && view.HasGrappleRope)
+                    {
+                        count++;
+                    }
+                }
+                return count;
+            }
+        }
 
         /// <summary>按照客户端估算的服务器时间渲染所有远端玩家。</summary>
         public void Render(RemotePlayerReplicaSet replicas, double estimatedServerTick,
-            DeathmatchState deathmatchState = null, float crouchedHeightRatio = 0.6f)
+            DeathmatchState deathmatchState = null, float crouchedHeightRatio = 0.6f, float grappleOriginHeight = 1.6f)
         {
             if (replicas == null)
             {
@@ -58,7 +73,8 @@ namespace AFPS.Presentation.Characters
                 bool isAlive = deathmatchState == null
                     || !deathmatchState.TryGetPlayer(entityId, out DeathmatchPlayerState playerState) || playerState.IsAlive;
                 view.ApplyRenderState(state, isAlive,
-                    deathmatchState == null || deathmatchState.Phase == DeathmatchPhase.Playing, crouchedHeightRatio);
+                    deathmatchState == null || deathmatchState.Phase == DeathmatchPhase.Playing,
+                    crouchedHeightRatio, grappleOriginHeight);
             }
 
             staleEntityIds.Clear();
@@ -73,7 +89,7 @@ namespace AFPS.Presentation.Characters
             for (int i = 0; i < staleEntityIds.Count; i++)
             {
                 uint entityId = staleEntityIds[i];
-                Destroy(views[entityId].gameObject);
+                RemoveView(views[entityId]);
                 views.Remove(entityId);
             }
         }
@@ -84,11 +100,25 @@ namespace AFPS.Presentation.Characters
             {
                 if (view != null)
                 {
-                    Destroy(view.gameObject);
+                    RemoveView(view);
                 }
             }
 
             views.Clear();
+        }
+
+        private static void RemoveView(RemotePlayerView view)
+        {
+            // 运行时Destroy延迟到帧末，先隐藏绳线，不能让已移出同步范围的实体再画一帧。
+            view.HideGrappleRope();
+            if (Application.isPlaying)
+            {
+                Destroy(view.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(view.gameObject);
+            }
         }
 
         private RemotePlayerView CreateView(uint entityId)

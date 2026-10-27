@@ -12,6 +12,8 @@ namespace AFPS.NetCode.SnapshotInterpolation
             VelocityFixed.X.ToFloat(), VelocityFixed.Y.ToFloat(), VelocityFixed.Z.ToFloat());
         public Quaternion Rotation => Quaternion.Euler(
             PitchFixedDegrees.ToFloat(), YawFixedDegrees.ToFloat(), 0f);
+        public Vector3 GrapplePoint => new Vector3(
+            GrapplePointFixed.X.ToFloat(), GrapplePointFixed.Y.ToFloat(), GrapplePointFixed.Z.ToFloat());
 
         public RemotePlayerSnapshot(
             uint entityId,
@@ -21,7 +23,9 @@ namespace AFPS.NetCode.SnapshotInterpolation
             Vector3 velocity,
             bool isTeleport = false,
             bool isGrounded = false,
-            bool isCrouched = false)
+            bool isCrouched = false,
+            bool isGrappling = false,
+            FixVec3 grapplePoint = default)
         {
             EntityId = entityId;
             ServerTick = serverTick;
@@ -39,6 +43,8 @@ namespace AFPS.NetCode.SnapshotInterpolation
             IsTeleport = isTeleport;
             IsGrounded = isGrounded;
             IsCrouched = isCrouched;
+            IsGrappling = isGrappling;
+            GrapplePointFixed = grapplePoint;
         }
     }
 }

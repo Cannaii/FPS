@@ -10,12 +10,13 @@ namespace AFPS.NetCode.Messages
     public static class RemotePlayerSnapshotDeltaCodec
     {
         public const int FixedPayloadSize = 13;
-        public const int MaximumPacketSize = PacketHeader.Size + FixedPayloadSize + 33;
+        public const int MaximumPacketSize = PacketHeader.Size + FixedPayloadSize + 45;
         private const byte PositionMask = 1 << 0;
         private const byte VelocityMask = 1 << 1;
         private const byte RotationMask = 1 << 2;
         private const byte StateMask = 1 << 3;
-        private const byte KnownMask = PositionMask | VelocityMask | RotationMask | StateMask;
+        private const byte GrapplePointMask = 1 << 4;
+        private const byte KnownMask = PositionMask | VelocityMask | RotationMask | StateMask | GrapplePointMask;
 
         public static bool TrySerialize(
             in RemotePlayerSnapshot current,
@@ -48,12 +49,17 @@ namespace AFPS.NetCode.Messages
             {
                 mask |= StateMask;
             }
+            if (current.GrapplePointFixed != baseline.GrapplePointFixed)
+            {
+                mask |= GrapplePointMask;
+            }
 
             int payloadSize = FixedPayloadSize
                 + ((mask & PositionMask) != 0 ? 12 : 0)
                 + ((mask & VelocityMask) != 0 ? 12 : 0)
                 + ((mask & RotationMask) != 0 ? 8 : 0)
-                + ((mask & StateMask) != 0 ? 1 : 0);
+                + ((mask & StateMask) != 0 ? 1 : 0)
+                + ((mask & GrapplePointMask) != 0 ? 12 : 0);
             if (destination.Count < PacketHeader.Size + payloadSize
                 || !PacketHeaderCodec.TryWrite(new PacketHeader(
                     NetworkMessageType.RemotePlayerSnapshotDelta, (ushort)payloadSize, sequence), destination))
@@ -90,6 +96,11 @@ namespace AFPS.NetCode.Messages
             }
             if ((mask & StateMask) != 0
                 && !writer.TryWriteByte(current.StateFlags))
+            {
+                return false;
+            }
+            if ((mask & GrapplePointMask) != 0
+                && !RemotePlayerSnapshotCodec.WriteVector(ref writer, current.GrapplePointFixed))
             {
                 return false;
             }
@@ -133,6 +144,8 @@ namespace AFPS.NetCode.Messages
             bool teleport = baseline.IsTeleport;
             bool grounded = baseline.IsGrounded;
             bool crouched = baseline.IsCrouched;
+            bool grappling = baseline.IsGrappling;
+            var grapplePoint = baseline.GrapplePointFixed;
             if ((mask & PositionMask) != 0
                 && !RemotePlayerSnapshotCodec.ReadVector(ref reader, out position))
             {
@@ -150,17 +163,23 @@ namespace AFPS.NetCode.Messages
             }
             if ((mask & StateMask) != 0)
             {
-                if (!reader.TryReadByte(out byte flags) || flags > 7)
+                if (!reader.TryReadByte(out byte flags) || flags > 15)
                 {
                     return false;
                 }
                 teleport = (flags & 1) != 0;
                 grounded = (flags & 2) != 0;
                 crouched = (flags & 4) != 0;
+                grappling = (flags & 8) != 0;
+            }
+            if ((mask & GrapplePointMask) != 0
+                && !RemotePlayerSnapshotCodec.ReadVector(ref reader, out grapplePoint))
+            {
+                return false;
             }
 
             var candidate = new RemotePlayerSnapshot(entityId, serverTick, position,
-                Fix.FromRaw(yaw), Fix.FromRaw(pitch), velocity, teleport, grounded, crouched);
+                Fix.FromRaw(yaw), Fix.FromRaw(pitch), velocity, teleport, grounded, crouched, grappling, grapplePoint);
             // 解码在本地候选上完成；非法尾部或角域不能留下一个有效前缀给调用方。
             if (reader.BytesRemaining != 0 || !candidate.IsValid)
             {

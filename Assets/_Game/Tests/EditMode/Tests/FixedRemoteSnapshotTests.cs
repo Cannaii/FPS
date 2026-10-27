@@ -25,7 +25,7 @@ namespace AFPS.Tests.EditMode
                 FixVec3.Zero, teleport, grounded, crouched);
             var bytes = new byte[RemotePlayerSnapshotDeltaCodec.MaximumPacketSize];
             Assert.That(RemotePlayerSnapshotCodec.TrySerialize(current, 1, new ArraySegment<byte>(bytes), out int count), Is.True);
-            Assert.That(count, Is.EqualTo(53));
+            Assert.That(count, Is.EqualTo(65));
             Assert.That(RemotePlayerSnapshotCodec.TryDeserialize(new ArraySegment<byte>(bytes, 0, count),
                 out _, out var full), Is.True);
             Assert.That(full.RawEquals(current), Is.True);
@@ -76,7 +76,7 @@ namespace AFPS.Tests.EditMode
                 0xff, 0xff, 0xff, 0xff, 1, 0, 0, 0, 0xfe, 0xff, 0xff, 0xff,
                 3, 2, 1, 0, 0xfd, 0xfd, 0xfe, 0xff, 1
             };
-            Assert.That(count, Is.EqualTo(53));
+            Assert.That(count, Is.EqualTo(65));
             Assert.That(envelope[3 + 4], Is.EqualTo(PacketHeader.CurrentProtocolVersion)); // v3 的毫米/厘米布局不能按新 Raw 解释。
             for (int i = 0; i < golden.Length; i++)
             {
@@ -157,7 +157,7 @@ namespace AFPS.Tests.EditMode
                     bytes[4] = 3;
                     break;
                 case 2:
-                    bytes[52] = 8;
+                    bytes[52] = 16;
                     break;
                 case 3:
                     WriteInt(bytes, 44, -1);
@@ -193,7 +193,7 @@ namespace AFPS.Tests.EditMode
                     bytes[24] |= 0x80;
                     break;
                 case 1:
-                    bytes[57] = 8;
+                    bytes[57] = 16;
                     break;
                 case 2:
                     WriteInt(bytes, 49, -1);
@@ -229,7 +229,9 @@ namespace AFPS.Tests.EditMode
             Assert.That(deltaCount, Is.Zero);
             Assert.That(bytes, Is.All.Zero);
             Assert.That(RemotePlayerSnapshotDeltaCodec.TrySerialize(valid, Baseline(), 1,
-                new ArraySegment<byte>(bytes, 0, bytes.Length - 1), out deltaCount), Is.False);
+                // 此夹具只改变位置/速度/角度/标志，共33B；不再用含锚点的最大包尺寸判断不足。
+                new ArraySegment<byte>(bytes, 0, PacketHeader.Size + RemotePlayerSnapshotDeltaCodec.FixedPayloadSize + 32),
+                out deltaCount), Is.False);
             Assert.That(deltaCount, Is.Zero);
             Assert.That(bytes, Is.All.Zero);
         }

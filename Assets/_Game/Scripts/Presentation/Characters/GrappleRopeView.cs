@@ -18,9 +18,19 @@ namespace AFPS.Presentation.Characters
                 Hide();
                 return;
             }
+            float height = (origin.Y - state.PositionFixed.Y).ToFloat();
+            var handOffset = Quaternion.Euler(0f, state.YawFixedDegrees.ToFloat(), 0f) * new Vector3(0.15f, -0.12f, 0f);
+            var point = state.GrapplePointFixed;
+            RenderEndpoints(visualFeet + Vector3.up * height + handOffset,
+                new Vector3(point.X.ToFloat(), point.Y.ToFloat(), point.Z.ToFloat()));
+        }
+
+        /// <summary>远端和本地共享的只读渲染出口；端点是表现世界坐标，单位米。</summary>
+        public void RenderEndpoints(Vector3 origin, Vector3 anchor)
+        {
             if (line == null)
             {
-                var target = new GameObject("Local Grapple Rope");
+                var target = new GameObject("Grapple Rope");
                 target.transform.SetParent(transform, false);
                 line = target.AddComponent<LineRenderer>();
                 var template = CombatPresentationAssets.Load<Material>("Effects");
@@ -36,11 +46,8 @@ namespace AFPS.Presentation.Characters
                 line.receiveShadows = false;
             }
             line.enabled = true;
-            float height = (origin.Y - state.PositionFixed.Y).ToFloat();
-            var handOffset = Quaternion.Euler(0f, state.YawFixedDegrees.ToFloat(), 0f) * new Vector3(0.15f, -0.12f, 0f);
-            line.SetPosition(0, visualFeet + Vector3.up * height + handOffset);
-            var point = state.GrapplePointFixed;
-            line.SetPosition(1, new Vector3(point.X.ToFloat(), point.Y.ToFloat(), point.Z.ToFloat()));
+            line.SetPosition(0, origin);
+            line.SetPosition(1, anchor);
         }
 
         public void Hide()

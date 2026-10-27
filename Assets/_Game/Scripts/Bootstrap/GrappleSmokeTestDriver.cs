@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using AFPS.Input;
 using AFPS.Math;
 using AFPS.NetCode.Match;
@@ -45,6 +46,10 @@ namespace AFPS.Bootstrap
         private bool canceled;
         private bool latched;
         private bool captured;
+        private readonly List<uint> remoteEntities = new List<uint>();
+        private bool remoteRopeSeen;
+        private bool remoteReleased;
+        private bool remoteRopeHidden;
 
         public void Configure(UnityNetworkMovementController controller, LocalPlayerInputCollector collector)
         {
@@ -81,6 +86,18 @@ namespace AFPS.Bootstrap
             predicted |= state.IsGrappling;
             authority |= confirmed.IsGrappling;
             rope |= movement.HasPresentedGrappleRope;
+            remoteRopeSeen |= movement.PresentedRemoteGrappleRopeCount > 0;
+            manager.RemotePlayers.CopyEntityIds(remoteEntities);
+            foreach (uint entity in remoteEntities)
+            {
+                if (remoteRopeSeen && manager.RemotePlayers.TrySample(entity,
+                    manager.RemotePlayers.LatestServerTick + 2d, out var remote)
+                    && !remote.IsGrappling && remote.Status != AFPS.NetCode.SnapshotInterpolation.RemotePlayerSamplingStatus.ExtrapolationLimitReached)
+                {
+                    remoteReleased = true;
+                }
+            }
+            remoteRopeHidden |= remoteReleased && movement.PresentedRemoteGrappleRopeCount == 0;
             bool dash = false;
             bool jump = false;
             if (phase == -1)
@@ -93,7 +110,7 @@ namespace AFPS.Bootstrap
                     phase = 0;
                 }
             }
-            else if (phase == 0 && state.IsGrappling && confirmed.IsGrappling)
+            else if (phase == 0 && state.IsGrappling && confirmed.IsGrappling && remoteRopeSeen)
             {
                 if (!captured && movement.HasPresentedGrappleRope
                     && SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null
@@ -147,7 +164,7 @@ namespace AFPS.Bootstrap
             input.SetAutomationInput(0f, 0f, phase == 1 ? 45f : 0f, phase == 1 ? 0f : -20f,
                 jump, dashPressed: dash, grappleHeld: held);
             bool passed = predicted && authority && reeled && swung && airborne && rope && released && reacquired && canceled && latched
-                && manager.HasTimeSync;
+                && remoteRopeSeen && remoteReleased && remoteRopeHidden && manager.HasTimeSync;
             if (passed && completedAt < 0d)
             {
                 completedAt = now;
@@ -168,6 +185,7 @@ namespace AFPS.Bootstrap
             input.ClearAutomationInput();
             Debug.Log($"[AFPS_GRAPPLE_RESULT] {(passed ? "PASS" : "FAIL")} phase={phase} predicted={predicted} authority={authority}"
                 + $" reeled={reeled} swung={swung} airborne={airborne} rope={rope} released={released} reacquired={reacquired} canceled={canceled} latched={latched}");
+            Debug.Log($"[AFPS_REMOTE_ROPE_RESULT] {(passed ? "PASS" : "FAIL")} seen={remoteRopeSeen} released={remoteReleased} hidden={remoteRopeHidden}");
             Application.Quit(passed ? 0 : 2);
         }
     }

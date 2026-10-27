@@ -34,6 +34,8 @@ namespace AFPS.Bootstrap
         [SerializeField] private FirstPersonWeaponView firstPersonWeaponView;
         private GrappleRopeView grappleRopeView;
         public bool HasPresentedGrappleRope => grappleRopeView != null && grappleRopeView.IsVisible;
+        public int PresentedRemoteGrappleRopeCount => remotePlayerWorldView != null
+            ? remotePlayerWorldView.VisibleGrappleRopeCount : 0;
         [SerializeField] private RemotePlayerWorldView remotePlayerWorldView;
         [SerializeField] private bool hideLocalBodyInFirstPerson = true;
         [SerializeField, Min(0f)] private float maxGroundSpeed = 6f;
@@ -721,7 +723,8 @@ namespace AFPS.Bootstrap
                 : latestRemoteServerTick + elapsedTicks;
             var remoteConfig = preparedWorld.Configuration;
             remotePlayerWorldView.Render(sessionManager.RemotePlayers, renderTick, sessionManager.ClientDeathmatchState,
-                (remoteConfig.Stance.Height / remoteConfig.Collision.HeightFixed).ToFloat());
+                (remoteConfig.Stance.Height / remoteConfig.Collision.HeightFixed).ToFloat(),
+                FixMath.Min(remoteConfig.Grapple.OriginHeight, remoteConfig.Collision.HeightFixed).ToFloat());
         }
 
         private bool IsLocalGameplayActive()

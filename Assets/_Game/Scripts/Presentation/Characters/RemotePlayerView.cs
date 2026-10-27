@@ -16,6 +16,8 @@ namespace AFPS.Presentation.Characters
         private bool? lastAlive;
         private FootstepAudioView footsteps;
         private MaterialPropertyBlock colorProperties;
+        private GrappleRopeView grappleRope;
+        public bool HasGrappleRope => grappleRope != null && grappleRope.IsVisible;
         public ulong FootstepCount => footsteps != null ? footsteps.StepCount : 0;
 
         private void Awake()
@@ -33,7 +35,7 @@ namespace AFPS.Presentation.Characters
         }
 
         public void ApplyRenderState(in RemotePlayerRenderState state, bool isAlive = true,
-            bool gameplayActive = true, float crouchedHeightRatio = 0.6f)
+            bool gameplayActive = true, float crouchedHeightRatio = 0.6f, float grappleOriginHeight = 1.6f)
         {
             if (footsteps == null)
             {
@@ -50,6 +52,20 @@ namespace AFPS.Presentation.Characters
                 initialScale.y * heightRatio * (isAlive ? 1f : 0.65f), initialScale.z);
             footsteps.Render(state.Position, state.IsGrounded, isAlive && gameplayActive,
                 state.Status == RemotePlayerSamplingStatus.Teleported);
+            if (state.IsGrappling && isAlive && gameplayActive
+                && state.Status != RemotePlayerSamplingStatus.ExtrapolationLimitReached)
+            {
+                if (grappleRope == null)
+                {
+                    grappleRope = gameObject.AddComponent<GrappleRopeView>();
+                }
+                var offset = Quaternion.Euler(0f, state.Rotation.eulerAngles.y, 0f) * new Vector3(0.15f, -0.12f, 0f);
+                grappleRope.RenderEndpoints(position + Vector3.up * grappleOriginHeight + offset, state.GrapplePoint);
+            }
+            else
+            {
+                HideGrappleRope();
+            }
 
             if (lastAlive == isAlive)
             {
@@ -72,6 +88,14 @@ namespace AFPS.Presentation.Characters
                     colorProperties.SetColor("_BaseColor", color);
                     renderers[i].SetPropertyBlock(colorProperties);
                 }
+            }
+        }
+
+        public void HideGrappleRope()
+        {
+            if (grappleRope != null)
+            {
+                grappleRope.Hide();
             }
         }
     }

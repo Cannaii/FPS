@@ -93,6 +93,7 @@ if ($IncludeReplication) {
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/SnapshotInterpolation/RemotePlayerSnapshot.cs'
     $taskSources += @('RemotePlayerSnapshotCodec.cs', 'RemotePlayerSnapshotDeltaCodec.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Messages/' + $_) }
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/FixedRemoteSnapshotTests.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/RemoteGrappleSnapshotTests.cs'
 }
 if ($IncludeCombat) {
     $taskSources += @('AuthoritativeShot.cs', 'ServerWeaponFireController.cs', 'WeaponFireResult.cs', 'WeaponFireRejectReason.cs', 'ServerCombatTarget.cs', 'ServerHitscanResolver.cs', 'ServerWorldShotResolver.cs', 'ServerExplosionResolver.cs', 'AuthoritativeShotResult.cs', 'ServerProjectileSimulation.cs', 'ServerCombatHealth.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Weapons/' + $_) }

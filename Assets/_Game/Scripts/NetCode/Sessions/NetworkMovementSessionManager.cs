@@ -1002,7 +1002,8 @@ namespace AFPS.NetCode.Sessions
                 candidate.EntityId, serverWorldTick, candidate.State.PositionFixed,
                 candidate.State.YawFixedDegrees, candidate.State.PitchFixedDegrees,
                 candidate.State.VelocityFixed, isGrounded: candidate.State.IsGrounded,
-                isCrouched: candidate.State.IsCrouched);
+                isCrouched: candidate.State.IsCrouched,
+                isGrappling: candidate.State.IsGrappling, grapplePoint: candidate.State.GrapplePointFixed);
             Dictionary<uint, RemotePlayerSnapshot> baselines = serverSnapshotBaselines[targetConnectionId];
             bool sendFull = !baselines.TryGetValue(candidate.EntityId, out RemotePlayerSnapshot baseline)
                 || unchecked(serverWorldTick - baseline.ServerTick) >= fullSnapshotIntervalTicks;
