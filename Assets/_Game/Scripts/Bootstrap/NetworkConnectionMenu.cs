@@ -77,8 +77,8 @@ namespace AFPS.Bootstrap
                     return;
                 }
                 string message = bootstrap.ActiveMode == NetworkLaunchMode.Host
-                    ? $"Room at {localAddress}:{portInput.text}. World verified."
-                    : "World verified. Ready to enter.";
+                    ? $"房间地址：{localAddress}:{portInput.text}，地图验证通过。"
+                    : "地图验证通过，可以进入游戏。";
                 SetStatus(message, false);
             }
             else if (!string.IsNullOrEmpty(movement.ConnectionStatusMessage))
@@ -99,8 +99,8 @@ namespace AFPS.Bootstrap
             }
 
             SetButtonsInteractable(false);
-            SetStatus(mode == NetworkLaunchMode.Practice ? "Starting solo practice..."
-                : mode == NetworkLaunchMode.Host ? "Starting host..." : "Connecting...", false);
+            SetStatus(mode == NetworkLaunchMode.Practice ? "正在启动单人练习…"
+                : mode == NetworkLaunchMode.Host ? "正在创建房间…" : "正在连接服务器…", false);
             if (!bootstrap.TryStartNetwork(options, out error))
             {
                 SetStatus(error, true);
@@ -147,21 +147,21 @@ namespace AFPS.Bootstrap
             RectTransform panel = CreateRect("Panel", backdrop, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(660f, 700f), Vector2.zero);
             panel.gameObject.AddComponent<Image>().color = PanelColor;
 
-            CreateText(panel, "AFPS LAN", 38f, FontStyles.Bold, TextAlignmentOptions.Center, new Vector2(0f, 224f), new Vector2(560f, 54f), Color.white);
-            CreateText(panel, "Host a game or join a direct IPv4 address.", 20f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, 178f), new Vector2(560f, 36f), new Color(0.72f, 0.78f, 0.86f));
-            CreateText(panel, "SERVER IP", 16f, FontStyles.Bold, TextAlignmentOptions.Left, new Vector2(-190f, 116f), new Vector2(180f, 30f), new Color(0.72f, 0.78f, 0.86f));
+            CreateText(panel, "AFPS 局域网", 38f, FontStyles.Bold, TextAlignmentOptions.Center, new Vector2(0f, 224f), new Vector2(560f, 54f), Color.white);
+            CreateText(panel, "创建房间，或输入服务器 IPv4 地址加入。", 20f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, 178f), new Vector2(560f, 36f), new Color(0.72f, 0.78f, 0.86f));
+            CreateText(panel, "服务器地址", 16f, FontStyles.Bold, TextAlignmentOptions.Left, new Vector2(-190f, 116f), new Vector2(180f, 30f), new Color(0.72f, 0.78f, 0.86f));
             addressInput = CreateInputField(panel, "Server Address", bootstrap.DefaultServerAddress, "192.168.1.20", new Vector2(0f, 77f), new Vector2(520f, 52f));
-            CreateText(panel, "PORT", 16f, FontStyles.Bold, TextAlignmentOptions.Left, new Vector2(-220f, 27f), new Vector2(120f, 30f), new Color(0.72f, 0.78f, 0.86f));
+            CreateText(panel, "端口", 16f, FontStyles.Bold, TextAlignmentOptions.Left, new Vector2(-220f, 27f), new Vector2(120f, 30f), new Color(0.72f, 0.78f, 0.86f));
             portInput = CreateInputField(panel, "Port", bootstrap.DefaultPort.ToString(), "7777", new Vector2(0f, -12f), new Vector2(520f, 52f));
             portInput.contentType = TMP_InputField.ContentType.IntegerNumber;
 
-            hostButton = CreateButton(panel, "Host Button", "HOST GAME", new Vector2(-135f, -91f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Host));
-            joinButton = CreateButton(panel, "Join Button", "JOIN GAME", new Vector2(135f, -91f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Client));
-            practiceButton = CreateButton(panel, "Practice Button", "SOLO PRACTICE", new Vector2(0f, -162f),
+            hostButton = CreateButton(panel, "Host Button", "创建房间", new Vector2(-135f, -91f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Host));
+            joinButton = CreateButton(panel, "Join Button", "加入房间", new Vector2(135f, -91f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Client));
+            practiceButton = CreateButton(panel, "Practice Button", "单人练习", new Vector2(0f, -162f),
                 new Vector2(520f, 58f), () => StartNetwork(NetworkLaunchMode.Practice));
-            statusText = CreateText(panel, $"Local address: {localAddress}", 18f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, -229f), new Vector2(560f, 54f), new Color(0.66f, 0.75f, 0.84f));
+            statusText = CreateText(panel, $"本机地址：{localAddress}", 18f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, -229f), new Vector2(560f, 54f), new Color(0.66f, 0.75f, 0.84f));
             statusText.enableWordWrapping = true;
-            enterButton = CreateButton(panel, "Enter Button", "ENTER GAME", new Vector2(0f, -294f), new Vector2(520f, 58f), EnterGame);
+            enterButton = CreateButton(panel, "Enter Button", "进入游戏", new Vector2(0f, -294f), new Vector2(520f, 58f), EnterGame);
             enterButton.gameObject.SetActive(false);
         }
 
@@ -227,6 +227,7 @@ namespace AFPS.Bootstrap
         {
             RectTransform rect = CreateRect("Text", parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), size, position);
             TextMeshProUGUI label = rect.gameObject.AddComponent<TextMeshProUGUI>();
+            label.font = ChineseUiFont.Asset;
             label.text = text;
             label.fontSize = fontSize;
             label.fontStyle = style;

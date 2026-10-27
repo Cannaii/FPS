@@ -75,7 +75,7 @@ namespace AFPS.Tests.EditMode
             var bootstrap = movement.GetComponent<UnityNetworkBootstrap>();
             var options = new NetworkLaunchOptions(mode, "127.0.0.1", 47996, 2);
             Assert.That(bootstrap.TryStartNetwork(options, out string error), Is.False);
-            Assert.That(error, Does.Contain("Missing baked simulation world"));
+            Assert.That(error, Does.Contain("缺少已烘焙地图"));
             Assert.That(bootstrap.Runtime, Is.Null);
             Assert.That(movement.SessionManager, Is.Null);
             Assert.That(movement.CanEnterGame, Is.False);

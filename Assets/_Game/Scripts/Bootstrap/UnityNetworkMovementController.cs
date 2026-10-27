@@ -108,7 +108,7 @@ namespace AFPS.Bootstrap
             preparedWorld = null;
             if (fixedWorldSnapshot == null || tickRunner == null)
             {
-                error = "Missing baked simulation world or TickRunner.";
+                error = "缺少已烘焙地图或逻辑时钟，无法启动。";
                 return false;
             }
 
@@ -546,6 +546,11 @@ namespace AFPS.Bootstrap
                     {
                         if (firstPersonWeaponView != null)
                         {
+                            if (shotResultView != null && firstPersonWeaponView.TryGetWorldMuzzle(out var muzzle))
+                            {
+                                uint localEntity = sessionManager.RemotePlayers.LocalEntityId;
+                                shotResultView.RememberLocalMuzzle(localEntity, command.ShotSequence, muzzle);
+                            }
                             firstPersonWeaponView.PlayPredictedShot();
                         }
                         PredictProjectileVisual(command, predictedState, serverWorldTick);
@@ -659,14 +664,14 @@ namespace AFPS.Bootstrap
 
             ConnectionStatusMessage = status switch
             {
-                ConnectionAdmissionStatus.AwaitingHandshake => "Checking simulation world...",
-                ConnectionAdmissionStatus.Admitted => "World accepted. Waiting for player assignment...",
-                ConnectionAdmissionStatus.AlgorithmMismatch => "Connection rejected: simulation algorithm mismatch.",
-                ConnectionAdmissionStatus.WorldMismatch => "Connection rejected: map snapshot mismatch.",
-                ConnectionAdmissionStatus.ConfigurationMismatch => "Connection rejected: movement configuration mismatch.",
-                ConnectionAdmissionStatus.TimedOut => "Connection rejected: admission timed out.",
-                ConnectionAdmissionStatus.SessionCreationFailed => "Connection rejected: player session creation failed.",
-                _ => "Connection lost. Restart the game to try again."
+                ConnectionAdmissionStatus.AwaitingHandshake => "正在检查模拟世界…",
+                ConnectionAdmissionStatus.Admitted => "地图验证通过，正在分配玩家…",
+                ConnectionAdmissionStatus.AlgorithmMismatch => "连接被拒绝：模拟算法版本不一致。",
+                ConnectionAdmissionStatus.WorldMismatch => "连接被拒绝：地图快照不一致。",
+                ConnectionAdmissionStatus.ConfigurationMismatch => "连接被拒绝：玩法配置不一致。",
+                ConnectionAdmissionStatus.TimedOut => "连接被拒绝：入局验证超时。",
+                ConnectionAdmissionStatus.SessionCreationFailed => "连接被拒绝：玩家会话创建失败。",
+                _ => "连接已断开，请重新启动游戏再试。"
             };
             Debug.Log($"AFPS 准入状态：{status}；{ConnectionStatusMessage}；服务器身份={sessionManager.ExpectedServerIdentity}", this);
         }

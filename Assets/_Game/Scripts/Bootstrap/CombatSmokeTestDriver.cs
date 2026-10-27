@@ -45,6 +45,7 @@ namespace AFPS.Bootstrap
         private bool reloadView;
         private bool explosionView;
         private bool remoteMuzzle;
+        private bool damageCaptured;
 
         public void Configure(UnityNetworkMovementController controller, LocalPlayerInputCollector collector)
         {
@@ -52,6 +53,11 @@ namespace AFPS.Bootstrap
             input = collector;
             configuredAt = Time.realtimeSinceStartupAsDouble;
             Application.runInBackground = true;
+            if (SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null)
+            {
+                QualitySettings.vSyncCount = 0;
+                Application.targetFrameRate = 60;
+            }
         }
 
         private bool Passed => sawLaunch && sawImpact && sawDeath && sawRespawn && synced && explosionView
@@ -99,6 +105,19 @@ namespace AFPS.Bootstrap
             reloadView |= movement.PresentedReloading;
             explosionView |= movement.ExplosionEffectCount > 0;
             remoteMuzzle |= movement.RemoteMuzzleCount > 0;
+            if (!damageCaptured && SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null
+                && Array.Exists(Environment.GetCommandLineArgs(), value => value.Equals("-afpsUiCapture", StringComparison.OrdinalIgnoreCase)))
+            {
+                var results = movement.GetComponent<AFPS.Presentation.Weapons.ShotResultView>();
+                if (results != null && results.DamageFeedbackVisible)
+                {
+                    string directory = System.IO.Path.Combine(Environment.CurrentDirectory,
+                        "Library/AFPSVerification/Results/ChineseUI-Combat");
+                    System.IO.Directory.CreateDirectory(directory);
+                    PracticeSmokeTestDriver.CaptureCameras(System.IO.Path.Combine(directory, "damage-" + localEntity + ".png"), true);
+                    damageCaptured = true;
+                }
+            }
             if (manager.ClientDeathmatchState.TryGetPlayer(2, out var victim))
             {
                 sawDeath |= !victim.IsAlive;

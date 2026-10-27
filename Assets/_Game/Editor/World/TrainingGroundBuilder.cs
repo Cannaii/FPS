@@ -279,15 +279,27 @@ namespace AFPS.Editor.World
             var label = new GameObject("Instructions").AddComponent<TextMesh>();
             label.transform.SetParent(root, false);
             label.transform.localPosition = new Vector3(0f, 0f, -0.07f);
-            label.text = title + "\n\n" + instruction;
+            label.text = Instructions(title, instruction);
             label.anchor = TextAnchor.MiddleCenter;
             label.alignment = TextAlignment.Center;
             label.fontSize = 64;
             label.characterSize = 0.045f;
-            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            label.font = ChineseUiFont.Source;
             label.GetComponent<MeshRenderer>().sharedMaterial = label.font.material;
             label.color = textMaterial.color;
         }
+
+        public static string Instructions(string title, string instruction = "") => title switch
+        {
+            "AFPS / TRAINING GROUND" => "AFPS 功能训练场\n\n单人练习：验证本机操作   创建/加入房间：测试战斗与重生",
+            "01 / FIRING RANGE" => "01 / 射击训练\n\n左键开火/按住连发   R 换弹   Q 切枪\n静态靶仅显示命中；双人对战测试伤害、击杀与3秒重生",
+            "02 / CROUCH + SLIDE" => "02 / 下蹲与滑铲\n\n按住 Ctrl 下蹲；Shift+W 加速后按 Ctrl 滑铲\n通道净高1.45米：内部松开 Ctrl 测试阻止站起",
+            "03 / SPRINT + DASH" => "03 / 冲刺与跳跃\n\nShift+W 冲刺/消耗体力   Alt 突进\n空格跳跃/双跳；走出高台边缘立刻跳，测试土狼时间",
+            "04 / WALL RUN + JUMP" => "04 / 墙跑与蹬墙\n\n贴墙起跳、视角沿墙，按住 Shift+W 墙跑\n空格蹬墙跳   E 蹬墙反弹；落地恢复墙跑时间",
+            "05 / LADDER" => "05 / 攀爬训练\n\n面向梯子按 W/S 上下爬，松键悬停\n空格跳离；持续向上登台，向下返回地面",
+            "06 / GRAPPLE" => "06 / 钩索摆荡\n\n瞄准高处青色横梁/锚块，按住右键或 F 挂钩，松开脱钩\n起跳后挂钩并横向瞄准摆荡；Alt 中断",
+            _ => title + "\n\n" + instruction
+        };
 
         private static T Find<T>(Scene scene) where T : Component
         {

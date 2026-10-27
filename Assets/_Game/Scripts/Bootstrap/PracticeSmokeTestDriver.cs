@@ -34,6 +34,9 @@ namespace AFPS.Bootstrap
         private bool checkedArms;
         private bool singleArms = true;
         private int capturePhase;
+        private bool menuCaptured;
+        private double scenarioSeconds;
+        private double lastScenarioUpdate;
 
         public void Configure(UnityNetworkBootstrap owner)
         {
@@ -42,6 +45,12 @@ namespace AFPS.Bootstrap
             input = FindObjectOfType<LocalPlayerInputCollector>(true);
             configuredAt = Time.realtimeSinceStartupAsDouble;
             Application.runInBackground = true;
+            if (SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null)
+            {
+                // 隐藏验证窗口不等待显示器垂直同步，避免Present阻塞改变自动化输入调度。
+                QualitySettings.vSyncCount = 0;
+                Application.targetFrameRate = 60;
+            }
         }
 
         private void Update()
@@ -49,6 +58,12 @@ namespace AFPS.Bootstrap
             double now = Time.realtimeSinceStartupAsDouble;
             if (!menuClicked && bootstrap.Runtime == null)
             {
+                if (!menuCaptured && CaptureRequested)
+                {
+                    menuCaptured = true;
+                    CaptureCameras(CapturePath("menu.png"), true);
+                    return;
+                }
                 foreach (var button in FindObjectsOfType<Button>())
                 {
                     if (button.name == "Practice Button")
@@ -74,8 +89,13 @@ namespace AFPS.Bootstrap
             {
                 startedAt = now;
                 origin = manager.ClientSession.CurrentState.Position;
+                lastScenarioUpdate = now;
             }
-            double elapsed = now - startedAt;
+            // 首次字体/Shader编译或截图可能停顿数秒，验证脚本不能直接跳过整段开火/移动窗口。
+            // 只限制自动化调度的单帧步长，服务器Tick和真实换弹计时仍按原逻辑运行。
+            scenarioSeconds += System.Math.Min(0.05d, System.Math.Max(0d, now - lastScenarioUpdate));
+            lastScenarioUpdate = now;
+            double elapsed = scenarioSeconds;
             var state = manager.ClientSession.LastAuthoritativeState;
             moved |= Vector2.Distance(new Vector2(origin.x, origin.z), new Vector2(state.Position.x, state.Position.z)) > 0.5f;
             jumped |= state.Position.y > origin.y + 0.3f;
@@ -152,11 +172,23 @@ namespace AFPS.Bootstrap
                 string directory = System.IO.Path.Combine(Environment.CurrentDirectory, "Temp");
                 System.IO.Directory.CreateDirectory(directory);
                 CaptureCameras(System.IO.Path.Combine(directory, "hands-fix-" + names[capturePhase] + ".png"));
+                CaptureCameras(CapturePath(names[capturePhase] + ".png"), true);
                 capturePhase++;
             }
         }
 
-        internal static void CaptureCameras(string path)
+        private static bool CaptureRequested => SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null
+            && Array.Exists(Environment.GetCommandLineArgs(), value => value.Equals("-afpsPracticeCapture", StringComparison.OrdinalIgnoreCase));
+
+        private static string CapturePath(string name)
+        {
+            string directory = System.IO.Path.Combine(Environment.CurrentDirectory,
+                "Library/AFPSVerification/Results/ChineseUI-" + Screen.width + "x" + Screen.height);
+            System.IO.Directory.CreateDirectory(directory);
+            return System.IO.Path.Combine(directory, name);
+        }
+
+        internal static void CaptureCameras(string path, bool includeUi = false)
         {
             Camera main = Camera.main;
             if (main == null)
@@ -164,7 +196,7 @@ namespace AFPS.Bootstrap
                 return;
             }
             // 隐藏的batchmode窗口可能没有有效后缓冲。按深度渲染世界相机与武器相机，
-            // 保存实际模型/动画的合成结果；不包含ScreenSpaceOverlay HUD，不修改相机原目标。
+            // 默认保存世界/武器合成，includeUi时额外合成HUD；所有相机目标均在finally恢复。
             var target = RenderTexture.GetTemporary(Screen.width, Screen.height, 24);
             RenderTexture previous = RenderTexture.active;
             Texture2D pixels = null;
@@ -189,6 +221,10 @@ namespace AFPS.Bootstrap
                         camera.targetTexture = original;
                     }
                 }
+                if (includeUi)
+                {
+                    CaptureOverlay(target);
+                }
                 RenderTexture.active = target;
                 pixels = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
                 pixels.ReadPixels(new Rect(0f, 0f, target.width, target.height), 0, 0);
@@ -203,6 +239,68 @@ namespace AFPS.Bootstrap
                 {
                     Destroy(pixels);
                 }
+            }
+        }
+
+        private static void CaptureOverlay(RenderTexture target)
+        {
+            // 隐藏窗口的后缓冲可能全黑；临时用专用相机合成Overlay，finally恢复玩家Canvas状态。
+            var cameraRoot = new GameObject("Verification UI Camera");
+            var camera = cameraRoot.AddComponent<Camera>();
+            camera.enabled = false;
+            camera.orthographic = true;
+            camera.orthographicSize = target.height * 0.5f;
+            camera.cullingMask = 1 << 30;
+            camera.clearFlags = CameraClearFlags.Depth;
+            camera.targetTexture = target;
+            Canvas[] canvases = FindObjectsOfType<Canvas>();
+            Array.Sort(canvases, (left, right) => left.sortingOrder.CompareTo(right.sortingOrder));
+            try
+            {
+                foreach (var canvas in canvases)
+                {
+                    if (!canvas.isRootCanvas || !canvas.isActiveAndEnabled || canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+                    {
+                        continue;
+                    }
+                    Camera originalCamera = canvas.worldCamera;
+                    float distance = canvas.planeDistance;
+                    Transform[] children = canvas.GetComponentsInChildren<Transform>(true);
+                    int[] layers = new int[children.Length];
+                    for (int i = 0; i < children.Length; i++)
+                    {
+                        layers[i] = children[i].gameObject.layer;
+                        children[i].gameObject.layer = 30;
+                    }
+                    try
+                    {
+                        canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                        canvas.worldCamera = camera;
+                        canvas.planeDistance = 1f;
+                        Canvas.ForceUpdateCanvases();
+                        foreach (var text in canvas.GetComponentsInChildren<TMPro.TMP_Text>())
+                        {
+                            text.ForceMeshUpdate();
+                        }
+                        camera.Render();
+                    }
+                    finally
+                    {
+                        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                        canvas.worldCamera = originalCamera;
+                        canvas.planeDistance = distance;
+                        for (int i = 0; i < children.Length; i++)
+                        {
+                            children[i].gameObject.layer = layers[i];
+                        }
+                        Canvas.ForceUpdateCanvases();
+                    }
+                }
+            }
+            finally
+            {
+                camera.targetTexture = null;
+                Destroy(cameraRoot);
             }
         }
     }

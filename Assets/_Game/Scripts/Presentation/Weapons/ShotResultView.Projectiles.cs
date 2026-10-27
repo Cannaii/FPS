@@ -87,7 +87,7 @@ namespace AFPS.Presentation.Weapons
                     age = entry.View.AgeSeconds;
                 }
                 entry.Confirmed = true;
-                entry.View.Initialize(shot, age);
+                entry.View.Initialize(shot, age, VisualOrigin(shot));
             }
             else
             {
@@ -143,7 +143,7 @@ namespace AFPS.Presentation.Weapons
             }
 
             PredictedProjectileVisual visual = projectilePool.Count > 0 ? projectilePool.Dequeue() : CreateProjectileVisual();
-            visual.Initialize(shot, age);
+            visual.Initialize(shot, age, VisualOrigin(shot));
             visual.gameObject.SetActive(true);
             projectiles.Add(key, new ProjectileEntry { View = visual, Confirmed = confirmed, Order = projectileOrder++ });
         }

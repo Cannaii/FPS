@@ -24,21 +24,21 @@ namespace AFPS.NetCode.Runtime
             if (mode != NetworkLaunchMode.Host && mode != NetworkLaunchMode.Client)
             {
                 options = default;
-                error = "The connection menu supports only Host and Client modes.";
+                error = "连接菜单仅支持创建房间、加入房间及单人练习。";
                 return false;
             }
 
             if (!ushort.TryParse(portText?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out ushort port) || port == 0)
             {
                 options = default;
-                error = "Port must be a number from 1 to 65535.";
+                error = "端口必须是 1 到 65535 的整数。";
                 return false;
             }
 
             if (maxConnections <= 0)
             {
                 options = default;
-                error = "Maximum connections must be greater than zero.";
+                error = "最大连接人数必须大于零。";
                 return false;
             }
 
@@ -49,7 +49,7 @@ namespace AFPS.NetCode.Runtime
                 if (!IPAddress.TryParse(address, out IPAddress parsedAddress) || parsedAddress.AddressFamily != AddressFamily.InterNetwork)
                 {
                     options = default;
-                    error = "Enter a valid IPv4 address, for example 192.168.1.20.";
+                    error = "请输入有效的 IPv4 地址，例如 192.168.1.20。";
                     return false;
                 }
 

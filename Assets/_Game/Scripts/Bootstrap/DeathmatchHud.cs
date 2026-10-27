@@ -17,6 +17,9 @@ namespace AFPS.Bootstrap
         private Canvas canvas;
         private TextMeshProUGUI statusText;
         private TextMeshProUGUI scoreText;
+        private TextMeshProUGUI networkText;
+        private TextMeshProUGUI healthText;
+        private TextMeshProUGUI weaponText;
         private TextMeshProUGUI centerText;
         private TextMeshProUGUI hitMarkerText;
         private ShotResultView shotResults;
@@ -60,86 +63,75 @@ namespace AFPS.Bootstrap
             uint localEntityId = sessionManager.RemotePlayers != null ? sessionManager.RemotePlayers.LocalEntityId : 0;
             match.TryGetPlayer(localEntityId, out DeathmatchPlayerState local);
             int seconds = Mathf.CeilToInt(match.RemainingTicks * tickDeltaTime);
-            statusText.text = match.Phase == DeathmatchPhase.Playing
-                ? $"{seconds / 60:00}:{seconds % 60:00}   HP {local.Health:000}   K {local.Kills} / D {local.Deaths}"
-                : $"HP {local.Health:000}   K {local.Kills} / D {local.Deaths}";
-
-            statusText.text += sessionManager.HasTimeSync
-                ? $"   RTT {sessionManager.Metrics.LastNetworkRoundTripMilliseconds:F1} ms"
-                : "   RTT --";
-            if (sessionManager.IsLocalPractice)
-            {
-                statusText.text = $"PRACTICE   HP {local.Health:000}";
-            }
+            statusText.text = sessionManager.IsLocalPractice
+                ? "单人练习"
+                : match.Phase == DeathmatchPhase.Playing ? $"自由死斗  {seconds / 60:00}:{seconds % 60:00}" : "自由死斗";
+            networkText.text = sessionManager.IsLocalPractice ? "本地练习 · 无需联网"
+                : sessionManager.HasTimeSync ? $"网络延迟  {sessionManager.Metrics.LastNetworkRoundTripMilliseconds:F1} 毫秒"
+                : "正在同步网络时钟…";
+            healthText.text = $"生命  {local.Health:000}   击杀 {local.Kills} / 死亡 {local.Deaths}";
             if (sessionManager.ClientSession != null)
             {
                 var movement = sessionManager.ClientSession.CurrentState;
                 int stamina = Mathf.RoundToInt((1f - movement.StaminaSpentFixed.ToFloat()) * 100f);
-                statusText.text += $"   STAMINA {stamina:000} [SHIFT]";
                 int maximumDashCharges = sessionManager.WorldContext?.Configuration.Dash.MaxCharges
                     ?? AFPS.Simulation.Characters.PlayerDashConfig.Default.MaxCharges;
-                statusText.text += $"   DASH {maximumDashCharges - movement.DashSpentCharges} [ALT]";
-                statusText.text += movement.SlideRemainingFixed > AFPS.Math.Fix.Zero
-                    ? "   SLIDE [CTRL]" : movement.IsCrouched ? "   CROUCH [CTRL]" : "   CROUCH [CTRL] / BOUNCE [E]";
-                if (movement.IsWallRunning)
-                {
-                    statusText.text += "   WALL RUN [SHIFT]";
-                }
-                if (movement.IsClimbing)
-                {
-                    statusText.text += "   CLIMB [W/S] JUMP OFF [SPACE]";
-                }
-                if (movement.IsGrappling)
-                {
-                    statusText.text += "   GRAPPLE [RMB/F] RELEASE TO DETACH";
-                }
-                if (movement.SprintExhausted)
-                {
-                    statusText.text += "   EXHAUSTED";
-                }
+                string state = !local.IsAlive ? "已阵亡，等待重生"
+                    : movement.SprintExhausted ? "体力耗尽"
+                    : movement.IsGrappling ? "钩索摆荡 · 松开右键脱钩"
+                    : movement.IsClimbing ? "攀爬中 · 空格跳离"
+                    : movement.IsWallRunning ? "墙跑中"
+                    : movement.SlideRemainingFixed > AFPS.Math.Fix.Zero ? "滑铲中"
+                    : movement.IsCrouched ? "下蹲中" : movement.IsSprinting ? "冲刺中" : "就绪";
+                healthText.text += $"\n体力 {stamina:000}%   突进 {maximumDashCharges - movement.DashSpentCharges}/{maximumDashCharges}\n{state}";
             }
-
+            weaponText.text = string.Empty;
             if (sessionManager.ClientWeapon.HasState)
             {
-                statusText.text += sessionManager.ClientWeaponConfiguration.FireMode == AFPS.Simulation.Weapons.WeaponFireMode.Projectile
-                    ? "   LAUNCHER [Q]" : "   RIFLE [Q]";
-                statusText.text += $"   AMMO {sessionManager.ClientWeapon.Ammo}/{sessionManager.ClientWeapon.State.Capacity}";
+                string weapon = sessionManager.ClientWeaponConfiguration.FireMode == AFPS.Simulation.Weapons.WeaponFireMode.Projectile
+                    ? "榴弹发射器" : "突击步枪";
+                weaponText.text = $"{weapon}\n<size=38>{sessionManager.ClientWeapon.Ammo:00} / {sessionManager.ClientWeapon.State.Capacity:00}</size>";
                 if (sessionManager.ClientWeapon.IsSwitchPending || sessionManager.ClientWeapon.State.IsEquipping)
                 {
-                    statusText.text += "   EQUIPPING";
+                    weaponText.text += "\n正在切换武器…";
                 }
-                if (sessionManager.ClientWeapon.IsReloading)
+                else if (sessionManager.ClientWeapon.IsReloading)
                 {
-                    statusText.text += sessionManager.ClientWeapon.State.IsReloading
-                        ? $"   RELOADING {sessionManager.ClientWeapon.State.ReloadTicksRemaining * tickDeltaTime:F1}s"
-                        : "   RELOADING...";
+                    weaponText.text += sessionManager.ClientWeapon.State.IsReloading
+                        ? $"\n换弹中  {sessionManager.ClientWeapon.State.ReloadTicksRemaining * tickDeltaTime:F1} 秒"
+                        : "\n换弹中…";
+                }
+                else
+                {
+                    weaponText.text += "\n左键开火   R 换弹   Q 切枪";
                 }
             }
             scoreBuilder.Clear();
-            scoreBuilder.AppendLine("DEATHMATCH");
+            scoreBuilder.AppendLine("玩家    击杀 / 死亡");
             for (int i = 0; i < match.PlayerCount; i++)
             {
                 DeathmatchPlayerState player = match.GetPlayer(i);
                 scoreBuilder.Append(player.EntityId == localEntityId ? "> " : "  ");
-                scoreBuilder.Append("P").Append(player.EntityId).Append("   ").Append(player.Kills).Append(" / ").Append(player.Deaths);
+                scoreBuilder.Append("玩家 ").Append(player.EntityId).Append("   ").Append(player.Kills).Append(" / ").Append(player.Deaths);
                 if (!player.IsAlive)
                 {
-                    scoreBuilder.Append("   DEAD");
+                    scoreBuilder.Append("   阵亡");
                 }
                 scoreBuilder.AppendLine();
             }
-            scoreText.text = scoreBuilder.ToString();
+            scoreText.text = sessionManager.IsLocalPractice ? "单人练习" : scoreBuilder.ToString();
+            scoreText.transform.parent.gameObject.SetActive(!sessionManager.IsLocalPractice);
 
             switch (match.Phase)
             {
                 case DeathmatchPhase.WaitingForPlayers:
-                    centerText.text = "WAITING FOR ANOTHER PLAYER";
+                    centerText.text = "等待另一名玩家加入";
                     break;
                 case DeathmatchPhase.Finished:
-                    centerText.text = match.WinnerEntityId == 0 ? "DRAW" : match.WinnerEntityId == localEntityId ? "VICTORY" : $"PLAYER {match.WinnerEntityId} WINS";
+                    centerText.text = match.WinnerEntityId == 0 ? "平局" : match.WinnerEntityId == localEntityId ? "胜利" : $"玩家 {match.WinnerEntityId} 获胜";
                     break;
                 default:
-                    centerText.text = local.IsAlive ? string.Empty : $"RESPAWNING IN {Mathf.Max(1, Mathf.CeilToInt(local.RespawnTicksRemaining * tickDeltaTime))}";
+                    centerText.text = local.IsAlive ? string.Empty : $"{Mathf.Max(1, Mathf.CeilToInt(local.RespawnTicksRemaining * tickDeltaTime))} 秒后重生";
                     break;
             }
         }
@@ -148,23 +140,25 @@ namespace AFPS.Bootstrap
         {
             bool damaged = shotResults != null && shotResults.DamageFeedbackVisible;
             damageFlash.enabled = damaged;
-            damageDirectionText.text = damaged ? "^" : string.Empty;
             var camera = UnityEngine.Camera.main;
-            if (damaged && camera != null)
+            Vector2 direction = default;
+            bool directed = damaged && camera != null
+                && shotResults.TryGetDamageDirection(camera.transform.position, camera.transform.rotation, out direction);
+            damageDirectionText.text = directed ? "▲" : string.Empty;
+            if (directed)
             {
-                Vector3 direction = camera.transform.InverseTransformDirection(shotResults.LastDamageSource - camera.transform.position);
-                float angle = Mathf.Atan2(direction.x, direction.z);
-                damageDirectionText.rectTransform.anchoredPosition = new Vector2(Mathf.Sin(angle), Mathf.Cos(angle)) * 90f;
+                float angle = Mathf.Atan2(direction.x, direction.y);
+                damageDirectionText.rectTransform.anchoredPosition = direction * 110f;
                 damageDirectionText.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -angle * Mathf.Rad2Deg);
             }
             rejectionText.text = shotResults != null && shotResults.RejectionFeedbackVisible
                 ? shotResults.LastRejectionReason switch
                 {
-                    WeaponFireRejectReason.Reloading => "RELOADING",
-                    WeaponFireRejectReason.EmptyMagazine => "RELOAD",
-                    WeaponFireRejectReason.FireRateLimited => "WAIT TO FIRE",
-                    WeaponFireRejectReason.WeaponUnavailable => "WEAPON UNAVAILABLE",
-                    _ => "SHOT REJECTED"
+                    WeaponFireRejectReason.Reloading => "正在换弹",
+                    WeaponFireRejectReason.EmptyMagazine => "弹匣已空，请按 R 换弹",
+                    WeaponFireRejectReason.FireRateLimited => "射速限制，请稍候",
+                    WeaponFireRejectReason.WeaponUnavailable => "武器暂不可用",
+                    _ => "本次射击未获服务器确认"
                 }
                 : string.Empty;
         }
@@ -195,16 +189,50 @@ namespace AFPS.Bootstrap
             damageFlash.raycastTarget = false;
             damageFlash.enabled = false;
 
-            statusText = CreateText(root.transform, "", 28f, TextAlignmentOptions.Top, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -22f), new Vector2(1500f, 60f));
-            scoreText = CreateText(root.transform, "", 23f, TextAlignmentOptions.TopLeft, Vector2.one, Vector2.one, new Vector2(-220f, -28f), new Vector2(400f, 360f));
-            centerText = CreateText(root.transform, "", 38f, TextAlignmentOptions.Center, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(900f, 160f));
+            // 以1920×1080为参考，面板各占独立区域；底部留出操作提示，不挤入顶部状态长串。
+            scaler.matchWidthOrHeight = 0.5f;
+            statusText = Panel(root.transform, "Match", new Vector2(0.5f, 1f), new Vector2(0f, -24f), new Vector2(360f, 90f), 26f);
+            statusText.alignment = TextAlignmentOptions.Center;
+            networkText = Panel(root.transform, "Network", new Vector2(0f, 1f), new Vector2(28f, -24f), new Vector2(330f, 54f), 20f);
+            scoreText = Panel(root.transform, "Scores", Vector2.one, new Vector2(-28f, -24f), new Vector2(330f, 320f), 22f);
+            healthText = Panel(root.transform, "Health", Vector2.zero, new Vector2(28f, 92f), new Vector2(430f, 145f), 24f);
+            weaponText = Panel(root.transform, "Weapon", Vector2.right, new Vector2(-28f, 92f), new Vector2(360f, 165f), 23f);
+            centerText = CreateText(root.transform, "", 38f, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 180f), new Vector2(850f, 120f));
             hitMarkerText = CreateText(root.transform, "", 26f, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(50f, 50f));
-            damageDirectionText = CreateText(root.transform, "", 40f, TextAlignmentOptions.Center,
+            damageDirectionText = CreateText(root.transform, "", 36f, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(50f, 50f));
-            damageDirectionText.color = Color.red;
-            rejectionText = CreateText(root.transform, "", 22f, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -80f), new Vector2(400f, 50f));
+            damageDirectionText.color = new Color(1f, 0.25f, 0.18f);
+            rejectionText = CreateText(root.transform, "", 23f, TextAlignmentOptions.Center,
+                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 130f), new Vector2(700f, 50f));
+            CreateText(root.transform, "Shift 冲刺   Alt 突进   空格 跳跃/双跳   Ctrl 下蹲/滑铲   E 蹬墙反弹   右键/F 钩索", 20f,
+                TextAlignmentOptions.Center, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+                new Vector2(0f, 24f), new Vector2(1500f, 42f));
+        }
+
+        private static TextMeshProUGUI Panel(Transform parent, string name, Vector2 anchor, Vector2 position,
+            Vector2 dimensions, float fontSize)
+        {
+            var target = new GameObject(name, typeof(RectTransform), typeof(Image));
+            var rect = target.GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            rect.anchorMin = anchor;
+            rect.anchorMax = anchor;
+            rect.pivot = anchor;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = dimensions;
+            var image = target.GetComponent<Image>();
+            image.color = new Color(0.025f, 0.045f, 0.065f, 0.76f);
+            image.raycastTarget = false;
+            var text = CreateText(rect, "", fontSize, TextAlignmentOptions.TopLeft,
+                Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            text.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            text.rectTransform.offsetMin = new Vector2(18f, 12f);
+            text.rectTransform.offsetMax = new Vector2(-18f, -12f);
+            text.enableWordWrapping = true;
+            text.overflowMode = TextOverflowModes.Truncate;
+            return text;
         }
 
         private static TextMeshProUGUI CreateText(Transform parent, string value, float size, TextAlignmentOptions alignment, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, Vector2 dimensions)
@@ -218,6 +246,7 @@ namespace AFPS.Bootstrap
             rect.anchoredPosition = position;
             rect.sizeDelta = dimensions;
             TextMeshProUGUI text = target.AddComponent<TextMeshProUGUI>();
+            text.font = ChineseUiFont.Asset;
             text.text = value;
             text.fontSize = size;
             text.fontStyle = FontStyles.Bold;

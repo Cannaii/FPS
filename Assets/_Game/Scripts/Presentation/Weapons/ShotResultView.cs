@@ -37,8 +37,8 @@ namespace AFPS.Presentation.Weapons
             Vector3 end = result.HitPoint;
             if (result.Shot.FireMode == WeaponFireMode.Hitscan)
             {
-                // 使用服务器的起终点，不从当前远端胶囊反推枪口，也不重复本地预测枪口、声音或后坐力。
-                DrawLine(result.Shot.Origin, end, new Color(1f, 0.8f, 0.25f), TracerSeconds);
+                // 只替换表现起点；终点仍是服务器裁决，不能把枪口偏移带回命中查询。
+                DrawLine(VisualOrigin(result.Shot), end, new Color(1f, 0.8f, 0.25f), TracerSeconds);
             }
 
             if (!result.DidHit && !result.HitEnvironment)
@@ -86,6 +86,8 @@ namespace AFPS.Presentation.Weapons
             ClearProjectiles();
             ClearFeedback();
             ClearEffects();
+            localMuzzles.Clear();
+            muzzleOrder.Clear();
             for (int i = 0; i < lines.Length; i++)
             {
                 remainingSeconds[i] = 0f;

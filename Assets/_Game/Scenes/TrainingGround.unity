@@ -163,13 +163,8 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 10052857}
-  m_Text: '03 / SPRINT + DASH
-
-
-    SHIFT + W sprint / stamina   ALT dash
-
-    SPACE
-    jump / double jump | Walk off raised pads: coyote jump'
+  m_Text: "03 / \u51B2\u523A\u4E0E\u8DF3\u8DC3\n\nShift+W \u51B2\u523A/\u6D88\u8017\u4F53\u529B
+    Alt \u7A81\u8FDB\n\u7A7A\u683C\u8DF3\u8DC3/\u53CC\u8DF3\uFF1B\u8D70\u51FA\u9AD8\u53F0\u8FB9\u7F18\u7ACB\u523B\u8DF3\uFF0C\u6D4B\u8BD5\u571F\u72FC\u65F6\u95F4"
   m_OffsetZ: 0
   m_CharacterSize: 0.045
   m_LineSpacing: 1
@@ -179,7 +174,7 @@ TextMesh:
   m_FontSize: 64
   m_FontStyle: 0
   m_RichText: 1
-  m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Font: {fileID: 12800000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_Color:
     serializedVersion: 2
     rgba: 4294308070
@@ -203,7 +198,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10100, guid: 0000000000000000e000000000000000, type: 0}
+  - {fileID: 2100000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -597,11 +592,8 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 38365562}
-  m_Text: 'AFPS / TRAINING GROUND
-
-
-    SOLO PRACTICE: local controls | HOST + CLIENT:
-    combat / respawn'
+  m_Text: "AFPS \u529F\u80FD\u8BAD\u7EC3\u573A\n\n\u5355\u4EBA\u7EC3\u4E60\uFF1A\u9A8C\u8BC1\u672C\u673A\u64CD\u4F5C
+    \u521B\u5EFA/\u52A0\u5165\u623F\u95F4\uFF1A\u6D4B\u8BD5\u6218\u6597\u4E0E\u91CD\u751F"
   m_OffsetZ: 0
   m_CharacterSize: 0.045
   m_LineSpacing: 1
@@ -611,7 +603,7 @@ TextMesh:
   m_FontSize: 64
   m_FontStyle: 0
   m_RichText: 1
-  m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Font: {fileID: 12800000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_Color:
     serializedVersion: 2
     rgba: 4294308070
@@ -635,7 +627,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10100, guid: 0000000000000000e000000000000000, type: 0}
+  - {fileID: 2100000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -4205,13 +4197,7 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 719344004}
-  m_Text: '05 / LADDER
-
-
-    Face ladder: W / S climb | Release: hang
-
-    SPACE
-    jump off | Climb onto deck / descend to floor'
+  m_Text: "05 / \u6500\u722C\u8BAD\u7EC3\n\n\u9762\u5411\u68AF\u5B50\u6309 W/S \u4E0A\u4E0B\u722C\uFF0C\u677E\u952E\u60AC\u505C\n\u7A7A\u683C\u8DF3\u79BB\uFF1B\u6301\u7EED\u5411\u4E0A\u767B\u53F0\uFF0C\u5411\u4E0B\u8FD4\u56DE\u5730\u9762"
   m_OffsetZ: 0
   m_CharacterSize: 0.045
   m_LineSpacing: 1
@@ -4221,7 +4207,7 @@ TextMesh:
   m_FontSize: 64
   m_FontStyle: 0
   m_RichText: 1
-  m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Font: {fileID: 12800000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_Color:
     serializedVersion: 2
     rgba: 4294308070
@@ -4245,7 +4231,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10100, guid: 0000000000000000e000000000000000, type: 0}
+  - {fileID: 2100000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -4510,13 +4496,9 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 783387955}
-  m_Text: '02 / CROUCH + SLIDE
-
-
-    Hold CTRL to crouch | SHIFT + W then CTRL to
-    slide
-
-    1.45m clearance: release CTRL inside to test blocked standing'
+  m_Text: "02 / \u4E0B\u8E72\u4E0E\u6ED1\u94F2\n\n\u6309\u4F4F Ctrl \u4E0B\u8E72\uFF1BShift+W
+    \u52A0\u901F\u540E\u6309 Ctrl \u6ED1\u94F2\n\u901A\u9053\u51C0\u9AD81.45\u7C73\uFF1A\u5185\u90E8\u677E\u5F00
+    Ctrl \u6D4B\u8BD5\u963B\u6B62\u7AD9\u8D77"
   m_OffsetZ: 0
   m_CharacterSize: 0.045
   m_LineSpacing: 1
@@ -4526,7 +4508,7 @@ TextMesh:
   m_FontSize: 64
   m_FontStyle: 0
   m_RichText: 1
-  m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Font: {fileID: 12800000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_Color:
     serializedVersion: 2
     rgba: 4294308070
@@ -4550,7 +4532,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10100, guid: 0000000000000000e000000000000000, type: 0}
+  - {fileID: 2100000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -4613,13 +4595,9 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 795285191}
-  m_Text: '06 / GRAPPLE
-
-
-    Aim at CYAN anchors, hold RMB / F | Release to detach
-
-    Jump
-    + attach + look sideways: reel / swing | ALT cancels'
+  m_Text: "06 / \u94A9\u7D22\u6446\u8361\n\n\u7784\u51C6\u9AD8\u5904\u9752\u8272\u6A2A\u6881/\u951A\u5757\uFF0C\u6309\u4F4F\u53F3\u952E\u6216
+    F \u6302\u94A9\uFF0C\u677E\u5F00\u8131\u94A9\n\u8D77\u8DF3\u540E\u6302\u94A9\u5E76\u6A2A\u5411\u7784\u51C6\u6446\u8361\uFF1BAlt
+    \u4E2D\u65AD"
   m_OffsetZ: 0
   m_CharacterSize: 0.045
   m_LineSpacing: 1
@@ -4629,7 +4607,7 @@ TextMesh:
   m_FontSize: 64
   m_FontStyle: 0
   m_RichText: 1
-  m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Font: {fileID: 12800000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_Color:
     serializedVersion: 2
     rgba: 4294308070
@@ -4653,7 +4631,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10100, guid: 0000000000000000e000000000000000, type: 0}
+  - {fileID: 2100000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -6479,13 +6457,8 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1205919659}
-  m_Text: '01 / FIRING RANGE
-
-
-    LMB fire / hold auto   R reload   Q switch weapon
-
-    Static
-    targets: impacts only | Duel: damage / kills / 3s respawn'
+  m_Text: "01 / \u5C04\u51FB\u8BAD\u7EC3\n\n\u5DE6\u952E\u5F00\u706B/\u6309\u4F4F\u8FDE\u53D1
+    R \u6362\u5F39   Q \u5207\u67AA\n\u9759\u6001\u9776\u4EC5\u663E\u793A\u547D\u4E2D\uFF1B\u53CC\u4EBA\u5BF9\u6218\u6D4B\u8BD5\u4F24\u5BB3\u3001\u51FB\u6740\u4E0E3\u79D2\u91CD\u751F"
   m_OffsetZ: 0
   m_CharacterSize: 0.045
   m_LineSpacing: 1
@@ -6495,7 +6468,7 @@ TextMesh:
   m_FontSize: 64
   m_FontStyle: 0
   m_RichText: 1
-  m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Font: {fileID: 12800000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_Color:
     serializedVersion: 2
     rgba: 4294308070
@@ -6519,7 +6492,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10100, guid: 0000000000000000e000000000000000, type: 0}
+  - {fileID: 2100000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -10231,13 +10204,8 @@ TextMesh:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2090601277}
-  m_Text: '04 / WALL RUN + JUMP
-
-
-    Jump near wall, look ALONG wall, hold SHIFT
-    + W
-
-    SPACE wall jump   E wall bounce | Land to reset wall-run budget'
+  m_Text: "04 / \u5899\u8DD1\u4E0E\u8E6C\u5899\n\n\u8D34\u5899\u8D77\u8DF3\u3001\u89C6\u89D2\u6CBF\u5899\uFF0C\u6309\u4F4F
+    Shift+W \u5899\u8DD1\n\u7A7A\u683C\u8E6C\u5899\u8DF3   E \u8E6C\u5899\u53CD\u5F39\uFF1B\u843D\u5730\u6062\u590D\u5899\u8DD1\u65F6\u95F4"
   m_OffsetZ: 0
   m_CharacterSize: 0.045
   m_LineSpacing: 1
@@ -10247,7 +10215,7 @@ TextMesh:
   m_FontSize: 64
   m_FontStyle: 0
   m_RichText: 1
-  m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Font: {fileID: 12800000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_Color:
     serializedVersion: 2
     rgba: 4294308070
@@ -10271,7 +10239,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10100, guid: 0000000000000000e000000000000000, type: 0}
+  - {fileID: 2100000, guid: bc2394bf054e2d04d81022fde7e848e7, type: 3}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

@@ -29,6 +29,25 @@ namespace AFPS.Presentation.Weapons
         public bool HasOwnedModel => ownedModel != null && animator != null
             && animator.avatar != null && animator.avatar.isValid && animator.runtimeAnimatorController != null;
 
+        public bool TryGetWorldMuzzle(out Vector3 point)
+        {
+            point = default;
+            if (!HasOwnedModel || modelPivot == null || worldCamera == null || weaponCamera == null)
+            {
+                return false;
+            }
+            Vector3 viewport = weaponCamera.WorldToViewportPoint(modelPivot.TransformPoint(muzzlePoint));
+            if (viewport.z <= 0f)
+            {
+                return false;
+            }
+            // 武器相机FOV更大：先投影到屏幕，再还原到世界相机，保证曳光接在“看到的枪口”上。
+            // 主相机近裁剪面可能在枪口前方；保持屏幕坐标，将表现点放到近面前至少5厘米。
+            viewport.z = Mathf.Max(viewport.z, worldCamera.nearClipPlane + 0.05f);
+            point = worldCamera.ViewportToWorldPoint(viewport);
+            return true;
+        }
+
         /// <summary>默认场景缺少接线时装配视图；模型的坐标/缩放仅影响渲染。</summary>
         public void Configure(UnityEngine.Camera camera)
         {

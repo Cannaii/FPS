@@ -34,7 +34,6 @@ namespace AFPS.Bootstrap
         private Fix initialLength;
         private Fix initialX;
         private int phase = -1;
-        private bool jumpIssued;
         private bool airborne;
         private bool predicted;
         private bool authority;
@@ -102,8 +101,8 @@ namespace AFPS.Bootstrap
             bool jump = false;
             if (phase == -1)
             {
-                jump = !jumpIssued;
-                jumpIssued = true;
+                // 入局首帧可能尚无可用输入Tick；仍落地时继续尝试，不能丢一次边沿后永远卡在准备阶段。
+                jump = state.IsGrounded && confirmed.IsGrounded;
                 if (!state.IsGrounded && !confirmed.IsGrounded
                     && state.PositionFixed.Y > Fix.FromRatio(1, 10) && confirmed.PositionFixed.Y > Fix.FromRatio(1, 10))
                 {
