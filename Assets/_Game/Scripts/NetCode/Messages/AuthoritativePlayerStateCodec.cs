@@ -9,8 +9,8 @@ namespace AFPS.NetCode.Messages
     /// <summary>权威状态：位置/速度/体力无损Raw，观察角沿用无损可逆的百分度网格。</summary>
     public static class AuthoritativePlayerStateCodec
     {
-        // 原103B后追加脱梯冷却4B、梯ID4B、梯法线XZ8B；攀爬使用flags的bit6。
-        public const int PayloadSize = 119;
+        // 原119B后追加钩索标志1B、锚点12B、绳长4B、ShapeId4B，全部无损Raw。
+        public const int PayloadSize = 140;
         public const int PacketSize = PacketHeader.Size + PayloadSize;
         // 以下分辨率暂供旧远端 Snapshot 使用，权威状态不再按这些常量量化。
         public const float PositionResolution = 0.001f;
@@ -37,7 +37,7 @@ namespace AFPS.NetCode.Messages
                 || state.StaminaSpentFixed < Fix.Zero || state.StaminaSpentFixed > Fix.One
                 || (state.IsSprinting && state.SprintExhausted)
                 || !IsValidDash(state) || !IsValidJump(state) || !IsValidWall(state) || !IsValidStance(state)
-                || !IsValidWallRun(state) || !IsValidClimb(state))
+                || !IsValidWallRun(state) || !IsValidClimb(state) || !IsValidGrapple(state))
             {
                 return false;
             }
@@ -85,7 +85,11 @@ namespace AFPS.NetCode.Messages
                 || !writer.TryWriteInt32(state.ClimbCooldownRemainingFixed.Raw)
                 || !writer.TryWriteUInt32(state.ClimbShapeId)
                 || !writer.TryWriteInt32(state.ClimbNormalFixed.X.Raw)
-                || !writer.TryWriteInt32(state.ClimbNormalFixed.Z.Raw))
+                || !writer.TryWriteInt32(state.ClimbNormalFixed.Z.Raw)
+                || !writer.TryWriteByte((byte)((state.IsGrappling ? 1 : 0) | (state.GrappleConsumed ? 2 : 0)))
+                || !WriteVector(ref writer, state.GrapplePointFixed)
+                || !writer.TryWriteInt32(state.GrappleLengthFixed.Raw)
+                || !writer.TryWriteUInt32(state.GrappleShapeId))
             {
                 return false;
             }
@@ -132,12 +136,16 @@ namespace AFPS.NetCode.Messages
                 || !reader.TryReadInt32(out int climbCooldown)
                 || !reader.TryReadUInt32(out uint climbShape)
                 || !reader.TryReadInt32(out int climbX)
-                || !reader.TryReadInt32(out int climbZ))
+                || !reader.TryReadInt32(out int climbZ)
+                || !reader.TryReadByte(out byte grappleFlags)
+                || !ReadVector(ref reader, out var grapplePoint)
+                || !reader.TryReadInt32(out int grappleLength)
+                || !reader.TryReadUInt32(out uint grappleShape))
             {
                 return false;
             }
 
-            if (reader.BytesRemaining != 0 || (flags & ~KnownFlags) != 0 || !InputAngleGrid.IsValid(yaw, pitch)
+            if (reader.BytesRemaining != 0 || grappleFlags > 3 || (flags & ~KnownFlags) != 0 || !InputAngleGrid.IsValid(yaw, pitch)
                 || staminaSpent < 0 || staminaSpent > Fix.Scale
                 || ((flags & SprintingMask) != 0 && (flags & ExhaustedMask) != 0))
             {
@@ -173,16 +181,30 @@ namespace AFPS.NetCode.Messages
                 IsClimbing = (flags & ClimbingMask) != 0,
                 ClimbCooldownRemainingFixed = Fix.FromRaw(climbCooldown),
                 ClimbShapeId = climbShape,
-                ClimbNormalFixed = new FixVec3(Fix.FromRaw(climbX), Fix.Zero, Fix.FromRaw(climbZ))
+                ClimbNormalFixed = new FixVec3(Fix.FromRaw(climbX), Fix.Zero, Fix.FromRaw(climbZ)),
+                IsGrappling = (grappleFlags & 1) != 0,
+                GrappleConsumed = (grappleFlags & 2) != 0,
+                GrapplePointFixed = grapplePoint,
+                GrappleLengthFixed = Fix.FromRaw(grappleLength),
+                GrappleShapeId = grappleShape
             };
             if (!IsValidDash(state) || !IsValidJump(state) || !IsValidWall(state) || !IsValidStance(state)
-                || !IsValidWallRun(state) || !IsValidClimb(state))
+                || !IsValidWallRun(state) || !IsValidClimb(state) || !IsValidGrapple(state))
             {
                 return false;
             }
             authoritative = new AuthoritativePlayerState(serverTick, inputTick, state);
             return true;
         }
+
+        private static bool IsValidGrapple(in PlayerState state) =>
+            state.IsGrappling
+                ? state.GrappleConsumed && state.GrappleShapeId != 0
+                    && state.GrappleLengthFixed >= Fix.FromRatio(1, 4)
+                    && state.GrappleLengthFixed <= PlayerGrappleSimulation.MaximumRopeLength
+                    && !state.IsClimbing && !state.IsWallRunning && !state.IsSprinting && !state.IsCrouched
+                    && state.DashRemainingFixed == Fix.Zero && state.SlideRemainingFixed == Fix.Zero
+                : state.GrappleShapeId == 0 && state.GrapplePointFixed == FixVec3.Zero && state.GrappleLengthFixed == Fix.Zero;
 
         private static bool IsValidClimb(in PlayerState state)
         {

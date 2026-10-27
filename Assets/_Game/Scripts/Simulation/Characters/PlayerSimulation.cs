@@ -79,12 +79,19 @@ namespace AFPS.Simulation.Characters
                 PlayerStanceSimulation.CancelSlide(ref next);
             }
             bool sliding = next.SlideRemainingFixed > Fix.Zero;
+            bool grappling = PlayerGrappleSimulation.Begin(ref next, previousState, input, config,
+                collisionWorld, dashing || wallAction || next.IsCrouched);
+            if (grappling)
+            {
+                PlayerStanceSimulation.CancelSlide(ref next);
+            }
             var ladder = PlayerClimbSimulation.Begin(ref next, previousState, input, config,
-                collisionWorld, forward, dashing || wallAction);
+                collisionWorld, forward, dashing || wallAction || grappling);
             bool climbing = next.IsClimbing;
-            sprintRequested &= !climbing;
+            sprintRequested &= !climbing && !grappling;
             PlayerWallRunSimulation.Begin(ref next, previousState, input, config, collisionWorld,
-                right * move.X + forward * move.Z, tickDeltaTime, dashing || wallAction || climbing, out FixVec3 wallRunTarget);
+                right * move.X + forward * move.Z, tickDeltaTime,
+                dashing || wallAction || climbing || grappling, out FixVec3 wallRunTarget);
             bool wallRunning = next.IsWallRunning;
 
             // 起跳当 Tick 也施加重力；此顺序属于预测与服务器共同遵守的积分规则。
@@ -114,7 +121,7 @@ namespace AFPS.Simulation.Characters
                 horizontal = PlayerStanceSimulation.Steer(next, right * move.X + forward * move.Z,
                     config.Stance, tickDeltaTime);
             }
-            else if (!wallAction)
+            else if (!wallAction && !grappling)
             {
                 horizontal = FixVec3.MoveTowards(horizontal, target, config.GroundAccelerationFixed * tickDeltaTime);
             }
@@ -125,6 +132,10 @@ namespace AFPS.Simulation.Characters
                 vertical = Fix.Zero;
             }
             next.VelocityFixed = new FixVec3(horizontal.X, vertical, horizontal.Z);
+            if (grappling)
+            {
+                PlayerGrappleSimulation.Apply(ref next, next.VelocityFixed, config, tickDeltaTime);
+            }
             FixVec3 incoming = next.VelocityFixed;
             KinematicCharacterMotor.Move(
                 previousState.PositionFixed,
@@ -139,6 +150,7 @@ namespace AFPS.Simulation.Characters
             next.WallNormalFixed = contacts.HasWall ? contacts.WallNormal : FixVec3.Zero;
             next.WallIncomingVelocityFixed = contacts.HasWall ? incoming : FixVec3.Zero;
             PlayerClimbSimulation.Complete(ref next, input, ladder, config.Climb);
+            PlayerGrappleSimulation.Complete(ref next, config.Grapple);
             next = PlayerSprintSimulation.Complete(next, previousState, input, config.Sprint,
                 tickDeltaTime, sprintRequested, dashing || wallAction || wallRunning);
             PlayerDashSimulation.Complete(ref next, tickDeltaTime);

@@ -95,10 +95,10 @@ namespace AFPS.Simulation.Characters
             in SimulationSessionSpatialConfig sessionSpatial,
             in WeaponSimulationConfig weapon)
         {
-            // AFCC追加攀爬五项规则；固定顺序小端int32。
+            // AFCD追加Combined钩索七项规则；固定顺序小端int32。
             // 新增会改变模拟结果的参数时必须纳入字段，并升级域版本及黄金值。
             ulong hash = 14695981039346656037UL;
-            Add(ref hash, 0x43434641);
+            Add(ref hash, 0x44434641);
             Add(ref hash, tickDeltaTime.Raw);
             Add(ref hash, collisionLayerMask);
             Add(ref hash, configuration.MaxGroundSpeedFixed.Raw);
@@ -142,6 +142,13 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, configuration.Climb.ExitPushSpeed.Raw);
             Add(ref hash, configuration.Climb.ReattachDelay.Raw);
             Add(ref hash, configuration.Climb.FacingAlignment.Raw);
+            Add(ref hash, configuration.Grapple.Range.Raw);
+            Add(ref hash, configuration.Grapple.PullAcceleration.Raw);
+            Add(ref hash, configuration.Grapple.ReelSpeed.Raw);
+            Add(ref hash, configuration.Grapple.MaximumSpeed.Raw);
+            Add(ref hash, configuration.Grapple.CameraInfluence.Raw);
+            Add(ref hash, configuration.Grapple.BreakDistance.Raw);
+            Add(ref hash, configuration.Grapple.OriginHeight.Raw);
 
             CharacterCollisionConfig collision = configuration.Collision;
             Add(ref hash, collision.RadiusFixed.Raw);

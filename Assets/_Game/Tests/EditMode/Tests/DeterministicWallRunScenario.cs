@@ -8,7 +8,7 @@ namespace AFPS.Tests.EditMode
 {
     public static class DeterministicWallRunScenario
     {
-        public const ulong ExpectedHash = 14737629044708318406UL;
+        public const ulong ExpectedHash = 15642934158764997073UL;
 
         public static ulong Run()
         {

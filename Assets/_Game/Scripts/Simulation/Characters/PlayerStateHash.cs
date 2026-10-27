@@ -48,6 +48,13 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, state.ClimbNormalFixed.Y.Raw);
             Add(ref hash, state.ClimbNormalFixed.Z.Raw);
             Add(ref hash, state.ClimbCooldownRemainingFixed.Raw);
+            Add(ref hash, state.IsGrappling ? 1 : 0);
+            Add(ref hash, state.GrappleConsumed ? 1 : 0);
+            Add(ref hash, state.GrapplePointFixed.X.Raw);
+            Add(ref hash, state.GrapplePointFixed.Y.Raw);
+            Add(ref hash, state.GrapplePointFixed.Z.Raw);
+            Add(ref hash, state.GrappleLengthFixed.Raw);
+            Add(ref hash, unchecked((int)state.GrappleShapeId));
             return hash;
         }
 

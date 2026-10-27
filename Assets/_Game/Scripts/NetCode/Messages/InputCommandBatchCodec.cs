@@ -19,9 +19,9 @@ namespace AFPS.NetCode.Messages
         /// </summary>
         public const int PayloadHeaderSize = 5;
         /// <summary>
-        /// 每条输入占用十五个字节：移动轴、按键位掩码、Yaw、Pitch、射击序号和估计服务器射击 Tick。
+        /// 每条输入占用十六字节：移动轴、UInt16按键、Yaw、Pitch、射击序号和估计服务器射击Tick。
         /// </summary>
-        public const int BytesPerCommand = 15;
+        public const int BytesPerCommand = 16;
         /// <summary>网络观察角的量化精度，单位为度。</summary>
         public const float LookAngleResolution = 0.01f;
         private const byte JumpPressedMask = 1 << 0;
@@ -32,8 +32,9 @@ namespace AFPS.NetCode.Messages
         private const byte DashPressedMask = 1 << 5;
         private const byte WallBounceMask = 1 << 6;
         private const byte CrouchHeldMask = 1 << 7;
-        private const byte KnownButtonsMask = JumpPressedMask | FirePressedMask | ReloadPressedMask
-            | SwitchWeaponMask | SprintHeldMask | DashPressedMask | WallBounceMask | CrouchHeldMask;
+        private const ushort GrappleHeldMask = 1 << 8;
+        private const ushort KnownButtonsMask = JumpPressedMask | FirePressedMask | ReloadPressedMask
+            | SwitchWeaponMask | SprintHeldMask | DashPressedMask | WallBounceMask | CrouchHeldMask | GrappleHeldMask;
         public static int GetPacketSize(int commandCount) => PacketHeader.Size + PayloadHeaderSize + commandCount * BytesPerCommand;
         /// <summary>
         /// 命令类型已在写入控制量时保证规范整数网格；保留此入口供预测会话统一调用。
@@ -68,7 +69,11 @@ namespace AFPS.NetCode.Messages
             for (int i = 0; i < batch.CommandCount; i++)
             {
                 PlayerInputCommand command = batch.Commands.Array[batch.Commands.Offset + i];
-                byte buttons = 0;
+                ushort buttons = 0;
+                if (command.GrappleHeld)
+                {
+                    buttons |= GrappleHeldMask;
+                }
                 if (command.CrouchHeld)
                 {
                     buttons |= CrouchHeldMask;
@@ -106,7 +111,7 @@ namespace AFPS.NetCode.Messages
 
                 if (!writer.TryWriteSByte(command.MoveXGrid)
                     || !writer.TryWriteSByte(command.MoveYGrid)
-                    || !writer.TryWriteByte(buttons)
+                    || !writer.TryWriteUInt16(buttons)
                     || !writer.TryWriteUInt16(command.YawCentidegrees)
                     || !writer.TryWriteInt16(command.PitchCentidegrees)
                     || !writer.TryWriteUInt32(command.FirePressed ? command.ShotSequence : 0u)
@@ -210,7 +215,7 @@ namespace AFPS.NetCode.Messages
             command = default;
             if (!reader.TryReadSByte(out sbyte moveX)
                 || !reader.TryReadSByte(out sbyte moveY)
-                || !reader.TryReadByte(out byte buttons)
+                || !reader.TryReadUInt16(out ushort buttons)
                 || !reader.TryReadUInt16(out ushort yaw)
                 || !reader.TryReadInt16(out short pitch)
                 || !reader.TryReadUInt32(out uint shotSequence)
@@ -236,6 +241,7 @@ namespace AFPS.NetCode.Messages
             command.DashPressed = (buttons & DashPressedMask) != 0;
             command.WallBouncePressed = (buttons & WallBounceMask) != 0;
             command.CrouchHeld = (buttons & CrouchHeldMask) != 0;
+            command.GrappleHeld = (buttons & GrappleHeldMask) != 0;
             command.FirePressed = fire;
             command.ReloadPressed = (buttons & ReloadPressedMask) != 0;
             command.SwitchWeaponPressed = (buttons & SwitchWeaponMask) != 0;

@@ -13,7 +13,7 @@ namespace AFPS.Tests.EditMode
             var context = SimulationWorldContext.Load(
                 new ArraySegment<byte>(bytes), DeterministicMapReplayScenario.CreateConfiguration(), SimulationStep.Step50Hz);
             ulong hash = DeterministicMapReplayScenario.Run(context, out int contacts);
-            Assert.That(hash, Is.EqualTo(358315015629672780UL));
+            Assert.That(hash, Is.EqualTo(5036170629772052620UL));
             Assert.That(contacts, Is.GreaterThan(100));
         }
     }

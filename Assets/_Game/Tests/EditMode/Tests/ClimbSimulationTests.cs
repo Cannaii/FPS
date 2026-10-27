@@ -152,7 +152,7 @@ namespace AFPS.Tests.EditMode
             var bytes = new byte[AuthoritativePlayerStateCodec.PacketSize];
             Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, state.Tick, state),
                 1, new ArraySegment<byte>(bytes), out int count), Is.True);
-            Assert.That(count, Is.EqualTo(131));
+            Assert.That(count, Is.EqualTo(152));
             Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out var decoded), Is.True);
             Assert.That(decoded.State.RawEquals(state), Is.True);
             bytes[130] = 128;

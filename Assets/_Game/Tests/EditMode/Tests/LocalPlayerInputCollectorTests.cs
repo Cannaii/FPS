@@ -7,6 +7,25 @@ namespace AFPS.Tests.EditMode
     public sealed class LocalPlayerInputCollectorTests
     {
         [Test]
+        public void Automation_GrappleHeldPersistsAcrossTicksAndClearsOnReset()
+        {
+            var target = new GameObject("Grapple input test");
+            try
+            {
+                var collector = target.AddComponent<LocalPlayerInputCollector>();
+                collector.SetAutomationInput(0f, 0f, 0f, 0f, false, grappleHeld: true);
+                Assert.That(collector.ConsumeCommand(uint.MaxValue).GrappleHeld, Is.True);
+                Assert.That(collector.ConsumeCommand(0).GrappleHeld, Is.True);
+                collector.ClearAutomationInput();
+                Assert.That(collector.ConsumeCommand(1).GrappleHeld, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
         public void Automation_CrouchRemainsHeldAcrossTicksAndClearsOnReset()
         {
             var target = new GameObject("Crouch input test");

@@ -55,6 +55,7 @@ namespace AFPS.Simulation.Characters
                 result.moveYGrid = 0;
                 result.SprintHeld = false;
                 result.CrouchHeld = false;
+                result.GrappleHeld = false;
             }
 
             result.JumpPressed = false;
@@ -109,6 +110,8 @@ namespace AFPS.Simulation.Characters
         public bool WallBouncePressed;
         /// <summary>持续下蹲意图；短替代保留，中性替代清除，实际能否站起仍由顶棚检查决定。</summary>
         public bool CrouchHeld;
+        /// <summary>持续挂钩意图；短替代保留，中性替代清除；失败/结束后需松开再挂。</summary>
+        public bool GrappleHeld;
         /// <summary>玩家是否在当前 Tick 请求射击；这是一次性事件，替代输入不得复用。</summary>
         public bool FirePressed;
         /// <summary>一次性换弹请求；缺失输入不得重复启动换弹。</summary>

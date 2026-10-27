@@ -182,7 +182,8 @@ namespace AFPS.Tests.EditMode
         [TestCase(0, 128)]
         [TestCase(1, 128)]
         [TestCase(2, 2)]
-        [TestCase(11, 1)]
+        [TestCase(3, 2)]
+        [TestCase(12, 1)]
         public void InvalidLaterCommand_DoesNotWriteDecodedPrefix(int fieldOffset, int value)
         {
             PlayerInputCommand[] source =
@@ -225,10 +226,10 @@ namespace AFPS.Tests.EditMode
         {
             byte[] packet = Packet(new[] { new PlayerInputCommand { Tick = 1 } });
             int start = PacketHeader.Size + InputCommandBatchCodec.PayloadHeaderSize;
-            packet[start + 3] = unchecked((byte)yaw);
-            packet[start + 4] = unchecked((byte)(yaw >> 8));
-            packet[start + 5] = unchecked((byte)pitch);
-            packet[start + 6] = unchecked((byte)(pitch >> 8));
+            packet[start + 4] = unchecked((byte)yaw);
+            packet[start + 5] = unchecked((byte)(yaw >> 8));
+            packet[start + 6] = unchecked((byte)pitch);
+            packet[start + 7] = unchecked((byte)(pitch >> 8));
             Assert.That(InputCommandBatchCodec.TryDeserialize(new ArraySegment<byte>(packet), new PlayerInputCommand[1], 0, out _, out _), Is.False);
         }
 

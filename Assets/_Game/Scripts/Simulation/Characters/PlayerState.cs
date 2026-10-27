@@ -35,6 +35,11 @@ namespace AFPS.Simulation.Characters
         public uint ClimbShapeId; // 当前竖直梯盒的规范ShapeId；未攀爬时为零。
         public FixVec3 ClimbNormalFixed; // 当前梯面的水平向外单位法线；未攀爬时清零。
         public Fix ClimbCooldownRemainingFixed; // 脱梯后重挂禁止时间，秒。
+        public bool IsGrappling;
+        public bool GrappleConsumed; // 本次按住已经尝试发射；成功/失败/强制脱绳均需松开后重试。
+        public FixVec3 GrapplePointFixed; // 固定世界锚点，米；未挂钩时清零。
+        public Fix GrappleLengthFixed; // 脚底积分点到锚点的目标绳长，米。
+        public uint GrappleShapeId; // 锚点的规范几何ShapeId；未挂钩时为零。
         public bool RawEquals(in PlayerState other) =>
             Tick == other.Tick
             && PositionFixed == other.PositionFixed
@@ -61,6 +66,9 @@ namespace AFPS.Simulation.Characters
             && WallRunUsedFixed == other.WallRunUsedFixed
             && IsClimbing == other.IsClimbing && ClimbShapeId == other.ClimbShapeId
             && ClimbNormalFixed == other.ClimbNormalFixed
-            && ClimbCooldownRemainingFixed == other.ClimbCooldownRemainingFixed;
+            && ClimbCooldownRemainingFixed == other.ClimbCooldownRemainingFixed
+            && IsGrappling == other.IsGrappling && GrappleConsumed == other.GrappleConsumed
+            && GrapplePointFixed == other.GrapplePointFixed && GrappleLengthFixed == other.GrappleLengthFixed
+            && GrappleShapeId == other.GrappleShapeId;
     }
 }

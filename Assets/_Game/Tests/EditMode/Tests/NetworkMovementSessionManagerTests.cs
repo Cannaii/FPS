@@ -41,7 +41,9 @@ namespace AFPS.Tests.EditMode
                 WallRunUsedFixed = Fix.Half,
                 IsClimbing = true,
                 ClimbShapeId = 7,
-                ClimbNormalFixed = -FixVec3.Right
+                ClimbNormalFixed = -FixVec3.Right,
+                IsGrappling = true, GrappleConsumed = true, GrappleShapeId = 9,
+                GrapplePointFixed = FixVec3.Up * Fix.FromInt(10), GrappleLengthFixed = Fix.FromInt(5)
             };
             var session = new ServerAuthoritativeMovementSession(new FakeTransport(TransportRole.Server),
                 new TransportConnectionId(1), initial, new PlayerSimulationConfig(6f, 20f, 20f, 8f),
@@ -62,6 +64,10 @@ namespace AFPS.Tests.EditMode
             Assert.That(session.CurrentState.IsClimbing, Is.False);
             Assert.That(session.CurrentState.ClimbShapeId, Is.Zero);
             Assert.That(session.CurrentState.ClimbNormalFixed, Is.EqualTo(FixVec3.Zero));
+            Assert.That(session.CurrentState.IsGrappling, Is.False);
+            Assert.That(session.CurrentState.GrappleConsumed, Is.True);
+            Assert.That(session.CurrentState.GrapplePointFixed, Is.EqualTo(FixVec3.Zero));
+            Assert.That(session.CurrentState.GrappleLengthFixed, Is.EqualTo(Fix.Zero));
             Assert.That(session.CurrentState.ClimbCooldownRemainingFixed, Is.EqualTo(PlayerClimbConfig.Default.ReattachDelay));
             session.Respawn(FixVec3.Up * Fix.FromInt(10));
             Assert.That(session.CurrentState.IsGrounded, Is.False);
@@ -71,6 +77,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(session.CurrentState.IsCrouched, Is.False);
             Assert.That(session.CurrentState.WallRunUsedFixed, Is.EqualTo(Fix.Zero));
             Assert.That(session.CurrentState.ClimbCooldownRemainingFixed, Is.EqualTo(Fix.Zero));
+            Assert.That(session.CurrentState.GrappleConsumed, Is.False);
             Assert.That(session.CurrentState.CoyoteRemainingFixed, Is.EqualTo(Fix.Zero));
         }
 

@@ -37,7 +37,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(state.VelocityFixed.Z.Raw, Is.EqualTo(393216));
             Assert.That(state.PositionFixed.Y.Raw, Is.Zero);
             Assert.That(state.IsGrounded, Is.True);
-            Assert.That(PlayerStateHash.Compute(state), Is.EqualTo(9474326385740249952UL));
+            Assert.That(PlayerStateHash.Compute(state), Is.EqualTo(4219067840041231712UL));
         }
 
         [Test]
@@ -133,8 +133,8 @@ namespace AFPS.Tests.EditMode
                 IsGrounded = true
             };
             byte[] packet = new byte[AuthoritativePlayerStateCodec.PacketSize];
-            Assert.That(AuthoritativePlayerStateCodec.PacketSize, Is.EqualTo(131));
-            Assert.That(PacketHeader.CurrentProtocolVersion, Is.EqualTo(19));
+            Assert.That(AuthoritativePlayerStateCodec.PacketSize, Is.EqualTo(152));
+            Assert.That(PacketHeader.CurrentProtocolVersion, Is.EqualTo(20));
             Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(0, state.Tick, state), 1, new ArraySegment<byte>(packet), out _), Is.True);
             Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out AuthoritativePlayerState decoded), Is.True);
             Assert.That(decoded.State.RawEquals(state), Is.True);

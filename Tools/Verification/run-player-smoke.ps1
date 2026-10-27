@@ -1,6 +1,6 @@
 ﻿param(
     [string]$PlayerPath = 'Library/AFPSVerification/Player/AFPSGame.exe',
-    [ValidateSet('Baseline', 'Combat', 'Sprint', 'Dash', 'Jump', 'Wall', 'Stance', 'WallRun', 'Climb', 'Practice')]
+    [ValidateSet('Baseline', 'Combat', 'Sprint', 'Dash', 'Jump', 'Wall', 'Stance', 'WallRun', 'Climb', 'Grapple', 'Practice')]
     [string]$Scenario = 'Baseline',
     [string]$OutputDirectory,
     [ValidateRange(1, 65534)][int]$BasePort = 18100,
@@ -37,6 +37,7 @@ $taskFlags = @{
     Stance = @('-afpsStanceSmoke', 'AFPS_STANCE_RESULT')
     WallRun = @('-afpsWallRunSmoke', 'AFPS_WALLRUN_RESULT')
     Climb = @('-afpsClimbSmoke', 'AFPS_CLIMB_RESULT')
+    Grapple = @('-afpsGrappleSmoke', 'AFPS_GRAPPLE_RESULT')
     Practice = @('-afpsPracticeSmoke', 'AFPS_PRACTICE_RESULT')
 }
 $taskResults = @()
@@ -85,7 +86,7 @@ try
                         '-afpsAddress', '127.0.0.1', '-afpsPort', $taskSpec.Port)
                 }
                 # 墙专项的独服也必须加载相同夹具，否则入局世界指纹必然不同。
-                if ($taskSpec.Mode -ne 'Server' -or $Scenario -in @('Wall', 'Stance', 'WallRun', 'Climb'))
+                if ($taskSpec.Mode -ne 'Server' -or $Scenario -in @('Wall', 'Stance', 'WallRun', 'Climb', 'Grapple'))
                 {
                     $taskArguments += $taskFlags[$Scenario][0]
                 }

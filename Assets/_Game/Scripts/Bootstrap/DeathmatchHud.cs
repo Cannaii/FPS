@@ -89,6 +89,10 @@ namespace AFPS.Bootstrap
                 {
                     statusText.text += "   CLIMB [W/S] JUMP OFF [SPACE]";
                 }
+                if (movement.IsGrappling)
+                {
+                    statusText.text += "   GRAPPLE [RMB/F] RELEASE TO DETACH";
+                }
                 if (movement.SprintExhausted)
                 {
                     statusText.text += "   EXHAUSTED";

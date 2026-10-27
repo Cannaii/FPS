@@ -92,6 +92,7 @@ namespace AFPS.NetCode.Sessions
             PlayerStanceSimulation.CancelSlide(ref state);
             state.IsWallRunning = false;
             PlayerClimbSimulation.Clear(ref state);
+            PlayerGrappleSimulation.Cancel(ref state);
             state.ClimbCooldownRemainingFixed = simulationConfig.Climb.ReattachDelay;
             CurrentState = state;
         }
@@ -110,6 +111,7 @@ namespace AFPS.NetCode.Sessions
             restored.IsCrouched = false;
             restored.WallRunUsedFixed = Fix.Zero;
             restored.ClimbCooldownRemainingFixed = Fix.Zero;
+            restored.GrappleConsumed = false;
             CurrentState = restored;
             ResetLoadoutForRespawn();
             // 即使弹量恰好未改变，也必须向拥有者立即确认新生命的武器状态。
@@ -230,8 +232,10 @@ namespace AFPS.NetCode.Sessions
                 appliedCommand.DashPressed = false;
                 appliedCommand.WallBouncePressed = false;
                 appliedCommand.CrouchHeld = false;
+                appliedCommand.GrappleHeld = false;
                 PlayerState stoppedState = CurrentState;
                 PlayerDashSimulation.Cancel(ref stoppedState);
+                PlayerGrappleSimulation.Cancel(ref stoppedState);
                 if (stoppedState.IsClimbing)
                 {
                     PlayerClimbSimulation.Detach(ref stoppedState, simulationConfig.Climb);

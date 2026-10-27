@@ -156,7 +156,7 @@ namespace AFPS.Bootstrap
             }
         }
 
-        private static void CaptureCameras(string path)
+        internal static void CaptureCameras(string path)
         {
             Camera main = Camera.main;
             if (main == null)

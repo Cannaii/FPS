@@ -22,6 +22,7 @@ namespace AFPS.Simulation.Characters
         public readonly PlayerStanceConfig Stance;
         public readonly PlayerWallRunConfig WallRun;
         public readonly PlayerClimbConfig Climb;
+        public readonly PlayerGrappleConfig Grapple;
         public PlayerSimulationConfig(
             Fix maxGroundSpeed,
             Fix groundAcceleration,
@@ -34,7 +35,8 @@ namespace AFPS.Simulation.Characters
             PlayerWallConfig? wall = null,
             PlayerStanceConfig? stance = null,
             PlayerWallRunConfig? wallRun = null,
-            PlayerClimbConfig? climb = null)
+            PlayerClimbConfig? climb = null,
+            PlayerGrappleConfig? grapple = null)
         {
             if (maxGroundSpeed.Raw < 0 || groundAcceleration.Raw < 0 || gravity.Raw < 0 || jumpSpeed.Raw < 0)
             {
@@ -80,6 +82,10 @@ namespace AFPS.Simulation.Characters
             var climbValue = climb ?? PlayerClimbConfig.Default;
             Climb = new PlayerClimbConfig(climbValue.Speed, climbValue.Reach, climbValue.ExitPushSpeed,
                 climbValue.ReattachDelay, climbValue.FacingAlignment);
+            var grappleValue = grapple ?? PlayerGrappleConfig.Default;
+            Grapple = new PlayerGrappleConfig(grappleValue.Range, grappleValue.PullAcceleration,
+                grappleValue.ReelSpeed, grappleValue.MaximumSpeed, grappleValue.CameraInfluence,
+                grappleValue.BreakDistance, grappleValue.OriginHeight);
             if (Sprint.SpeedMultiplier < Fix.One || Sprint.DrainPerSecond <= Fix.Zero
                 || Sprint.RecoveryPerSecond <= Fix.Zero || Sprint.RestartStamina <= Fix.Zero
                 || Sprint.RestartStamina > Fix.One

@@ -35,6 +35,7 @@ namespace AFPS.Input
         private bool fireHeld;
         private bool sprintHeld;
         private bool crouchHeld;
+        private bool grappleHeld;
         private bool dashPressedSinceLastTick;
         private bool wallBouncePressedSinceLastTick;
         private bool hasAutomaticShot;
@@ -100,6 +101,9 @@ namespace AFPS.Input
                 || (Gamepad.current != null && Gamepad.current.leftStickButton.isPressed);
             crouchHeld = (Keyboard.current != null && Keyboard.current.leftCtrlKey.isPressed)
                 || (Gamepad.current != null && Gamepad.current.rightStickButton.isPressed);
+            grappleHeld = (Mouse.current != null && Mouse.current.rightButton.isPressed)
+                || (Keyboard.current != null && Keyboard.current.fKey.isPressed)
+                || (Gamepad.current != null && Gamepad.current.rightShoulder.isPressed);
             dashPressedSinceLastTick |= (Keyboard.current != null && Keyboard.current.leftAltKey.wasPressedThisFrame)
                 || (Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame);
             wallBouncePressedSinceLastTick |= (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
@@ -125,7 +129,8 @@ namespace AFPS.Input
         /// </summary>
         public void SetAutomationInput(float horizontal, float vertical, float yaw, float pitch, bool jumpPressed, bool firePressed = false,
             bool fireHeld = false, bool reloadPressed = false, bool switchWeaponPressed = false,
-            bool sprintHeld = false, bool dashPressed = false, bool wallBouncePressed = false, bool crouchHeld = false)
+            bool sprintHeld = false, bool dashPressed = false, bool wallBouncePressed = false,
+            bool crouchHeld = false, bool grappleHeld = false)
         {
             automationEnabled = true;
             // 对角归一化由模拟统一处理；采集只按独立轴进入整数网格。
@@ -138,6 +143,7 @@ namespace AFPS.Input
             this.fireHeld = fireHeld;
             this.sprintHeld = sprintHeld;
             this.crouchHeld = crouchHeld;
+            this.grappleHeld = grappleHeld;
             dashPressedSinceLastTick |= dashPressed;
             wallBouncePressedSinceLastTick |= wallBouncePressed;
             reloadPressedSinceLastTick |= reloadPressed;
@@ -150,6 +156,7 @@ namespace AFPS.Input
             fireHeld = false;
             sprintHeld = false;
             crouchHeld = false;
+            grappleHeld = false;
             dashPressedSinceLastTick = false;
             wallBouncePressedSinceLastTick = false;
             hasAutomaticShot = false;
@@ -183,6 +190,7 @@ namespace AFPS.Input
                 JumpPressed = jumpPressedSinceLastTick,
                 SprintHeld = sprintHeld,
                 CrouchHeld = crouchHeld,
+                GrappleHeld = grappleHeld,
                 DashPressed = dashPressedSinceLastTick,
                 WallBouncePressed = wallBouncePressedSinceLastTick,
                 FirePressed = firePressed,

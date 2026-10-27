@@ -8,7 +8,7 @@ namespace AFPS.Tests.EditMode
 {
     public static class DeterministicClimbScenario
     {
-        public const ulong ExpectedHash = 775527319449009930UL;
+        public const ulong ExpectedHash = 11503603436642040718UL;
 
         public static ulong Run()
         {

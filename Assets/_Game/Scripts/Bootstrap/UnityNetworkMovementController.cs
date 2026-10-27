@@ -32,6 +32,8 @@ namespace AFPS.Bootstrap
         [SerializeField] private PlayerView playerView;
         [SerializeField] private FirstPersonCameraRig firstPersonCameraRig;
         [SerializeField] private FirstPersonWeaponView firstPersonWeaponView;
+        private GrappleRopeView grappleRopeView;
+        public bool HasPresentedGrappleRope => grappleRopeView != null && grappleRopeView.IsVisible;
         [SerializeField] private RemotePlayerWorldView remotePlayerWorldView;
         [SerializeField] private bool hideLocalBodyInFirstPerson = true;
         [SerializeField, Min(0f)] private float maxGroundSpeed = 6f;
@@ -120,7 +122,11 @@ namespace AFPS.Bootstrap
                         Fix.FromFloat(serverSpawnPosition.y), Fix.FromFloat(serverSpawnPosition.z)),
                     Fix.FromFloat(serverSpawnSpacing), SimulationSessionSpatialConfig.Default.InterestRadius);
                 Fix simulationStep = Fix.FromFloat(tickRunner.TickDeltaTime);
-                if (ClimbSmokeTestDriver.IsRequested)
+                if (GrappleSmokeTestDriver.IsRequested)
+                {
+                    preparedWorld = GrappleSmokeTestDriver.CreateFixture(configuration, simulationStep, collisionLayers.value);
+                }
+                else if (ClimbSmokeTestDriver.IsRequested)
                 {
                     preparedWorld = ClimbSmokeTestDriver.CreateFixture(configuration, simulationStep, collisionLayers.value);
                 }
@@ -330,7 +336,12 @@ namespace AFPS.Bootstrap
 
             Debug.Log($"AFPS 定点世界已装配：{preparedWorld.Identity.WorldHash}，配置={preparedWorld.Identity.ConfigurationHash}。", this);
             initialized = true;
-            if (hasLocalClient && ClimbSmokeTestDriver.IsRequested)
+            if (hasLocalClient && GrappleSmokeTestDriver.IsRequested)
+            {
+                var grapple = gameObject.AddComponent<GrappleSmokeTestDriver>();
+                grapple.Configure(this, inputCollector);
+            }
+            else if (hasLocalClient && ClimbSmokeTestDriver.IsRequested)
             {
                 var climb = gameObject.AddComponent<ClimbSmokeTestDriver>();
                 climb.Configure(this, inputCollector);
@@ -393,12 +404,22 @@ namespace AFPS.Bootstrap
 
         private void LateUpdate()
         {
+            if (grappleRopeView != null && (!initialized || sessionManager?.ClientSession == null))
+            {
+                grappleRopeView.Hide();
+            }
             UpdateTimeSync();
             RefreshClientAdmission();
             ConsumeShotResults();
             if (initialized && playerView != null && sessionManager.ClientSession != null)
             {
                 playerView.Render(tickRunner.TickAlpha, tickRunner.TickDeltaTime, Time.unscaledDeltaTime);
+                if (grappleRopeView == null)
+                {
+                    grappleRopeView = gameObject.AddComponent<GrappleRopeView>();
+                }
+                grappleRopeView.Render(sessionManager.ClientSession.CurrentState,
+                    playerView.SimulationTransform.position, preparedWorld.Configuration, IsLocalGameplayActive());
                 if (firstPersonCameraRig != null)
                 {
                     PlayerState cameraState = sessionManager.ClientSession.CurrentState;
@@ -497,6 +518,7 @@ namespace AFPS.Bootstrap
                     command.DashPressed = false;
                     command.WallBouncePressed = false;
                     command.CrouchHeld = false;
+                    command.GrappleHeld = false;
                     command.FirePressed = false;
                     command.ReloadPressed = false;
                     command.SwitchWeaponPressed = false;
