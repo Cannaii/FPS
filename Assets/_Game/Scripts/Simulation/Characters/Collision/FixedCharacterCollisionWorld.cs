@@ -5,7 +5,7 @@ using AFPS.Simulation.World;
 namespace AFPS.Simulation.Characters.Collision
 {
     /// <summary>预测、权威与重放共用的定点世界后端，不经过 Unity/PhysX 或浮点转换。</summary>
-    public sealed class FixedCharacterCollisionWorld : IFixedCharacterCollisionWorld
+    public sealed class FixedCharacterCollisionWorld : IFixedCharacterCollisionWorld, IWorldQuery
     {
         private readonly FixedWorld world;
         private readonly int layerMask;
@@ -16,6 +16,30 @@ namespace AFPS.Simulation.Characters.Collision
             this.world = world ?? throw new ArgumentNullException(nameof(world));
             this.layerMask = layerMask;
         }
+
+        // 能力查询复用碰撞绑定的同一快照，并与会话层掩码求交。
+        // 不暴露未过滤的原始world，避免墙跑/梯子/钩索看见移动胶囊无法碰撞的层。
+        public DeterministicHit Raycast(
+            in FixVec3 origin,
+            in FixVec3 direction,
+            Fix maxDistance,
+            int layerMask = ~0,
+            FixedSurface surfaceMask = FixedSurface.All) =>
+            world.Raycast(origin, direction, maxDistance, this.layerMask & layerMask, surfaceMask);
+
+        public DeterministicHit CapsuleCast(
+            in FixVec3 feet,
+            Fix radius,
+            Fix height,
+            in FixVec3 direction,
+            Fix maxDistance,
+            int layerMask = ~0,
+            FixedSurface surfaceMask = FixedSurface.Solid) =>
+            world.CapsuleCast(feet, radius, height, direction, maxDistance, this.layerMask & layerMask, surfaceMask);
+
+        public DeterministicHit GroundCheck(in FixVec3 center, Fix radius, Fix halfHeight,
+            Fix probeDistance, int layerMask = ~0) =>
+            world.GroundCheck(center, radius, halfHeight, probeDistance, this.layerMask & layerMask);
 
         public bool CapsuleCast(
             FixVec3 feetPosition,
