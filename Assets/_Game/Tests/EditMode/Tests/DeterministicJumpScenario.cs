@@ -7,7 +7,7 @@ namespace AFPS.Tests.EditMode
     /// <summary>无Unity/NUnit的重放：落地复位、双跳拒绝、下坠跳、Dash优先级及Tick回绕。</summary>
     public static class DeterministicJumpScenario
     {
-        public const ulong ExpectedHash = 5247468599979997174UL;
+        public const ulong ExpectedHash = 7570251131954336252UL;
 
         public static ulong Run()
         {

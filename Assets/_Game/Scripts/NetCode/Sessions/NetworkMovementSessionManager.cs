@@ -682,9 +682,11 @@ namespace AFPS.NetCode.Sessions
                 {
                     continue;
                 }
-                // 沿用战斗 Hitbox 常量：半径 0.5 米、高 2 米；不是移动胶囊的动态姿态配置。
+                // 每Tick记录真实姿态尺寸；回溯射击使用历史尺寸，不能用当前站高覆盖历史下蹲。
+                var collision = PlayerStanceSimulation.Collision(pair.Value.CurrentState, simulationConfig);
                 ServerCombatTarget target = new ServerCombatTarget(
-                    entityId, pair.Value.CurrentState.PositionFixed, Fix.Half, Fix.FromInt(2), serverHealth[entityId]);
+                    entityId, pair.Value.CurrentState.PositionFixed,
+                    collision.RadiusFixed, collision.HeightFixed, serverHealth[entityId]);
                 rewindHistories[entityId].Record(serverWorldTick, target);
             }
         }
@@ -999,7 +1001,8 @@ namespace AFPS.NetCode.Sessions
             RemotePlayerSnapshot snapshot = new RemotePlayerSnapshot(
                 candidate.EntityId, serverWorldTick, candidate.State.PositionFixed,
                 candidate.State.YawFixedDegrees, candidate.State.PitchFixedDegrees,
-                candidate.State.VelocityFixed, isGrounded: candidate.State.IsGrounded);
+                candidate.State.VelocityFixed, isGrounded: candidate.State.IsGrounded,
+                isCrouched: candidate.State.IsCrouched);
             Dictionary<uint, RemotePlayerSnapshot> baselines = serverSnapshotBaselines[targetConnectionId];
             bool sendFull = !baselines.TryGetValue(candidate.EntityId, out RemotePlayerSnapshot baseline)
                 || unchecked(serverWorldTick - baseline.ServerTick) >= fullSnapshotIntervalTicks;

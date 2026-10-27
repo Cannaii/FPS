@@ -89,6 +89,7 @@ namespace AFPS.NetCode.Sessions
             PlayerWallSimulation.ClearContact(ref state);
             state.IsSprinting = false;
             PlayerDashSimulation.Cancel(ref state);
+            PlayerStanceSimulation.CancelSlide(ref state);
             CurrentState = state;
         }
 
@@ -103,6 +104,7 @@ namespace AFPS.NetCode.Sessions
             restored.DashRechargeRemainingFixed = Fix.Zero;
             restored.AirJumpsUsed = 0;
             restored.WallCooldownRemainingFixed = Fix.Zero;
+            restored.IsCrouched = false;
             CurrentState = restored;
             ResetLoadoutForRespawn();
             // 即使弹量恰好未改变，也必须向拥有者立即确认新生命的武器状态。
@@ -140,9 +142,13 @@ namespace AFPS.NetCode.Sessions
             weaponConnection = clientConnectionId;
             if (weaponConfig.HasValue)
             {
-                weaponFireController = new ServerWeaponFireController(weaponConfig.Value);
+                var crouched = new PlayerState { IsCrouched = true };
+                weaponFireController = new ServerWeaponFireController(weaponConfig.Value,
+                    PlayerStanceSimulation.EyeHeight(crouched, weaponConfig.Value.EyeHeightFixed, simulationConfig));
                 primaryWeapon = weaponFireController;
-                secondaryWeapon = new ServerWeaponFireController(WeaponCatalog.SecondaryFor(weaponConfig.Value));
+                var secondaryConfig = WeaponCatalog.SecondaryFor(weaponConfig.Value);
+                secondaryWeapon = new ServerWeaponFireController(secondaryConfig,
+                    PlayerStanceSimulation.EyeHeight(crouched, secondaryConfig.EyeHeightFixed, simulationConfig));
                 secondaryWeapon.SetEquipped(false);
             }
             CurrentState = initialState;
@@ -218,6 +224,7 @@ namespace AFPS.NetCode.Sessions
                 appliedCommand.SprintHeld = false;
                 appliedCommand.DashPressed = false;
                 appliedCommand.WallBouncePressed = false;
+                appliedCommand.CrouchHeld = false;
                 PlayerState stoppedState = CurrentState;
                 PlayerDashSimulation.Cancel(ref stoppedState);
                 CurrentState = stoppedState;

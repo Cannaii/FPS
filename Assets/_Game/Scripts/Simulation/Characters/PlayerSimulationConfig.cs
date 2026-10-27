@@ -19,6 +19,7 @@ namespace AFPS.Simulation.Characters
         public readonly PlayerDashConfig Dash;
         public readonly PlayerJumpConfig Jump;
         public readonly PlayerWallConfig Wall;
+        public readonly PlayerStanceConfig Stance;
         public PlayerSimulationConfig(
             Fix maxGroundSpeed,
             Fix groundAcceleration,
@@ -28,7 +29,8 @@ namespace AFPS.Simulation.Characters
             PlayerSprintConfig? sprint = null,
             PlayerDashConfig? dash = null,
             PlayerJumpConfig? jump = null,
-            PlayerWallConfig? wall = null)
+            PlayerWallConfig? wall = null,
+            PlayerStanceConfig? stance = null)
         {
             if (maxGroundSpeed.Raw < 0 || groundAcceleration.Raw < 0 || gravity.Raw < 0 || jumpSpeed.Raw < 0)
             {
@@ -50,6 +52,22 @@ namespace AFPS.Simulation.Characters
             PlayerWallConfig wallValue = wall ?? PlayerWallConfig.Default;
             Wall = new PlayerWallConfig(wallValue.PushSpeed, wallValue.UpSpeed,
                 wallValue.MaximumBounceSpeed, wallValue.Cooldown, wallValue.StaminaCost);
+            PlayerStanceConfig stanceValue = stance ?? PlayerStanceConfig.Default;
+            if (!stance.HasValue)
+            {
+                // 旧调用可使用不同尺寸胶囊；默认姿态高度需收敛到它的合法直径/站高范围。
+                stanceValue = new PlayerStanceConfig(FixMath.Clamp(stanceValue.Height,
+                    Collision.RadiusFixed * Fix.FromInt(2), Collision.HeightFixed), stanceValue.SpeedMultiplier,
+                    stanceValue.SlideSpeed, stanceValue.SlideMinimumSpeed, stanceValue.SlideDuration,
+                    stanceValue.SlideDeceleration, stanceValue.SlideSteer);
+            }
+            Stance = new PlayerStanceConfig(stanceValue.Height, stanceValue.SpeedMultiplier,
+                stanceValue.SlideSpeed, stanceValue.SlideMinimumSpeed, stanceValue.SlideDuration,
+                stanceValue.SlideDeceleration, stanceValue.SlideSteer);
+            if ((long)Stance.Height.Raw < 2L * Collision.RadiusFixed.Raw || Stance.Height > Collision.HeightFixed)
+            {
+                throw new ArgumentOutOfRangeException(nameof(stance), "下蹲高度必须位于胶囊直径与站立高度之间。");
+            }
             if (Sprint.SpeedMultiplier < Fix.One || Sprint.DrainPerSecond <= Fix.Zero
                 || Sprint.RecoveryPerSecond <= Fix.Zero || Sprint.RestartStamina <= Fix.Zero
                 || Sprint.RestartStamina > Fix.One

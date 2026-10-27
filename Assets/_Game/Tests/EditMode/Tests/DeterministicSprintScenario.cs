@@ -7,7 +7,7 @@ namespace AFPS.Tests.EditMode
     /// <summary>不依赖 Unity/NUnit 的能力重放，覆盖耗尽、恢复、转向、跳跃和输入Tick回绕。</summary>
     public static class DeterministicSprintScenario
     {
-        public const ulong ExpectedHash = 4166020518898842767UL;
+        public const ulong ExpectedHash = 18265976489728782808UL;
         public static ulong Run()
         {
             var config = new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));

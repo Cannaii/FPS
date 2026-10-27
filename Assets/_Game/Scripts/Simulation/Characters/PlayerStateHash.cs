@@ -35,6 +35,11 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, state.WallIncomingVelocityFixed.Y.Raw);
             Add(ref hash, state.WallIncomingVelocityFixed.Z.Raw);
             Add(ref hash, state.WallCooldownRemainingFixed.Raw);
+            Add(ref hash, state.IsCrouched ? 1 : 0);
+            Add(ref hash, state.SlideRemainingFixed.Raw);
+            Add(ref hash, state.SlideVelocityFixed.X.Raw);
+            Add(ref hash, state.SlideVelocityFixed.Y.Raw);
+            Add(ref hash, state.SlideVelocityFixed.Z.Raw);
             return hash;
         }
 

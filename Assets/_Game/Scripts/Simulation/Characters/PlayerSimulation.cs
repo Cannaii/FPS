@@ -36,6 +36,7 @@ namespace AFPS.Simulation.Characters
             FixVec3 right = new FixVec3(cosine, Fix.Zero, -sine),
                 forward = new FixVec3(sine, Fix.Zero, cosine);
             next.StaminaSpentFixed = FixMath.Clamp(previousState.StaminaSpentFixed, Fix.Zero, Fix.One);
+            PlayerStanceSimulation.Begin(ref next, previousState, input, config, collisionWorld);
             PlayerWallSimulation.AdvanceTimers(ref next, tickDeltaTime);
             bool wallAction = PlayerWallSimulation.TryBounce(ref next, previousState, input, config.Wall);
             PlayerInputCommand dashInput = input;
@@ -50,9 +51,14 @@ namespace AFPS.Simulation.Characters
             {
                 wallAction = PlayerWallSimulation.TryJump(ref next, previousState, input, config.Wall);
             }
-            bool sprintRequested = !dashing && !wallAction && PlayerSprintSimulation.CanSprint(previousState, input, move);
+            bool sprintRequested = !next.IsCrouched && !dashing && !wallAction
+                && PlayerSprintSimulation.CanSprint(previousState, input, move);
             Fix targetSpeed = sprintRequested
                 ? config.MaxGroundSpeedFixed * config.Sprint.SpeedMultiplier : config.MaxGroundSpeedFixed;
+            if (next.IsCrouched)
+            {
+                targetSpeed *= config.Stance.SpeedMultiplier;
+            }
             FixVec3 target = (right * move.X + forward * move.Z) * targetSpeed;
             FixVec3 horizontal = new FixVec3(previousState.VelocityFixed.X, Fix.Zero, previousState.VelocityFixed.Z);
             Fix vertical = previousState.VelocityFixed.Y;
@@ -66,6 +72,11 @@ namespace AFPS.Simulation.Characters
                 vertical = config.JumpSpeedFixed;
                 next.IsGrounded = false;
             }
+            if (dashing || wallAction || !next.IsGrounded)
+            {
+                PlayerStanceSimulation.CancelSlide(ref next);
+            }
+            bool sliding = next.SlideRemainingFixed > Fix.Zero;
 
             // 起跳当 Tick 也施加重力；此顺序属于预测与服务器共同遵守的积分规则。
             if (!dashing && !next.IsGrounded)
@@ -73,7 +84,12 @@ namespace AFPS.Simulation.Characters
                 vertical -= config.GravityFixed * tickDeltaTime;
             }
 
-            if (!wallAction)
+            if (sliding)
+            {
+                horizontal = PlayerStanceSimulation.Steer(next, right * move.X + forward * move.Z,
+                    config.Stance, tickDeltaTime);
+            }
+            else if (!wallAction)
             {
                 horizontal = FixVec3.MoveTowards(horizontal, target, config.GroundAccelerationFixed * tickDeltaTime);
             }
@@ -89,7 +105,7 @@ namespace AFPS.Simulation.Characters
                 previousState.PositionFixed,
                 next.VelocityFixed,
                 tickDeltaTime,
-                config.Collision,
+                PlayerStanceSimulation.Collision(next, config),
                 collisionWorld,
                 out next.PositionFixed,
                 out next.VelocityFixed,
@@ -101,6 +117,7 @@ namespace AFPS.Simulation.Characters
                 tickDeltaTime, sprintRequested, dashing || wallAction);
             PlayerDashSimulation.Complete(ref next, tickDeltaTime);
             PlayerJumpSimulation.Complete(ref next, config.Jump, tickDeltaTime);
+            PlayerStanceSimulation.Complete(ref next, tickDeltaTime);
             return next;
         }
     }

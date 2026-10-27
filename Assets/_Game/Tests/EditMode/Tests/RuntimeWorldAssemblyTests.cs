@@ -58,9 +58,9 @@ namespace AFPS.Tests.EditMode
             var world = (SimulationWorldContext)field.GetValue(movement);
             Assert.That(world.Identity.WorldHash, Is.EqualTo(11671102255531124119UL));
             Assert.That(world.CollisionLayerMask, Is.EqualTo(1 << 8));
-            Assert.That(world.Identity.AlgorithmVersion, Is.EqualTo(17));
+            Assert.That(world.Identity.AlgorithmVersion, Is.EqualTo(18));
             // 保存场景的坡度上限为 80.9°，不能套用默认 50° 移动配置加 Layer 8 的指纹。
-            Assert.That(world.Identity.ConfigurationHash, Is.EqualTo(16685260479045365330UL));
+            Assert.That(world.Identity.ConfigurationHash, Is.EqualTo(15074801768726444785UL));
             Assert.That(world.TickDeltaTime.Raw, Is.EqualTo(1311));
             Assert.That(world.CollisionWorld, Is.Not.Null);
             Assert.That(movement.CanEnterGame, Is.False);

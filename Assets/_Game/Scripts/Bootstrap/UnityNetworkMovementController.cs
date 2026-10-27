@@ -121,6 +121,8 @@ namespace AFPS.Bootstrap
                     Fix.FromFloat(serverSpawnSpacing), SimulationSessionSpatialConfig.Default.InterestRadius);
                 preparedWorld = WallSmokeTestDriver.IsRequested
                     ? WallSmokeTestDriver.CreateFixture(configuration, Fix.FromFloat(tickRunner.TickDeltaTime), collisionLayers.value)
+                    : StanceSmokeTestDriver.IsRequested
+                    ? StanceSmokeTestDriver.CreateFixture(configuration, Fix.FromFloat(tickRunner.TickDeltaTime), collisionLayers.value)
                     : SimulationWorldContext.Load(
                         new ArraySegment<byte>(fixedWorldSnapshot.bytes), configuration,
                         Fix.FromFloat(tickRunner.TickDeltaTime), collisionLayers.value, spatial);
@@ -312,7 +314,12 @@ namespace AFPS.Bootstrap
 
             Debug.Log($"AFPS 定点世界已装配：{preparedWorld.Identity.WorldHash}，配置={preparedWorld.Identity.ConfigurationHash}。", this);
             initialized = true;
-            if (hasLocalClient && WallSmokeTestDriver.IsRequested)
+            if (hasLocalClient && StanceSmokeTestDriver.IsRequested)
+            {
+                var stance = gameObject.AddComponent<StanceSmokeTestDriver>();
+                stance.Configure(this, inputCollector);
+            }
+            else if (hasLocalClient && WallSmokeTestDriver.IsRequested)
             {
                 var wall = gameObject.AddComponent<WallSmokeTestDriver>();
                 wall.Configure(this, inputCollector);
@@ -368,6 +375,11 @@ namespace AFPS.Bootstrap
                 playerView.Render(tickRunner.TickAlpha, tickRunner.TickDeltaTime, Time.unscaledDeltaTime);
                 if (firstPersonCameraRig != null)
                 {
+                    PlayerState cameraState = sessionManager.ClientSession.CurrentState;
+                    var cameraConfig = preparedWorld.Configuration;
+                    float stanceRatio = cameraState.IsCrouched
+                        ? (cameraConfig.Stance.Height / cameraConfig.Collision.HeightFixed).ToFloat() : 1f;
+                    firstPersonCameraRig.SetStance(stanceRatio);
                     firstPersonCameraRig.Render(inputCollector.LookYaw, inputCollector.LookPitch);
                 }
 
@@ -458,6 +470,7 @@ namespace AFPS.Bootstrap
                     command.SprintHeld = false;
                     command.DashPressed = false;
                     command.WallBouncePressed = false;
+                    command.CrouchHeld = false;
                     command.FirePressed = false;
                     command.ReloadPressed = false;
                     command.SwitchWeaponPressed = false;
@@ -504,7 +517,8 @@ namespace AFPS.Bootstrap
                 return;
             }
             // 只为视觉复用共用眼高与瞄准规则；宽 Raw 检查与服务器一致，越域不创建代理。
-            long eyeY = (long)state.PositionFixed.Y.Raw + weapon.EyeHeightFixed.Raw;
+            long eyeY = (long)state.PositionFixed.Y.Raw
+                + PlayerStanceSimulation.EyeHeight(state, weapon.EyeHeightFixed, preparedWorld.Configuration).Raw;
             if (eyeY < int.MinValue || eyeY > int.MaxValue)
             {
                 return;
@@ -657,7 +671,9 @@ namespace AFPS.Bootstrap
             double renderTick = sessionManager.TryGetSynchronizedServerTick(out double synchronizedTick)
                 ? synchronizedTick
                 : latestRemoteServerTick + elapsedTicks;
-            remotePlayerWorldView.Render(sessionManager.RemotePlayers, renderTick, sessionManager.ClientDeathmatchState);
+            var remoteConfig = preparedWorld.Configuration;
+            remotePlayerWorldView.Render(sessionManager.RemotePlayers, renderTick, sessionManager.ClientDeathmatchState,
+                (remoteConfig.Stance.Height / remoteConfig.Collision.HeightFixed).ToFloat());
         }
 
         private bool IsLocalGameplayActive()

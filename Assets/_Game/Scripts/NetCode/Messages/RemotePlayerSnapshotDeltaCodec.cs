@@ -132,6 +132,7 @@ namespace AFPS.NetCode.Messages
             int pitch = baseline.PitchFixedDegrees.Raw;
             bool teleport = baseline.IsTeleport;
             bool grounded = baseline.IsGrounded;
+            bool crouched = baseline.IsCrouched;
             if ((mask & PositionMask) != 0
                 && !RemotePlayerSnapshotCodec.ReadVector(ref reader, out position))
             {
@@ -149,16 +150,17 @@ namespace AFPS.NetCode.Messages
             }
             if ((mask & StateMask) != 0)
             {
-                if (!reader.TryReadByte(out byte flags) || flags > 3)
+                if (!reader.TryReadByte(out byte flags) || flags > 7)
                 {
                     return false;
                 }
                 teleport = (flags & 1) != 0;
                 grounded = (flags & 2) != 0;
+                crouched = (flags & 4) != 0;
             }
 
             var candidate = new RemotePlayerSnapshot(entityId, serverTick, position,
-                Fix.FromRaw(yaw), Fix.FromRaw(pitch), velocity, teleport, grounded);
+                Fix.FromRaw(yaw), Fix.FromRaw(pitch), velocity, teleport, grounded, crouched);
             // 解码在本地候选上完成；非法尾部或角域不能留下一个有效前缀给调用方。
             if (reader.BytesRemaining != 0 || !candidate.IsValid)
             {

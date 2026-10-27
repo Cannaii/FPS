@@ -181,7 +181,7 @@ namespace AFPS.Tests.EditMode
 
         [TestCase(0, 128)]
         [TestCase(1, 128)]
-        [TestCase(2, 128)]
+        [TestCase(2, 2)]
         [TestCase(11, 1)]
         public void InvalidLaterCommand_DoesNotWriteDecodedPrefix(int fieldOffset, int value)
         {

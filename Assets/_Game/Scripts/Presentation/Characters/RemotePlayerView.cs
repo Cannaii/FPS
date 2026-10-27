@@ -15,6 +15,7 @@ namespace AFPS.Presentation.Characters
         private Vector3 initialScale;
         private bool? lastAlive;
         private FootstepAudioView footsteps;
+        private MaterialPropertyBlock colorProperties;
         public ulong FootstepCount => footsteps != null ? footsteps.StepCount : 0;
 
         private void Awake()
@@ -31,7 +32,8 @@ namespace AFPS.Presentation.Characters
             }
         }
 
-        public void ApplyRenderState(in RemotePlayerRenderState state, bool isAlive = true, bool gameplayActive = true)
+        public void ApplyRenderState(in RemotePlayerRenderState state, bool isAlive = true,
+            bool gameplayActive = true, float crouchedHeightRatio = 0.6f)
         {
             if (footsteps == null)
             {
@@ -43,7 +45,9 @@ namespace AFPS.Presentation.Characters
             Quaternion rotation = isAlive ? state.Rotation : state.Rotation * Quaternion.Euler(0f, 0f, 90f);
             Vector3 position = state.Position + Vector3.up * (isAlive ? bob : -0.5f);
             presentationTransform.SetPositionAndRotation(position, rotation);
-            presentationTransform.localScale = isAlive ? initialScale : new Vector3(initialScale.x, initialScale.y * 0.65f, initialScale.z);
+            float heightRatio = state.IsCrouched ? Mathf.Clamp(crouchedHeightRatio, 0.01f, 1f) : 1f;
+            presentationTransform.localScale = new Vector3(initialScale.x,
+                initialScale.y * heightRatio * (isAlive ? 1f : 0.65f), initialScale.z);
             footsteps.Render(state.Position, state.IsGrounded, isAlive && gameplayActive,
                 state.Status == RemotePlayerSamplingStatus.Teleported);
 
@@ -54,11 +58,19 @@ namespace AFPS.Presentation.Characters
 
             lastAlive = isAlive;
             Color color = isAlive ? aliveColor : deadColor;
+            if (colorProperties == null)
+            {
+                colorProperties = new MaterialPropertyBlock();
+            }
             for (int i = 0; i < renderers.Length; i++)
             {
                 if (renderers[i] != null)
                 {
-                    renderers[i].material.color = color;
+                    // 只覆写本角色颜色，不复制材质或修改所有角色共享的材质资产。
+                    renderers[i].GetPropertyBlock(colorProperties);
+                    colorProperties.SetColor("_Color", color);
+                    colorProperties.SetColor("_BaseColor", color);
+                    renderers[i].SetPropertyBlock(colorProperties);
                 }
             }
         }

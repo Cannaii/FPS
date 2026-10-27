@@ -14,8 +14,9 @@ namespace AFPS.NetCode.SnapshotInterpolation
         public readonly Fix PitchFixedDegrees;
         public readonly bool IsTeleport;
         public readonly bool IsGrounded;
-        // 同一字节：bit0 传送，bit1 落地；其余位必须为零，不能由速度猜测是否站在地面。
-        internal byte StateFlags => (byte)((IsTeleport ? 1 : 0) | (IsGrounded ? 2 : 0));
+        public readonly bool IsCrouched;
+        // 同一字节：bit0传送，bit1落地，bit2下蹲；不能由速度或输入猜测实际碰撞姿态。
+        internal byte StateFlags => (byte)((IsTeleport ? 1 : 0) | (IsGrounded ? 2 : 0) | (IsCrouched ? 4 : 0));
 
         // 与玩家输入的角域一致：Yaw [0,360)，Pitch [-89.9,89.9]；边界采用有理数向零截断。
         internal const int FullTurnRaw = 360 * 65536;
@@ -33,7 +34,8 @@ namespace AFPS.NetCode.SnapshotInterpolation
             Fix pitchDegrees,
             FixVec3 velocity,
             bool isTeleport = false,
-            bool isGrounded = false)
+            bool isGrounded = false,
+            bool isCrouched = false)
         {
             EntityId = entityId;
             ServerTick = serverTick;
@@ -43,6 +45,7 @@ namespace AFPS.NetCode.SnapshotInterpolation
             PitchFixedDegrees = pitchDegrees;
             IsTeleport = isTeleport;
             IsGrounded = isGrounded;
+            IsCrouched = isCrouched;
         }
 
         public bool RawEquals(in RemotePlayerSnapshot other) =>
@@ -50,6 +53,6 @@ namespace AFPS.NetCode.SnapshotInterpolation
             && PositionFixed == other.PositionFixed && VelocityFixed == other.VelocityFixed
             && YawFixedDegrees == other.YawFixedDegrees
             && PitchFixedDegrees == other.PitchFixedDegrees
-            && IsTeleport == other.IsTeleport && IsGrounded == other.IsGrounded;
+            && IsTeleport == other.IsTeleport && IsGrounded == other.IsGrounded && IsCrouched == other.IsCrouched;
     }
 }

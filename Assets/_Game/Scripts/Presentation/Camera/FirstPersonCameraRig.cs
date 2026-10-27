@@ -17,6 +17,13 @@ namespace AFPS.Presentation.Camera
         private UnityEngine.Camera targetCamera;
         private float baseFieldOfView;
         private Quaternion aimRotation = Quaternion.identity;
+        private float stanceRatio = 1f;
+
+        /// <summary>只消费模拟姿态；缩放站立眼高，不改变瞄准轴或反写模拟坐标。</summary>
+        public void SetStance(float heightRatio)
+        {
+            stanceRatio = Mathf.Clamp(heightRatio, 0.01f, 1f);
+        }
 
         /// <summary>仅改变投影 FOV（角度），不旋转瞄准轴或回写玩家输入。</summary>
         public void RenderCombat(float recoilWeight, float lateralSpeed = 0f)
@@ -51,7 +58,7 @@ namespace AFPS.Presentation.Camera
         {
             if (followTarget != null)
             {
-                yawPivot.position = followTarget.position + Vector3.up * eyeHeight;
+                yawPivot.position = followTarget.position + Vector3.up * (eyeHeight * stanceRatio);
             }
 
             yawPivot.rotation = Quaternion.Euler(0f, yaw, 0f);

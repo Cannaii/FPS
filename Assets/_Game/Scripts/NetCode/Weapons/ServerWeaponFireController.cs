@@ -27,7 +27,9 @@ namespace AFPS.NetCode.Weapons
             ? ReloadDurationTicks - System.Math.Min(ReloadDurationTicks, unchecked(serverTick - reloadStartedTick))
             : 0;
 
-        public ServerWeaponFireController(in WeaponSimulationConfig config)
+        private readonly Fix crouchedEyeHeight;
+
+        public ServerWeaponFireController(in WeaponSimulationConfig config, Fix? crouchedEyeHeight = null)
         {
             if (!config.IsValid)
             {
@@ -35,6 +37,12 @@ namespace AFPS.NetCode.Weapons
             }
 
             this.config = config;
+            // 会话注入与实际胶囊一致的下蹲眼高；独立武器调用默认使用标准角色的0.6比例。
+            this.crouchedEyeHeight = crouchedEyeHeight ?? config.EyeHeightFixed * Fix.FromRatio(3, 5);
+            if (this.crouchedEyeHeight < Fix.Zero || this.crouchedEyeHeight > config.EyeHeightFixed)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(crouchedEyeHeight));
+            }
             Ammo = config.MagazineCapacity;
         }
 
@@ -124,7 +132,8 @@ namespace AFPS.NetCode.Weapons
             }
 
             // 眼高相加使用宽 Raw，避免大坐标经 float 丢失低位；越界时不扣弹、不启动冷却。
-            long originY = (long)authoritativeState.PositionFixed.Y.Raw + config.EyeHeightFixed.Raw;
+            long originY = (long)authoritativeState.PositionFixed.Y.Raw
+                + (authoritativeState.IsCrouched ? crouchedEyeHeight.Raw : config.EyeHeightFixed.Raw);
             if (originY > int.MaxValue || originY < int.MinValue)
             {
                 return Reject(WeaponFireRejectReason.InvalidOrigin);

@@ -7,6 +7,25 @@ namespace AFPS.Tests.EditMode
     public sealed class LocalPlayerInputCollectorTests
     {
         [Test]
+        public void Automation_CrouchRemainsHeldAcrossTicksAndClearsOnReset()
+        {
+            var target = new GameObject("Crouch input test");
+            try
+            {
+                var collector = target.AddComponent<LocalPlayerInputCollector>();
+                collector.SetAutomationInput(0f, 0f, 0f, 0f, false, crouchHeld: true);
+                Assert.That(collector.ConsumeCommand(uint.MaxValue).CrouchHeld, Is.True);
+                Assert.That(collector.ConsumeCommand(0).CrouchHeld, Is.True);
+                collector.ClearAutomationInput();
+                Assert.That(collector.ConsumeCommand(1).CrouchHeld, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
         public void Automation_WallBounceEdgeIsBufferedOnceAndClearedOnReset()
         {
             var target = new GameObject("Wall bounce input test");

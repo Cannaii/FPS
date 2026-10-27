@@ -66,13 +66,13 @@ namespace AFPS.NetCode.Messages
                 || !reader.TryReadInt32(out int yaw)
                 || !reader.TryReadInt32(out int pitch)
                 || !reader.TryReadByte(out byte flags)
-                || flags > 3 || reader.BytesRemaining != 0)
+                || flags > 7 || reader.BytesRemaining != 0)
             {
                 return false;
             }
 
             var candidate = new RemotePlayerSnapshot(entityId, serverTick, position,
-                Fix.FromRaw(yaw), Fix.FromRaw(pitch), velocity, (flags & 1) != 0, (flags & 2) != 0);
+                Fix.FromRaw(yaw), Fix.FromRaw(pitch), velocity, (flags & 1) != 0, (flags & 2) != 0, (flags & 4) != 0);
             if (!candidate.IsValid)
             {
                 return false;

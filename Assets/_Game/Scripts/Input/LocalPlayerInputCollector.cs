@@ -34,6 +34,7 @@ namespace AFPS.Input
         private bool switchWeaponSinceLastTick;
         private bool fireHeld;
         private bool sprintHeld;
+        private bool crouchHeld;
         private bool dashPressedSinceLastTick;
         private bool wallBouncePressedSinceLastTick;
         private bool hasAutomaticShot;
@@ -97,6 +98,8 @@ namespace AFPS.Input
                 || (Gamepad.current != null && Gamepad.current.rightTrigger.isPressed);
             sprintHeld = (Keyboard.current != null && Keyboard.current.leftShiftKey.isPressed)
                 || (Gamepad.current != null && Gamepad.current.leftStickButton.isPressed);
+            crouchHeld = (Keyboard.current != null && Keyboard.current.leftCtrlKey.isPressed)
+                || (Gamepad.current != null && Gamepad.current.rightStickButton.isPressed);
             dashPressedSinceLastTick |= (Keyboard.current != null && Keyboard.current.leftAltKey.wasPressedThisFrame)
                 || (Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame);
             wallBouncePressedSinceLastTick |= (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
@@ -122,7 +125,7 @@ namespace AFPS.Input
         /// </summary>
         public void SetAutomationInput(float horizontal, float vertical, float yaw, float pitch, bool jumpPressed, bool firePressed = false,
             bool fireHeld = false, bool reloadPressed = false, bool switchWeaponPressed = false,
-            bool sprintHeld = false, bool dashPressed = false, bool wallBouncePressed = false)
+            bool sprintHeld = false, bool dashPressed = false, bool wallBouncePressed = false, bool crouchHeld = false)
         {
             automationEnabled = true;
             // 对角归一化由模拟统一处理；采集只按独立轴进入整数网格。
@@ -134,6 +137,7 @@ namespace AFPS.Input
             firePressedSinceLastTick |= firePressed;
             this.fireHeld = fireHeld;
             this.sprintHeld = sprintHeld;
+            this.crouchHeld = crouchHeld;
             dashPressedSinceLastTick |= dashPressed;
             wallBouncePressedSinceLastTick |= wallBouncePressed;
             reloadPressedSinceLastTick |= reloadPressed;
@@ -145,6 +149,7 @@ namespace AFPS.Input
             automationEnabled = false;
             fireHeld = false;
             sprintHeld = false;
+            crouchHeld = false;
             dashPressedSinceLastTick = false;
             wallBouncePressedSinceLastTick = false;
             hasAutomaticShot = false;
@@ -177,6 +182,7 @@ namespace AFPS.Input
                 LookPitch = LookPitch,
                 JumpPressed = jumpPressedSinceLastTick,
                 SprintHeld = sprintHeld,
+                CrouchHeld = crouchHeld,
                 DashPressed = dashPressedSinceLastTick,
                 WallBouncePressed = wallBouncePressedSinceLastTick,
                 FirePressed = firePressed,

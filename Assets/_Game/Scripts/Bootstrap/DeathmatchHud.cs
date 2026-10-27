@@ -79,6 +79,8 @@ namespace AFPS.Bootstrap
                 int maximumDashCharges = sessionManager.WorldContext?.Configuration.Dash.MaxCharges
                     ?? AFPS.Simulation.Characters.PlayerDashConfig.Default.MaxCharges;
                 statusText.text += $"   DASH {maximumDashCharges - movement.DashSpentCharges} [ALT]";
+                statusText.text += movement.SlideRemainingFixed > AFPS.Math.Fix.Zero
+                    ? "   SLIDE [CTRL]" : movement.IsCrouched ? "   CROUCH [CTRL]" : "   CROUCH [CTRL] / BOUNCE [E]";
                 if (movement.SprintExhausted)
                 {
                     statusText.text += "   EXHAUSTED";

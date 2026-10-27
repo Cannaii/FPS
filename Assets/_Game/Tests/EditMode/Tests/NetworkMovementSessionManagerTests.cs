@@ -31,7 +31,10 @@ namespace AFPS.Tests.EditMode
                 AirJumpsUsed = 1,
                 WallNormalFixed = -FixVec3.Right,
                 WallIncomingVelocityFixed = FixVec3.Right,
-                WallCooldownRemainingFixed = Fix.Half
+                WallCooldownRemainingFixed = Fix.Half,
+                IsCrouched = true,
+                SlideRemainingFixed = Fix.Half,
+                SlideVelocityFixed = FixVec3.Right
             };
             var session = new ServerAuthoritativeMovementSession(new FakeTransport(TransportRole.Server),
                 new TransportConnectionId(1), initial, new PlayerSimulationConfig(6f, 20f, 20f, 8f),
@@ -44,11 +47,15 @@ namespace AFPS.Tests.EditMode
             Assert.That(session.CurrentState.WallNormalFixed, Is.EqualTo(FixVec3.Zero));
             Assert.That(session.CurrentState.WallIncomingVelocityFixed, Is.EqualTo(FixVec3.Zero));
             Assert.That(session.CurrentState.WallCooldownRemainingFixed, Is.EqualTo(Fix.Half));
+            Assert.That(session.CurrentState.IsCrouched, Is.True);
+            Assert.That(session.CurrentState.SlideRemainingFixed, Is.EqualTo(Fix.Zero));
+            Assert.That(session.CurrentState.SlideVelocityFixed, Is.EqualTo(FixVec3.Zero));
             session.Respawn(FixVec3.Up * Fix.FromInt(10));
             Assert.That(session.CurrentState.IsGrounded, Is.False);
             Assert.That(session.CurrentState.AirJumpsUsed, Is.EqualTo(0));
             Assert.That(session.CurrentState.GroundJumpConsumed, Is.True);
             Assert.That(session.CurrentState.WallCooldownRemainingFixed, Is.EqualTo(Fix.Zero));
+            Assert.That(session.CurrentState.IsCrouched, Is.False);
             Assert.That(session.CurrentState.CoyoteRemainingFixed, Is.EqualTo(Fix.Zero));
         }
 
@@ -539,6 +546,33 @@ namespace AFPS.Tests.EditMode
             Assert.That(FindLastShotResult(serverTransport, out var result), Is.True);
             Assert.That(result.DidHit, Is.True);
             Assert.That(result.TargetEntityId, Is.EqualTo(targetEntity));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void RewindHitscan_UsesHistoricalStanceInsteadOfCurrentHeight(bool historicalCrouch)
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, 20);
+            var shooter = new TransportConnectionId(10);
+            var target = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, shooter);
+            manager.HandleConnected(NetworkTransportSide.Server, target);
+            manager.TryGetServerEntityId(target, out uint entity);
+            SendTick(manager, shooter, target, 1, 100, default,
+                new PlayerInputCommand { CrouchHeld = historicalCrouch });
+            for (uint tick = 2; tick < 8; tick++)
+            {
+                SendTick(manager, shooter, target, tick, 99 + tick, default,
+                    new PlayerInputCommand { CrouchHeld = !historicalCrouch });
+            }
+            SendTick(manager, shooter, target, 8, 107,
+                new PlayerInputCommand { LookYaw = 90f, FirePressed = true, ShotSequence = 1, ShotServerTick = 100 },
+                new PlayerInputCommand { CrouchHeld = !historicalCrouch });
+            Assert.That(FindLastShotResult(transport, out var result), Is.True);
+            Assert.That(result.DidHit, Is.EqualTo(!historicalCrouch));
+            Assert.That(manager.TryGetServerHealth(entity, out float health), Is.True);
+            Assert.That(health, Is.EqualTo(historicalCrouch ? 100f : 80f));
         }
 
         [Test]

@@ -95,10 +95,10 @@ namespace AFPS.Simulation.Characters
             in SimulationSessionSpatialConfig sessionSpatial,
             in WeaponSimulationConfig weapon)
         {
-            // AFC9追加墙能力的全部数值规则；固定顺序小端int32。
+            // AFCA追加下蹲/滑铲七项规则；固定顺序小端int32。
             // 新增会改变模拟结果的参数时必须纳入字段，并升级域版本及黄金值。
             ulong hash = 14695981039346656037UL;
-            Add(ref hash, 0x39434641);
+            Add(ref hash, 0x41434641);
             Add(ref hash, tickDeltaTime.Raw);
             Add(ref hash, collisionLayerMask);
             Add(ref hash, configuration.MaxGroundSpeedFixed.Raw);
@@ -121,6 +121,13 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, configuration.Wall.MaximumBounceSpeed.Raw);
             Add(ref hash, configuration.Wall.Cooldown.Raw);
             Add(ref hash, configuration.Wall.StaminaCost.Raw);
+            Add(ref hash, configuration.Stance.Height.Raw);
+            Add(ref hash, configuration.Stance.SpeedMultiplier.Raw);
+            Add(ref hash, configuration.Stance.SlideSpeed.Raw);
+            Add(ref hash, configuration.Stance.SlideMinimumSpeed.Raw);
+            Add(ref hash, configuration.Stance.SlideDuration.Raw);
+            Add(ref hash, configuration.Stance.SlideDeceleration.Raw);
+            Add(ref hash, configuration.Stance.SlideSteer.Raw);
 
             CharacterCollisionConfig collision = configuration.Collision;
             Add(ref hash, collision.RadiusFixed.Raw);

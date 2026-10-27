@@ -31,7 +31,8 @@ namespace AFPS.Presentation.Characters
         }
 
         /// <summary>按照客户端估算的服务器时间渲染所有远端玩家。</summary>
-        public void Render(RemotePlayerReplicaSet replicas, double estimatedServerTick, DeathmatchState deathmatchState = null)
+        public void Render(RemotePlayerReplicaSet replicas, double estimatedServerTick,
+            DeathmatchState deathmatchState = null, float crouchedHeightRatio = 0.6f)
         {
             if (replicas == null)
             {
@@ -57,7 +58,7 @@ namespace AFPS.Presentation.Characters
                 bool isAlive = deathmatchState == null
                     || !deathmatchState.TryGetPlayer(entityId, out DeathmatchPlayerState playerState) || playerState.IsAlive;
                 view.ApplyRenderState(state, isAlive,
-                    deathmatchState == null || deathmatchState.Phase == DeathmatchPhase.Playing);
+                    deathmatchState == null || deathmatchState.Phase == DeathmatchPhase.Playing, crouchedHeightRatio);
             }
 
             staleEntityIds.Clear();
@@ -101,16 +102,14 @@ namespace AFPS.Presentation.Characters
                 return instance;
             }
 
-            GameObject placeholder = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            placeholder.name = $"RemotePlayer_{entityId}";
+            GameObject placeholder = new GameObject($"RemotePlayer_{entityId}");
             placeholder.transform.SetParent(parent, false);
+            // 模拟根节点位于脚底，胶囊网格的原点在中心；子节点偏移保证下蹲缩放不钻入地面。
+            GameObject body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            body.name = "Body";
+            body.transform.SetParent(placeholder.transform, false);
+            body.transform.localPosition = Vector3.up;
             DisableColliders(placeholder);
-            Renderer renderer = placeholder.GetComponent<Renderer>();
-            if (renderer != null)
-            {
-                renderer.material.color = new Color(0.15f, 0.65f, 1f);
-            }
-
             return placeholder.AddComponent<RemotePlayerView>();
         }
 
