@@ -18,6 +18,7 @@ namespace AFPS.Simulation.Characters
         public readonly PlayerSprintConfig Sprint;
         public readonly PlayerDashConfig Dash;
         public readonly PlayerJumpConfig Jump;
+        public readonly PlayerWallConfig Wall;
         public PlayerSimulationConfig(
             Fix maxGroundSpeed,
             Fix groundAcceleration,
@@ -26,7 +27,8 @@ namespace AFPS.Simulation.Characters
             CharacterCollisionConfig? collision = null,
             PlayerSprintConfig? sprint = null,
             PlayerDashConfig? dash = null,
-            PlayerJumpConfig? jump = null)
+            PlayerJumpConfig? jump = null,
+            PlayerWallConfig? wall = null)
         {
             if (maxGroundSpeed.Raw < 0 || groundAcceleration.Raw < 0 || gravity.Raw < 0 || jumpSpeed.Raw < 0)
             {
@@ -45,6 +47,9 @@ namespace AFPS.Simulation.Characters
                 dashValue.RechargeDuration, dashValue.MaxCharges, dashValue.StaminaCost);
             PlayerJumpConfig jumpValue = jump ?? PlayerJumpConfig.Default;
             Jump = new PlayerJumpConfig(jumpValue.CoyoteDuration, jumpValue.ExtraAirJumps);
+            PlayerWallConfig wallValue = wall ?? PlayerWallConfig.Default;
+            Wall = new PlayerWallConfig(wallValue.PushSpeed, wallValue.UpSpeed,
+                wallValue.MaximumBounceSpeed, wallValue.Cooldown, wallValue.StaminaCost);
             if (Sprint.SpeedMultiplier < Fix.One || Sprint.DrainPerSecond <= Fix.Zero
                 || Sprint.RecoveryPerSecond <= Fix.Zero || Sprint.RestartStamina <= Fix.Zero
                 || Sprint.RestartStamina > Fix.One

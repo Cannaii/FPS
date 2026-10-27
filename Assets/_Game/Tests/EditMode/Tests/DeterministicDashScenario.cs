@@ -7,7 +7,7 @@ namespace AFPS.Tests.EditMode
     /// <summary>跨运行时重放：空中/地面Dash、资源拒绝、快跑竞争、方向锁定及Tick回绕。</summary>
     public static class DeterministicDashScenario
     {
-        public const ulong ExpectedHash = 14166479742807657418UL;
+        public const ulong ExpectedHash = 6658677928207285667UL;
 
         public static ulong Run()
         {

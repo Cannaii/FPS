@@ -28,7 +28,10 @@ namespace AFPS.Tests.EditMode
                 Tick = 123,
                 PositionFixed = FixVec3.Up * Fix.FromInt(5),
                 GroundJumpConsumed = true,
-                AirJumpsUsed = 1
+                AirJumpsUsed = 1,
+                WallNormalFixed = -FixVec3.Right,
+                WallIncomingVelocityFixed = FixVec3.Right,
+                WallCooldownRemainingFixed = Fix.Half
             };
             var session = new ServerAuthoritativeMovementSession(new FakeTransport(TransportRole.Server),
                 new TransportConnectionId(1), initial, new PlayerSimulationConfig(6f, 20f, 20f, 8f),
@@ -38,10 +41,14 @@ namespace AFPS.Tests.EditMode
             Assert.That(session.CurrentState.IsGrounded, Is.False);
             Assert.That(session.CurrentState.AirJumpsUsed, Is.EqualTo(1));
             Assert.That(session.CurrentState.CoyoteRemainingFixed, Is.EqualTo(Fix.Zero));
+            Assert.That(session.CurrentState.WallNormalFixed, Is.EqualTo(FixVec3.Zero));
+            Assert.That(session.CurrentState.WallIncomingVelocityFixed, Is.EqualTo(FixVec3.Zero));
+            Assert.That(session.CurrentState.WallCooldownRemainingFixed, Is.EqualTo(Fix.Half));
             session.Respawn(FixVec3.Up * Fix.FromInt(10));
             Assert.That(session.CurrentState.IsGrounded, Is.False);
             Assert.That(session.CurrentState.AirJumpsUsed, Is.EqualTo(0));
             Assert.That(session.CurrentState.GroundJumpConsumed, Is.True);
+            Assert.That(session.CurrentState.WallCooldownRemainingFixed, Is.EqualTo(Fix.Zero));
             Assert.That(session.CurrentState.CoyoteRemainingFixed, Is.EqualTo(Fix.Zero));
         }
 
@@ -79,7 +86,8 @@ namespace AFPS.Tests.EditMode
                 SprintHeld = true,
                 MoveY = 1f,
                 DashPressed = true,
-                JumpPressed = true
+                JumpPressed = true,
+                WallBouncePressed = true
             };
             var bytes = new byte[InputCommandBatchCodec.GetPacketSize(1)];
             Assert.That(InputCommandBatchCodec.TrySerialize(new InputCommandBatch(
@@ -90,6 +98,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(state.State.IsSprinting, Is.False);
             Assert.That(session.LastAppliedInput.DashPressed, Is.False);
             Assert.That(session.LastAppliedInput.JumpPressed, Is.False);
+            Assert.That(session.LastAppliedInput.WallBouncePressed, Is.False);
             Assert.That(state.State.DashSpentCharges, Is.EqualTo(0));
             Assert.That(state.State.StaminaSpentFixed, Is.EqualTo(Fix.Zero));
             Assert.That(state.State.VelocityFixed, Is.EqualTo(FixVec3.Zero));

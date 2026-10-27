@@ -30,8 +30,9 @@ namespace AFPS.NetCode.Messages
         private const byte SwitchWeaponMask = 1 << 3;
         private const byte SprintHeldMask = 1 << 4;
         private const byte DashPressedMask = 1 << 5;
+        private const byte WallBounceMask = 1 << 6;
         private const byte KnownButtonsMask = JumpPressedMask | FirePressedMask | ReloadPressedMask
-            | SwitchWeaponMask | SprintHeldMask | DashPressedMask;
+            | SwitchWeaponMask | SprintHeldMask | DashPressedMask | WallBounceMask;
         public static int GetPacketSize(int commandCount) => PacketHeader.Size + PayloadHeaderSize + commandCount * BytesPerCommand;
         /// <summary>
         /// 命令类型已在写入控制量时保证规范整数网格；保留此入口供预测会话统一调用。
@@ -67,6 +68,10 @@ namespace AFPS.NetCode.Messages
             {
                 PlayerInputCommand command = batch.Commands.Array[batch.Commands.Offset + i];
                 byte buttons = 0;
+                if (command.WallBouncePressed)
+                {
+                    buttons |= WallBounceMask;
+                }
                 if (command.DashPressed)
                 {
                     buttons |= DashPressedMask;
@@ -224,6 +229,7 @@ namespace AFPS.NetCode.Messages
             command.JumpPressed = (buttons & JumpPressedMask) != 0;
             command.SprintHeld = (buttons & SprintHeldMask) != 0;
             command.DashPressed = (buttons & DashPressedMask) != 0;
+            command.WallBouncePressed = (buttons & WallBounceMask) != 0;
             command.FirePressed = fire;
             command.ReloadPressed = (buttons & ReloadPressedMask) != 0;
             command.SwitchWeaponPressed = (buttons & SwitchWeaponMask) != 0;

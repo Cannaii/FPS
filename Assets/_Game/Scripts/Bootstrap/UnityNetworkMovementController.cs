@@ -119,9 +119,11 @@ namespace AFPS.Bootstrap
                     new FixVec3(Fix.FromFloat(serverSpawnPosition.x),
                         Fix.FromFloat(serverSpawnPosition.y), Fix.FromFloat(serverSpawnPosition.z)),
                     Fix.FromFloat(serverSpawnSpacing), SimulationSessionSpatialConfig.Default.InterestRadius);
-                preparedWorld = SimulationWorldContext.Load(
-                    new ArraySegment<byte>(fixedWorldSnapshot.bytes), configuration,
-                    Fix.FromFloat(tickRunner.TickDeltaTime), collisionLayers.value, spatial);
+                preparedWorld = WallSmokeTestDriver.IsRequested
+                    ? WallSmokeTestDriver.CreateFixture(configuration, Fix.FromFloat(tickRunner.TickDeltaTime), collisionLayers.value)
+                    : SimulationWorldContext.Load(
+                        new ArraySegment<byte>(fixedWorldSnapshot.bytes), configuration,
+                        Fix.FromFloat(tickRunner.TickDeltaTime), collisionLayers.value, spatial);
                 error = null;
                 return true;
             }
@@ -189,7 +191,7 @@ namespace AFPS.Bootstrap
             PlayerState serverInitialState = new PlayerState
             {
                 Tick = 0,
-                Position = serverSpawnPosition,
+                PositionFixed = preparedWorld.SessionSpatial.SpawnOrigin,
                 Velocity = Vector3.zero,
                 IsGrounded = true
             };
@@ -223,7 +225,9 @@ namespace AFPS.Bootstrap
                     predictionHistoryCapacity, inputRedundancyCount, serverInputWindowCapacity,
                     maxMissingInputWaitTicks, maxRepeatedMovementTicks,
                     positionErrorThreshold, velocityErrorThreshold,
-                    serverSpawnSpacing: serverSpawnSpacing,
+                    // 会话与已验证世界共享空间参数，测试夹具也必须经过相同指纹校验。
+                    serverSpawnSpacing: preparedWorld.SessionSpatial.SpawnSpacing.ToFloat(),
+                    interestRadius: preparedWorld.SessionSpatial.InterestRadius.ToFloat(),
                     remoteSnapshotCapacity: remoteSnapshotCapacity,
                     remoteInterpolationDelayTicks: remoteInterpolationDelayTicks,
                     remoteMaxExtrapolationTicks: remoteMaxExtrapolationTicks,
@@ -308,7 +312,12 @@ namespace AFPS.Bootstrap
 
             Debug.Log($"AFPS 定点世界已装配：{preparedWorld.Identity.WorldHash}，配置={preparedWorld.Identity.ConfigurationHash}。", this);
             initialized = true;
-            if (hasLocalClient && JumpSmokeTestDriver.IsRequested)
+            if (hasLocalClient && WallSmokeTestDriver.IsRequested)
+            {
+                var wall = gameObject.AddComponent<WallSmokeTestDriver>();
+                wall.Configure(this, inputCollector);
+            }
+            else if (hasLocalClient && JumpSmokeTestDriver.IsRequested)
             {
                 var jump = gameObject.AddComponent<JumpSmokeTestDriver>();
                 jump.Configure(this, inputCollector);
@@ -448,6 +457,7 @@ namespace AFPS.Bootstrap
                     command.JumpPressed = false;
                     command.SprintHeld = false;
                     command.DashPressed = false;
+                    command.WallBouncePressed = false;
                     command.FirePressed = false;
                     command.ReloadPressed = false;
                     command.SwitchWeaponPressed = false;

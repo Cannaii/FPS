@@ -23,6 +23,9 @@ namespace AFPS.Simulation.Characters
         public Fix CoyoteRemainingFixed; // 当前Tick后的离地宽限剩余秒数；零不允许宽限跳。
         public bool GroundJumpConsumed; // 主动起跳已消耗地面机会；防止再用宽限伪造地面跳。
         public int AirJumpsUsed; // 最近一次真实落地后已用的额外空中跳次数；零即全部可用。
+        public FixVec3 WallNormalFixed; // 当前Tick结束的水平单位向外墙法线；零表示无墙。
+        public FixVec3 WallIncomingVelocityFixed; // 当前Tick碰撞前速度，米/秒；无墙时清零。
+        public Fix WallCooldownRemainingFixed; // 下一次墙能力可用前的剩余秒数；触发Tick结束保留完整冷却。
         public bool RawEquals(in PlayerState other) =>
             Tick == other.Tick
             && PositionFixed == other.PositionFixed
@@ -38,6 +41,9 @@ namespace AFPS.Simulation.Characters
             && DashRechargeRemainingFixed == other.DashRechargeRemainingFixed
             && CoyoteRemainingFixed == other.CoyoteRemainingFixed
             && GroundJumpConsumed == other.GroundJumpConsumed
-            && AirJumpsUsed == other.AirJumpsUsed;
+            && AirJumpsUsed == other.AirJumpsUsed
+            && WallNormalFixed == other.WallNormalFixed
+            && WallIncomingVelocityFixed == other.WallIncomingVelocityFixed
+            && WallCooldownRemainingFixed == other.WallCooldownRemainingFixed;
     }
 }

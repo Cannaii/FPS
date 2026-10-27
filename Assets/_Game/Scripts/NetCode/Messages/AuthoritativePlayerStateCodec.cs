@@ -9,8 +9,8 @@ namespace AFPS.NetCode.Messages
     /// <summary>权威状态：位置/速度/体力无损Raw，观察角沿用无损可逆的百分度网格。</summary>
     public static class AuthoritativePlayerStateCodec
     {
-        // 原58B后追加宽限秒4B、已用空中跳1B；地面跳消耗标志使用原状态字节bit3。
-        public const int PayloadSize = 63;
+        // 原63B后追加墙法线XZ 8B、碰撞前速度12B、墙冷却4B，全部无损Raw。
+        public const int PayloadSize = 87;
         public const int PacketSize = PacketHeader.Size + PayloadSize;
         // 以下分辨率暂供旧远端 Snapshot 使用，权威状态不再按这些常量量化。
         public const float PositionResolution = 0.001f;
@@ -31,7 +31,8 @@ namespace AFPS.NetCode.Messages
             PlayerState state = authoritative.State;
             if (destination.Count < PacketSize || state.Tick != authoritative.LastProcessedInputTick
                 || state.StaminaSpentFixed < Fix.Zero || state.StaminaSpentFixed > Fix.One
-                || (state.IsSprinting && state.SprintExhausted) || !IsValidDash(state) || !IsValidJump(state))
+                || (state.IsSprinting && state.SprintExhausted)
+                || !IsValidDash(state) || !IsValidJump(state) || !IsValidWall(state))
             {
                 return false;
             }
@@ -66,7 +67,11 @@ namespace AFPS.NetCode.Messages
                 || !writer.TryWriteByte((byte)state.DashSpentCharges)
                 || !writer.TryWriteInt32(state.DashRechargeRemainingFixed.Raw)
                 || !writer.TryWriteInt32(state.CoyoteRemainingFixed.Raw)
-                || !writer.TryWriteByte((byte)state.AirJumpsUsed))
+                || !writer.TryWriteByte((byte)state.AirJumpsUsed)
+                || !writer.TryWriteInt32(state.WallNormalFixed.X.Raw)
+                || !writer.TryWriteInt32(state.WallNormalFixed.Z.Raw)
+                || !WriteVector(ref writer, state.WallIncomingVelocityFixed)
+                || !writer.TryWriteInt32(state.WallCooldownRemainingFixed.Raw))
             {
                 return false;
             }
@@ -101,7 +106,11 @@ namespace AFPS.NetCode.Messages
                 || !reader.TryReadByte(out byte dashSpentCharges)
                 || !reader.TryReadInt32(out int dashRechargeRemaining)
                 || !reader.TryReadInt32(out int coyoteRemaining)
-                || !reader.TryReadByte(out byte airJumpsUsed))
+                || !reader.TryReadByte(out byte airJumpsUsed)
+                || !reader.TryReadInt32(out int wallX)
+                || !reader.TryReadInt32(out int wallZ)
+                || !ReadVector(ref reader, out FixVec3 incomingVelocity)
+                || !reader.TryReadInt32(out int wallCooldown))
             {
                 return false;
             }
@@ -130,14 +139,32 @@ namespace AFPS.NetCode.Messages
                 DashRechargeRemainingFixed = Fix.FromRaw(dashRechargeRemaining),
                 CoyoteRemainingFixed = Fix.FromRaw(coyoteRemaining),
                 GroundJumpConsumed = (flags & GroundJumpConsumedMask) != 0,
-                AirJumpsUsed = airJumpsUsed
+                AirJumpsUsed = airJumpsUsed,
+                WallNormalFixed = new FixVec3(Fix.FromRaw(wallX), Fix.Zero, Fix.FromRaw(wallZ)),
+                WallIncomingVelocityFixed = incomingVelocity,
+                WallCooldownRemainingFixed = Fix.FromRaw(wallCooldown)
             };
-            if (!IsValidDash(state) || !IsValidJump(state))
+            if (!IsValidDash(state) || !IsValidJump(state) || !IsValidWall(state))
             {
                 return false;
             }
             authoritative = new AuthoritativePlayerState(serverTick, inputTick, state);
             return true;
+        }
+
+        private static bool IsValidWall(in PlayerState state)
+        {
+            FixVec3 normal = state.WallNormalFixed;
+            if (state.WallCooldownRemainingFixed < Fix.Zero || state.WallCooldownRemainingFixed > Fix.FromInt(5)
+                || normal.Y != Fix.Zero || normal.X < -Fix.One || normal.X > Fix.One
+                || normal.Z < -Fix.One || normal.Z > Fix.One)
+            {
+                return false;
+            }
+            // 先限制分量再求长度，避免坏包极值在向量长度转换时溢出。
+            return normal == FixVec3.Zero
+                ? state.WallIncomingVelocityFixed == FixVec3.Zero
+                : FixMath.Abs(normal.Magnitude - Fix.One) <= Fix.FromRaw(4);
         }
 
         private static bool IsValidJump(in PlayerState state)

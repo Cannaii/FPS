@@ -69,15 +69,15 @@ namespace AFPS.Tests.EditMode
         }
 
         [Test]
-        public void DefaultAndLayerEightMasksHaveAfc8GoldenFingerprints()
+        public void DefaultAndLayerEightMasksHaveAfc9GoldenFingerprints()
         {
             var configuration = new PlayerSimulationConfig(
                 Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
             var defaultContext = new SimulationWorldContext(CreateWorld(), configuration, SimulationStep.Step50Hz);
             var sceneContext = new SimulationWorldContext(CreateWorld(), configuration, SimulationStep.Step50Hz, 256);
-            Assert.That(defaultContext.Identity.AlgorithmVersion, Is.EqualTo(15));
-            Assert.That(defaultContext.Identity.ConfigurationHash, Is.EqualTo(4198265158017506703UL));
-            Assert.That(sceneContext.Identity.ConfigurationHash, Is.EqualTo(16275479217997889936UL));
+            Assert.That(defaultContext.Identity.AlgorithmVersion, Is.EqualTo(16));
+            Assert.That(defaultContext.Identity.ConfigurationHash, Is.EqualTo(5692065266917181766UL));
+            Assert.That(sceneContext.Identity.ConfigurationHash, Is.EqualTo(3498056349916165589UL));
         }
 
         [Test]

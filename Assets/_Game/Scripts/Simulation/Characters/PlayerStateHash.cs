@@ -28,6 +28,13 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, state.CoyoteRemainingFixed.Raw);
             Add(ref hash, state.GroundJumpConsumed ? 1 : 0);
             Add(ref hash, state.AirJumpsUsed);
+            Add(ref hash, state.WallNormalFixed.X.Raw);
+            Add(ref hash, state.WallNormalFixed.Y.Raw);
+            Add(ref hash, state.WallNormalFixed.Z.Raw);
+            Add(ref hash, state.WallIncomingVelocityFixed.X.Raw);
+            Add(ref hash, state.WallIncomingVelocityFixed.Y.Raw);
+            Add(ref hash, state.WallIncomingVelocityFixed.Z.Raw);
+            Add(ref hash, state.WallCooldownRemainingFixed.Raw);
             return hash;
         }
 

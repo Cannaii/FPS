@@ -86,6 +86,7 @@ namespace AFPS.NetCode.Sessions
             // 目标未经过碰撞确认，不能凭传送授予落地和新的空中跳；下一Tick由运动器重新判定。
             state.IsGrounded = false;
             PlayerJumpSimulation.CancelGroundOpportunity(ref state);
+            PlayerWallSimulation.ClearContact(ref state);
             state.IsSprinting = false;
             PlayerDashSimulation.Cancel(ref state);
             CurrentState = state;
@@ -101,6 +102,7 @@ namespace AFPS.NetCode.Sessions
             restored.DashSpentCharges = 0;
             restored.DashRechargeRemainingFixed = Fix.Zero;
             restored.AirJumpsUsed = 0;
+            restored.WallCooldownRemainingFixed = Fix.Zero;
             CurrentState = restored;
             ResetLoadoutForRespawn();
             // 即使弹量恰好未改变，也必须向拥有者立即确认新生命的武器状态。
@@ -215,6 +217,7 @@ namespace AFPS.NetCode.Sessions
                 appliedCommand.JumpPressed = false;
                 appliedCommand.SprintHeld = false;
                 appliedCommand.DashPressed = false;
+                appliedCommand.WallBouncePressed = false;
                 PlayerState stoppedState = CurrentState;
                 PlayerDashSimulation.Cancel(ref stoppedState);
                 CurrentState = stoppedState;

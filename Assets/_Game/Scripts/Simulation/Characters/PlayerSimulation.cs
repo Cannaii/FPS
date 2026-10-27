@@ -36,15 +36,32 @@ namespace AFPS.Simulation.Characters
             FixVec3 right = new FixVec3(cosine, Fix.Zero, -sine),
                 forward = new FixVec3(sine, Fix.Zero, cosine);
             next.StaminaSpentFixed = FixMath.Clamp(previousState.StaminaSpentFixed, Fix.Zero, Fix.One);
-            bool dashing = PlayerDashSimulation.Begin(ref next, input, config.Dash,
+            PlayerWallSimulation.AdvanceTimers(ref next, tickDeltaTime);
+            bool wallAction = PlayerWallSimulation.TryBounce(ref next, previousState, input, config.Wall);
+            PlayerInputCommand dashInput = input;
+            if (wallAction)
+            {
+                // 显式反弹优先，不能在同Tick再为被覆盖的Dash扣充能与体力。
+                dashInput.DashPressed = false;
+            }
+            bool dashing = PlayerDashSimulation.Begin(ref next, dashInput, config.Dash,
                 right * move.X + forward * move.Z, forward, tickDeltaTime);
-            bool sprintRequested = !dashing && PlayerSprintSimulation.CanSprint(previousState, input, move);
+            if (!dashing && !wallAction)
+            {
+                wallAction = PlayerWallSimulation.TryJump(ref next, previousState, input, config.Wall);
+            }
+            bool sprintRequested = !dashing && !wallAction && PlayerSprintSimulation.CanSprint(previousState, input, move);
             Fix targetSpeed = sprintRequested
                 ? config.MaxGroundSpeedFixed * config.Sprint.SpeedMultiplier : config.MaxGroundSpeedFixed;
             FixVec3 target = (right * move.X + forward * move.Z) * targetSpeed;
             FixVec3 horizontal = new FixVec3(previousState.VelocityFixed.X, Fix.Zero, previousState.VelocityFixed.Z);
             Fix vertical = previousState.VelocityFixed.Y;
-            if (PlayerJumpSimulation.TryJump(ref next, input, config.Jump, dashing))
+            if (wallAction)
+            {
+                horizontal = new FixVec3(next.VelocityFixed.X, Fix.Zero, next.VelocityFixed.Z);
+                vertical = next.VelocityFixed.Y;
+            }
+            else if (PlayerJumpSimulation.TryJump(ref next, input, config.Jump, dashing))
             {
                 vertical = config.JumpSpeedFixed;
                 next.IsGrounded = false;
@@ -56,7 +73,10 @@ namespace AFPS.Simulation.Characters
                 vertical -= config.GravityFixed * tickDeltaTime;
             }
 
-            horizontal = FixVec3.MoveTowards(horizontal, target, config.GroundAccelerationFixed * tickDeltaTime);
+            if (!wallAction)
+            {
+                horizontal = FixVec3.MoveTowards(horizontal, target, config.GroundAccelerationFixed * tickDeltaTime);
+            }
             if (dashing)
             {
                 // Dash优先于跳跃和快跑，期间冻结竖直速度；后续Yaw/方向输入不重定向。
@@ -64,6 +84,7 @@ namespace AFPS.Simulation.Characters
                 vertical = Fix.Zero;
             }
             next.VelocityFixed = new FixVec3(horizontal.X, vertical, horizontal.Z);
+            FixVec3 incoming = next.VelocityFixed;
             KinematicCharacterMotor.Move(
                 previousState.PositionFixed,
                 next.VelocityFixed,
@@ -72,9 +93,12 @@ namespace AFPS.Simulation.Characters
                 collisionWorld,
                 out next.PositionFixed,
                 out next.VelocityFixed,
-                out next.IsGrounded);
+                out next.IsGrounded,
+                out FixedCharacterContacts contacts);
+            next.WallNormalFixed = contacts.HasWall ? contacts.WallNormal : FixVec3.Zero;
+            next.WallIncomingVelocityFixed = contacts.HasWall ? incoming : FixVec3.Zero;
             next = PlayerSprintSimulation.Complete(next, previousState, input, config.Sprint,
-                tickDeltaTime, sprintRequested, dashing);
+                tickDeltaTime, sprintRequested, dashing || wallAction);
             PlayerDashSimulation.Complete(ref next, tickDeltaTime);
             PlayerJumpSimulation.Complete(ref next, config.Jump, tickDeltaTime);
             return next;

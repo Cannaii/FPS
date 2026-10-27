@@ -6,8 +6,8 @@ namespace AFPS.Simulation.World
     public readonly struct SimulationWorldIdentity : IEquatable<SimulationWorldIdentity>
     {
         // 改变积分顺序、舍入、三角 LUT 或接触裁决时必须升级；代码排版与注释不升级。
-        // v15：新增最终位置的稳定墙接触查询及同距法线裁决；原位移积分保持。
-        public const uint CurrentAlgorithmVersion = 15;
+        // v16：墙接触进入状态，墙跳/反弹及与Dash/普通跳跃的优先级、资源规则。
+        public const uint CurrentAlgorithmVersion = 16;
 
         /// <summary>模拟和查询的算法语义版本；零保留为未初始化状态。</summary>
         public readonly uint AlgorithmVersion;
