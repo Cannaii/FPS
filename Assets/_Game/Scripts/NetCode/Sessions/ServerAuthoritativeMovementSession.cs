@@ -90,6 +90,7 @@ namespace AFPS.NetCode.Sessions
             state.IsSprinting = false;
             PlayerDashSimulation.Cancel(ref state);
             PlayerStanceSimulation.CancelSlide(ref state);
+            state.IsWallRunning = false;
             CurrentState = state;
         }
 
@@ -105,6 +106,7 @@ namespace AFPS.NetCode.Sessions
             restored.AirJumpsUsed = 0;
             restored.WallCooldownRemainingFixed = Fix.Zero;
             restored.IsCrouched = false;
+            restored.WallRunUsedFixed = Fix.Zero;
             CurrentState = restored;
             ResetLoadoutForRespawn();
             // 即使弹量恰好未改变，也必须向拥有者立即确认新生命的武器状态。

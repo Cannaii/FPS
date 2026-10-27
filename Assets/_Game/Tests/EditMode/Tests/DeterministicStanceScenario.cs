@@ -8,7 +8,7 @@ namespace AFPS.Tests.EditMode
 {
     public static class DeterministicStanceScenario
     {
-        public const ulong ExpectedHash = 11012269252349889238UL;
+        public const ulong ExpectedHash = 16992922462370484318UL;
 
         public static ulong Run()
         {

@@ -40,6 +40,8 @@ namespace AFPS.Simulation.Characters
             Add(ref hash, state.SlideVelocityFixed.X.Raw);
             Add(ref hash, state.SlideVelocityFixed.Y.Raw);
             Add(ref hash, state.SlideVelocityFixed.Z.Raw);
+            Add(ref hash, state.IsWallRunning ? 1 : 0);
+            Add(ref hash, state.WallRunUsedFixed.Raw);
             return hash;
         }
 

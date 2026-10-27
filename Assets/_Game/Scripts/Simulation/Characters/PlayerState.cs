@@ -29,6 +29,8 @@ namespace AFPS.Simulation.Characters
         public bool IsCrouched; // 当前碰撞姿态；可能因顶棚无法站起而保持，不等于按键电平。
         public Fix SlideRemainingFixed; // 本Tick后的滑铲剩余秒数，零表示结束。
         public FixVec3 SlideVelocityFixed; // 滑铲实际水平速度，米/秒，Y恒零；结束时清零。
+        public bool IsWallRunning;
+        public Fix WallRunUsedFixed; // 最近真实落地后的累计墙跑秒数；松键/换墙/传送不刷新。
         public bool RawEquals(in PlayerState other) =>
             Tick == other.Tick
             && PositionFixed == other.PositionFixed
@@ -50,6 +52,8 @@ namespace AFPS.Simulation.Characters
             && WallCooldownRemainingFixed == other.WallCooldownRemainingFixed
             && IsCrouched == other.IsCrouched
             && SlideRemainingFixed == other.SlideRemainingFixed
-            && SlideVelocityFixed == other.SlideVelocityFixed;
+            && SlideVelocityFixed == other.SlideVelocityFixed
+            && IsWallRunning == other.IsWallRunning
+            && WallRunUsedFixed == other.WallRunUsedFixed;
     }
 }

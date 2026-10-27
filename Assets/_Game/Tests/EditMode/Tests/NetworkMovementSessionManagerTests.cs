@@ -34,7 +34,9 @@ namespace AFPS.Tests.EditMode
                 WallCooldownRemainingFixed = Fix.Half,
                 IsCrouched = true,
                 SlideRemainingFixed = Fix.Half,
-                SlideVelocityFixed = FixVec3.Right
+                SlideVelocityFixed = FixVec3.Right,
+                IsWallRunning = true,
+                WallRunUsedFixed = Fix.Half
             };
             var session = new ServerAuthoritativeMovementSession(new FakeTransport(TransportRole.Server),
                 new TransportConnectionId(1), initial, new PlayerSimulationConfig(6f, 20f, 20f, 8f),
@@ -50,12 +52,15 @@ namespace AFPS.Tests.EditMode
             Assert.That(session.CurrentState.IsCrouched, Is.True);
             Assert.That(session.CurrentState.SlideRemainingFixed, Is.EqualTo(Fix.Zero));
             Assert.That(session.CurrentState.SlideVelocityFixed, Is.EqualTo(FixVec3.Zero));
+            Assert.That(session.CurrentState.IsWallRunning, Is.False);
+            Assert.That(session.CurrentState.WallRunUsedFixed, Is.EqualTo(Fix.Half));
             session.Respawn(FixVec3.Up * Fix.FromInt(10));
             Assert.That(session.CurrentState.IsGrounded, Is.False);
             Assert.That(session.CurrentState.AirJumpsUsed, Is.EqualTo(0));
             Assert.That(session.CurrentState.GroundJumpConsumed, Is.True);
             Assert.That(session.CurrentState.WallCooldownRemainingFixed, Is.EqualTo(Fix.Zero));
             Assert.That(session.CurrentState.IsCrouched, Is.False);
+            Assert.That(session.CurrentState.WallRunUsedFixed, Is.EqualTo(Fix.Zero));
             Assert.That(session.CurrentState.CoyoteRemainingFixed, Is.EqualTo(Fix.Zero));
         }
 

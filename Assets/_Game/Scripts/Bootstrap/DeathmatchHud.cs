@@ -81,6 +81,10 @@ namespace AFPS.Bootstrap
                 statusText.text += $"   DASH {maximumDashCharges - movement.DashSpentCharges} [ALT]";
                 statusText.text += movement.SlideRemainingFixed > AFPS.Math.Fix.Zero
                     ? "   SLIDE [CTRL]" : movement.IsCrouched ? "   CROUCH [CTRL]" : "   CROUCH [CTRL] / BOUNCE [E]";
+                if (movement.IsWallRunning)
+                {
+                    statusText.text += "   WALL RUN [SHIFT]";
+                }
                 if (movement.SprintExhausted)
                 {
                     statusText.text += "   EXHAUSTED";

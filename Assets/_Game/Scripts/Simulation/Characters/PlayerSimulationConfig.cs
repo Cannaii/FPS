@@ -20,6 +20,7 @@ namespace AFPS.Simulation.Characters
         public readonly PlayerJumpConfig Jump;
         public readonly PlayerWallConfig Wall;
         public readonly PlayerStanceConfig Stance;
+        public readonly PlayerWallRunConfig WallRun;
         public PlayerSimulationConfig(
             Fix maxGroundSpeed,
             Fix groundAcceleration,
@@ -30,7 +31,8 @@ namespace AFPS.Simulation.Characters
             PlayerDashConfig? dash = null,
             PlayerJumpConfig? jump = null,
             PlayerWallConfig? wall = null,
-            PlayerStanceConfig? stance = null)
+            PlayerStanceConfig? stance = null,
+            PlayerWallRunConfig? wallRun = null)
         {
             if (maxGroundSpeed.Raw < 0 || groundAcceleration.Raw < 0 || gravity.Raw < 0 || jumpSpeed.Raw < 0)
             {
@@ -68,6 +70,11 @@ namespace AFPS.Simulation.Characters
             {
                 throw new ArgumentOutOfRangeException(nameof(stance), "下蹲高度必须位于胶囊直径与站立高度之间。");
             }
+            var wallRunValue = wallRun ?? PlayerWallRunConfig.Default;
+            WallRun = new PlayerWallRunConfig(wallRunValue.Speed, wallRunValue.Acceleration,
+                wallRunValue.Duration, wallRunValue.GravityMultiplier, wallRunValue.AdhesionSpeed,
+                wallRunValue.MaximumFallSpeed, wallRunValue.DrainPerSecond,
+                wallRunValue.ProbeDistance, wallRunValue.MinimumAlignment);
             if (Sprint.SpeedMultiplier < Fix.One || Sprint.DrainPerSecond <= Fix.Zero
                 || Sprint.RecoveryPerSecond <= Fix.Zero || Sprint.RestartStamina <= Fix.Zero
                 || Sprint.RestartStamina > Fix.One

@@ -77,14 +77,28 @@ namespace AFPS.Simulation.Characters
                 PlayerStanceSimulation.CancelSlide(ref next);
             }
             bool sliding = next.SlideRemainingFixed > Fix.Zero;
+            PlayerWallRunSimulation.Begin(ref next, previousState, input, config, collisionWorld,
+                right * move.X + forward * move.Z, tickDeltaTime, dashing || wallAction, out FixVec3 wallRunTarget);
+            bool wallRunning = next.IsWallRunning;
 
             // 起跳当 Tick 也施加重力；此顺序属于预测与服务器共同遵守的积分规则。
             if (!dashing && !next.IsGrounded)
             {
-                vertical -= config.GravityFixed * tickDeltaTime;
+                Fix gravity = wallRunning ? config.GravityFixed * config.WallRun.GravityMultiplier : config.GravityFixed;
+                vertical -= gravity * tickDeltaTime;
+                if (wallRunning)
+                {
+                    vertical = FixMath.Max(-config.WallRun.MaximumFallSpeed, vertical);
+                }
             }
 
-            if (sliding)
+            if (wallRunning)
+            {
+                horizontal = FixVec3.MoveTowards(horizontal, wallRunTarget, config.WallRun.Acceleration * tickDeltaTime);
+                // 墙跑水平限速也覆盖刚结束的Dash余速；只限制水平量，保留起跳的竖直动量。
+                horizontal = FixVec3.ClampMagnitude(horizontal, config.WallRun.Speed);
+            }
+            else if (sliding)
             {
                 horizontal = PlayerStanceSimulation.Steer(next, right * move.X + forward * move.Z,
                     config.Stance, tickDeltaTime);
@@ -114,10 +128,11 @@ namespace AFPS.Simulation.Characters
             next.WallNormalFixed = contacts.HasWall ? contacts.WallNormal : FixVec3.Zero;
             next.WallIncomingVelocityFixed = contacts.HasWall ? incoming : FixVec3.Zero;
             next = PlayerSprintSimulation.Complete(next, previousState, input, config.Sprint,
-                tickDeltaTime, sprintRequested, dashing || wallAction);
+                tickDeltaTime, sprintRequested, dashing || wallAction || wallRunning);
             PlayerDashSimulation.Complete(ref next, tickDeltaTime);
             PlayerJumpSimulation.Complete(ref next, config.Jump, tickDeltaTime);
             PlayerStanceSimulation.Complete(ref next, tickDeltaTime);
+            PlayerWallRunSimulation.Complete(ref next, config.WallRun);
             return next;
         }
     }
