@@ -24,6 +24,11 @@ namespace AFPS.Simulation.Characters.Collision
         // 小于皮肤厚度约 1/10 的位移不再迭代；下限 1 Raw，避免定点零进展。
         public Fix MinimumMoveDistanceFixed => FixMath.Max(Fix.Epsilon, SkinWidthFixed * Fix.FromRaw(6554));
 
+        /// <summary>保持脚底坐标及其余碰撞规则，仅改变总高度（米）；半径下界仍由构造器校验。</summary>
+        public CharacterCollisionConfig WithHeight(Fix height) => new CharacterCollisionConfig(
+            RadiusFixed, height, SkinWidthFixed, GroundProbeDistanceFixed,
+            StepHeightFixed, MaxSlopeAngleFixedDegrees, MaxSlideIterations);
+
         public CharacterCollisionConfig(
             Fix radius,
             Fix height,
