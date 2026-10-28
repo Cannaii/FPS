@@ -12,7 +12,8 @@ namespace AFPS.NetCode.Protocol
         /// <summary>
         /// 当前协议版本；产生不兼容的二进制布局变化时必须递增。
         /// </summary>
-        public const byte CurrentProtocolVersion = 21;
+        // v22预留恢复凭据下发/请求消息；旧端不能静默忽略新身份协议后继续建立不兼容会话。
+        public const byte CurrentProtocolVersion = 22;
         /// <summary>
         /// 固定包头占用的字节数。
         /// </summary>

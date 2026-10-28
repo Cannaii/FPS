@@ -20,6 +20,8 @@ namespace AFPS.NetCode.Protocol
         SimulationWelcome = 12,
         SimulationReady = 13,
         AuthoritativeWeaponState = 14,
-        ShotRejection = 15
+        ShotRejection = 15,
+        SessionResumeGrant = 16,
+        SessionResumeRequest = 17
     }
 }
