@@ -32,7 +32,9 @@ namespace AFPS.NetCode.Sessions
             internal bool HasSent;
             internal bool HasHello;
             internal bool HasWelcome;
+            internal bool HasResumeGrant;
             internal SimulationWorldIdentity PeerIdentity;
+            internal SessionResumeCredential ResumeCredential;
             internal ConnectionAdmissionStatus Status = ConnectionAdmissionStatus.AwaitingHandshake;
 
             internal Connection(TransportConnectionId id, uint startedTick)
@@ -49,6 +51,9 @@ namespace AFPS.NetCode.Sessions
         private readonly Func<NetworkTransportSide, TransportConnectionId, bool> removeSession;
         private readonly Func<bool> hasClientAssignment;
         private readonly Action<TransportConnectionId> resendAssignment;
+        private readonly Func<TransportConnectionId, SessionResumeCredential, bool> resumeSession;
+        private readonly Action<TransportConnectionId, uint> sendResumeGrant;
+        private readonly Func<uint, SessionResumeCredential, bool> receiveResumeGrant;
         private readonly uint timeoutTicks;
         private readonly uint retryTicks;
         private readonly Dictionary<TransportConnectionId, Connection> serverConnections = new Dictionary<TransportConnectionId, Connection>();
@@ -71,7 +76,10 @@ namespace AFPS.NetCode.Sessions
             Func<bool> hasClientAssignment,
             Action<TransportConnectionId> resendAssignment,
             uint timeoutTicks,
-            uint retryTicks)
+            uint retryTicks,
+            Func<TransportConnectionId, SessionResumeCredential, bool> resumeSession,
+            Action<TransportConnectionId, uint> sendResumeGrant,
+            Func<uint, SessionResumeCredential, bool> receiveResumeGrant)
         {
             // 时间单位为本地模拟 Tick；窗口小于半个 uint 周期，以保证回绕后的差值无歧义。
             if (timeoutTicks == 0 || timeoutTicks > int.MaxValue || retryTicks == 0 || retryTicks >= timeoutTicks)
@@ -88,6 +96,9 @@ namespace AFPS.NetCode.Sessions
             this.resendAssignment = resendAssignment;
             this.timeoutTicks = timeoutTicks;
             this.retryTicks = retryTicks;
+            this.resumeSession = resumeSession;
+            this.sendResumeGrant = sendResumeGrant;
+            this.receiveResumeGrant = receiveResumeGrant;
         }
 
         internal bool HandleConnected(NetworkTransportSide side, TransportConnectionId id)
@@ -190,6 +201,29 @@ namespace AFPS.NetCode.Sessions
                 return true;
             }
 
+            if (header.MessageType == NetworkMessageType.SessionResumeRequest)
+            {
+                if (side == NetworkTransportSide.Server && serverConnections.TryGetValue(id, out var pending)
+                    && SessionResumeCodec.TryReadRequest(packet, out uint attempt, out var peerIdentity, out var credential))
+                {
+                    handled = HandleServerHello(pending, attempt, peerIdentity, credential);
+                }
+                return true;
+            }
+
+            if (header.MessageType == NetworkMessageType.SessionResumeGrant)
+            {
+                if (side == NetworkTransportSide.Client && client != null && client.Id == id
+                    && client.Status == ConnectionAdmissionStatus.Admitted && hasClientAssignment()
+                    && SessionResumeCodec.TryReadGrant(packet, out uint attempt, out uint entityId, out var credential)
+                    && attempt == client.Attempt)
+                {
+                    handled = receiveResumeGrant(entityId, credential);
+                    client.HasResumeGrant |= handled;
+                }
+                return true;
+            }
+
             if (!SimulationHandshakeCodec.IsHandshake(header.MessageType))
             {
                 return false;
@@ -222,11 +256,7 @@ namespace AFPS.NetCode.Sessions
 
             if (header.MessageType == NetworkMessageType.SimulationHello)
             {
-                connection.HasHello = true;
-                connection.Attempt = header.Sequence;
-                connection.PeerIdentity = peer;
-                SendWelcome(connection);
-                return true;
+                return HandleServerHello(connection, header.Sequence, peer, default);
             }
 
             if (header.MessageType != NetworkMessageType.SimulationReady || !connection.HasHello || !connection.HasWelcome
@@ -239,11 +269,15 @@ namespace AFPS.NetCode.Sessions
             {
                 // 分配包可能因发送队列满而未入队；重复 Ready 只重发已有身份，不重新分配实体。
                 resendAssignment(connection.Id);
+                sendResumeGrant(connection.Id, connection.Attempt);
                 return true;
             }
 
             // Ready 必须来自已确认服务器指纹的客户端；此前输入、射击与实体分配均被隔离。
-            if (!createSession(NetworkTransportSide.Server, connection.Id))
+            bool created = connection.ResumeCredential.IsValid
+                ? resumeSession(connection.Id, connection.ResumeCredential)
+                : createSession(NetworkTransportSide.Server, connection.Id);
+            if (!created)
             {
                 serverConnections.Remove(connection.Id);
                 serverTransport.Disconnect(connection.Id);
@@ -251,6 +285,24 @@ namespace AFPS.NetCode.Sessions
             }
 
             connection.Status = ConnectionAdmissionStatus.Admitted;
+            sendResumeGrant(connection.Id, connection.Attempt);
+            return true;
+        }
+
+        private bool HandleServerHello(Connection connection, uint attempt,
+            SimulationWorldIdentity peer, SessionResumeCredential credential)
+        {
+            // 首包锁定尝试、世界和准入类型；同连接不能从恢复降级成新玩家，或在Ready前换凭据。
+            if (connection.HasHello && (connection.Attempt != attempt
+                || !connection.PeerIdentity.Equals(peer) || !connection.ResumeCredential.Equals(credential)))
+            {
+                return false;
+            }
+            connection.HasHello = true;
+            connection.Attempt = attempt;
+            connection.PeerIdentity = peer;
+            connection.ResumeCredential = credential;
+            SendWelcome(connection);
             return true;
         }
 
@@ -358,7 +410,8 @@ namespace AFPS.NetCode.Sessions
                 serverTransport.Disconnect(id);
             }
 
-            if (client == null || (client.Status == ConnectionAdmissionStatus.Admitted && hasClientAssignment()))
+            if (client == null || (client.Status == ConnectionAdmissionStatus.Admitted
+                && hasClientAssignment() && client.HasResumeGrant))
             {
                 return;
             }

@@ -381,12 +381,14 @@ namespace AFPS.Tests.EditMode
             SimulationWorldContext context,
             uint timeout = 8,
             uint retry = 2,
-            bool initializeClock = true)
+            bool initializeClock = true,
+            float durationSeconds = 300f)
         {
             PlayerState initial = InitialState();
             var manager = new NetworkMovementSessionManager(server, client, initial, initial, context.Configuration,
                 0.02f, 64, 3, 16, 2, 2, 0, 0,
                 weaponConfig: context.WeaponConfiguration, simulationWorld: context,
+                deathmatchDurationSeconds: durationSeconds,
                 admissionTimeoutTicks: timeout, admissionRetryTicks: retry);
             if (initializeClock)
             {
@@ -411,7 +413,7 @@ namespace AFPS.Tests.EditMode
             return new ArraySegment<byte>(buffer, 0, count);
         }
 
-        private static ArraySegment<byte> InputPacket(PlayerInputCommand input)
+        internal static ArraySegment<byte> InputPacket(PlayerInputCommand input)
         {
             byte[] buffer = new byte[InputCommandBatchCodec.GetPacketSize(1)];
             var batch = new InputCommandBatch(new ArraySegment<PlayerInputCommand>(new[] { input }));
@@ -419,7 +421,7 @@ namespace AFPS.Tests.EditMode
             return new ArraySegment<byte>(buffer, 0, count);
         }
 
-        private sealed class Pair
+        internal sealed class Pair
         {
             internal readonly FakeTransport ServerTransport = new FakeTransport(TransportRole.Server);
             internal readonly FakeTransport ClientTransport = new FakeTransport(TransportRole.Client);
@@ -428,9 +430,10 @@ namespace AFPS.Tests.EditMode
 
             internal Pair(
                 SimulationCompatibility mismatch = SimulationCompatibility.Compatible,
-                WeaponSimulationConfig? clientWeapon = null)
+                WeaponSimulationConfig? clientWeapon = null,
+                float durationSeconds = 300f)
             {
-                Server = CreateManager(ServerTransport, null, Context());
+                Server = CreateManager(ServerTransport, null, Context(), durationSeconds: durationSeconds);
                 var context = Context(mismatch);
                 if (clientWeapon.HasValue)
                 {
@@ -471,27 +474,32 @@ namespace AFPS.Tests.EditMode
             }
         }
 
-        private sealed class Packet
+        internal sealed class Packet
         {
             internal readonly ArraySegment<byte> Data;
             internal readonly NetworkMessageType Type;
+            internal readonly TransportConnectionId Connection;
+            internal readonly TransportDelivery Delivery;
 
-            internal Packet(ArraySegment<byte> source)
+            internal Packet(ArraySegment<byte> source, TransportConnectionId connection, TransportDelivery delivery)
             {
                 byte[] copy = new byte[source.Count];
                 Array.Copy(source.Array, source.Offset, copy, 0, source.Count);
                 Data = new ArraySegment<byte>(copy);
                 PacketHeaderCodec.TryRead(Data, out PacketHeader header);
                 Type = header.MessageType;
+                Connection = connection;
+                Delivery = delivery;
             }
         }
 
-        private sealed class FakeTransport : IGameTransport
+        internal sealed class FakeTransport : IGameTransport
         {
             internal readonly Queue<Packet> Pending = new Queue<Packet>();
             internal readonly List<Packet> Sent = new List<Packet>();
             internal readonly List<TransportConnectionId> Disconnected = new List<TransportConnectionId>();
             internal bool FailNext;
+            internal NetworkMessageType? FailType;
             public bool IsRunning => true;
             public TransportRole Role { get; }
 
@@ -499,13 +507,15 @@ namespace AFPS.Tests.EditMode
 
             public TransportSendResult Send(TransportConnectionId id, TransportDelivery delivery, ArraySegment<byte> data)
             {
-                if (FailNext)
+                PacketHeaderCodec.TryRead(data, out var header);
+                if (FailNext || FailType == header.MessageType)
                 {
                     FailNext = false;
+                    FailType = null;
                     return TransportSendResult.TransportError;
                 }
 
-                var packet = new Packet(data);
+                var packet = new Packet(data, id, delivery);
                 Pending.Enqueue(packet);
                 Sent.Add(packet);
                 return TransportSendResult.Success;

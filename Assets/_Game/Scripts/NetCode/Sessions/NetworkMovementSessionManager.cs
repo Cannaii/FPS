@@ -301,7 +301,8 @@ namespace AFPS.NetCode.Sessions
                 admission = new SimulationSessionAdmission(simulationWorld.Identity, serverTransport, clientTransport,
                     CreateConnectedSession, RemoveConnectedSession,
                     () => RemotePlayers != null && RemotePlayers.LocalEntityId != 0,
-                    ResendSessionAssignment, admissionTimeoutTicks, admissionRetryTicks);
+                    ResendSessionAssignment, admissionTimeoutTicks, admissionRetryTicks,
+                    RestoreServerSession, SendResumeGrant, ReceiveResumeGrant);
             }
         }
 
@@ -317,7 +318,9 @@ namespace AFPS.NetCode.Sessions
 
             if (side == NetworkTransportSide.Server)
             {
-                if (serverTransport == null || serverSessions.ContainsKey(connectionId))
+                ExpireRetainedSessions();
+                if (serverTransport == null || serverSessions.ContainsKey(connectionId)
+                    || allServerSessions.Count >= DeathmatchStateCodec.MaximumPlayerCount)
                 {
                     return false;
                 }
@@ -325,6 +328,10 @@ namespace AFPS.NetCode.Sessions
                 uint entityId = nextEntityId;
                 // 越域出生点在分配实体和建立会话前拒绝，不能留下半个玩家或消耗实体序号。
                 if (!sessionSpatial.TryGetSpawnPosition(entityId, out FixVec3 spawnPosition))
+                {
+                    return false;
+                }
+                if (admission != null && !serverCredentials.TryIssue(entityId, out _))
                 {
                     return false;
                 }
@@ -336,6 +343,7 @@ namespace AFPS.NetCode.Sessions
                     serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks,
                     collisionWorld, entityId, weaponConfig, WorldContext?.CollisionWorld));
                 serverEntityIds.Add(connectionId, entityId);
+                allServerSessions.Add(entityId, serverSessions[connectionId]);
                 timeSyncResponders[connectionId] = new AFPS.NetCode.TimeSync.ServerTimeSyncResponder(serverTransport, connectionId);
                 serverHealth.Add(entityId, Fix.FromInt(100));
                 serverKills.Add(entityId, 0);
@@ -371,39 +379,30 @@ namespace AFPS.NetCode.Sessions
         }
 
         /// <summary>
-        /// 断开连接时丢弃对应会话及其序号、输入窗口和预测历史。
+        /// 定点服务器断线保留权威会话；客户端预测与旧连接复制基线仍立即清理。
         /// </summary>
         private bool RemoveConnectedSession(NetworkTransportSide side, TransportConnectionId connectionId)
         {
             if (side == NetworkTransportSide.Server)
             {
-                if (!serverSessions.Remove(connectionId) || !serverEntityIds.TryGetValue(connectionId, out uint entityId))
+                ExpireRetainedSessions();
+                if (!serverSessions.TryGetValue(connectionId, out var session)
+                    || !serverEntityIds.TryGetValue(connectionId, out uint entityId))
                 {
                     return false;
                 }
 
+                bool retained = admission != null && retainedSessions.TryRetain(session, latestServerWorldTick);
+                serverSessions.Remove(connectionId);
                 serverEntityIds.Remove(connectionId);
                 timeSyncResponders.Remove(connectionId);
-                serverHealth.Remove(entityId);
-                serverKills.Remove(entityId);
-                serverDeaths.Remove(entityId);
-                serverRespawnTicks.Remove(entityId);
-                rewindHistories.Remove(entityId);
                 serverSnapshotBaselines.Remove(connectionId);
                 serverVisibleEntities.Remove(connectionId);
-                foreach (Dictionary<uint, RemotePlayerSnapshot> baselines in serverSnapshotBaselines.Values)
+                recoveringConnections.Remove(connectionId);
+                recoveringEntityIds.Remove(entityId);
+                if (!retained)
                 {
-                    baselines.Remove(entityId);
-                }
-                foreach (HashSet<uint> visibleEntities in serverVisibleEntities.Values)
-                {
-                    visibleEntities.Remove(entityId);
-                }
-                snapshotSequences.Remove(entityId);
-                BroadcastDespawn(entityId);
-                if (serverSessions.Count == 0)
-                {
-                    ResetEmptyDeathmatch();
+                    RemoveServerEntity(entityId);
                 }
                 deathmatchStateDirty = true;
                 return true;
@@ -441,6 +440,12 @@ namespace AFPS.NetCode.Sessions
 
             if (side == NetworkTransportSide.Server)
             {
+                if (header.MessageType == NetworkMessageType.InputCommandBatch
+                    && recoveringConnections.ContainsKey(connectionId))
+                {
+                    // 恢复种子入队不等于客户端已应用；11C接ACK前，不接受任何旧/新输入。
+                    return false;
+                }
                 if (header.MessageType == NetworkMessageType.TimeSyncRequest
                     && timeSyncResponders.TryGetValue(connectionId, out var responder))
                 {
@@ -545,12 +550,18 @@ namespace AFPS.NetCode.Sessions
             // 普通 Client 也调用此入口推进准入时钟；等待握手时不存在预测会话。
             admission?.Advance(serverWorldTick);
             latestServerWorldTick = serverWorldTick;
+            ExpireRetainedSessions();
+            AdvanceRecoveringConnections();
             int advancedCount = 0;
             UpdateDeathmatchBeforeSimulation(serverWorldTick);
             pendingWeaponFireResults.Clear();
             foreach (KeyValuePair<TransportConnectionId, ServerAuthoritativeMovementSession> pair in serverSessions)
             {
                 uint entityId = serverEntityIds[pair.Key];
+                if (recoveringConnections.ContainsKey(pair.Key))
+                {
+                    continue;
+                }
                 pair.Value.GameplayEnabled = deathmatchPhase != DeathmatchPhase.Finished && IsServerPlayerAlive(entityId);
                 pair.Value.WeaponEnabled = deathmatchPhase == DeathmatchPhase.Playing && IsServerPlayerAlive(entityId);
                 if (pair.Value.TryAdvance(serverWorldTick, out _, out _))
@@ -675,9 +686,9 @@ namespace AFPS.NetCode.Sessions
 
         private void RecordCurrentHitboxes(uint serverWorldTick)
         {
-            foreach (KeyValuePair<TransportConnectionId, ServerAuthoritativeMovementSession> pair in serverSessions)
+            foreach (KeyValuePair<uint, ServerAuthoritativeMovementSession> pair in allServerSessions)
             {
-                uint entityId = serverEntityIds[pair.Key];
+                uint entityId = pair.Key;
                 if (!IsServerPlayerAlive(entityId))
                 {
                     continue;
@@ -763,14 +774,10 @@ namespace AFPS.NetCode.Sessions
 
                 serverRespawnTicks.Remove(entityId);
                 serverHealth[entityId] = Fix.FromInt(100);
-                foreach (KeyValuePair<TransportConnectionId, uint> pair in serverEntityIds)
+                if (allServerSessions.TryGetValue(entityId, out ServerAuthoritativeMovementSession session))
                 {
-                    if (pair.Value == entityId && serverSessions.TryGetValue(pair.Key, out ServerAuthoritativeMovementSession session))
-                    {
-                        // 空间配置不可变，且该实体已在准入时通过坐标域校验，复活复用同一个出生位置。
-                        session.Respawn(sessionSpatial.GetSpawnPosition(entityId));
-                        break;
-                    }
+                    // 离线死亡也按世界期限重生，不以恢复连接刷新生命或重置计时起点。
+                    session.Respawn(sessionSpatial.GetSpawnPosition(entityId));
                 }
 
                 deathmatchStateDirty = true;
@@ -939,18 +946,24 @@ namespace AFPS.NetCode.Sessions
                 snapshotCandidates.Clear();
                 interestedEntityIds.Clear();
                 FixVec3 observerPosition = targetPair.Value.CurrentState.PositionFixed;
-                foreach (KeyValuePair<TransportConnectionId, ServerAuthoritativeMovementSession> ownerPair in serverSessions)
+                foreach (KeyValuePair<uint, ServerAuthoritativeMovementSession> ownerPair in allServerSessions)
                 {
-                    if (ownerPair.Key == targetPair.Key)
+                    if (ownerPair.Key == serverEntityIds[targetPair.Key])
                     {
                         continue;
                     }
                     if (sessionSpatial.TryMeasureInterestDistance(
                         observerPosition, ownerPair.Value.CurrentState.PositionFixed, out ulong distanceSquared))
                     {
-                        uint entityId = serverEntityIds[ownerPair.Key];
+                        uint entityId = ownerPair.Key;
                         interestedEntityIds.Add(entityId);
-                        snapshotCandidates.Add(new SnapshotCandidate(entityId, ownerPair.Value.CurrentState, distanceSquared));
+                        PlayerState visualState = ownerPair.Value.CurrentState;
+                        if (ownerPair.Value.IsRetainedOffline || IsRecoveringEntity(entityId))
+                        {
+                            // 冻结实体仍可见/受击；快照速度归零，避免远端按旧速度外推，权威Raw不变。
+                            visualState.VelocityFixed = FixVec3.Zero;
+                        }
+                        snapshotCandidates.Add(new SnapshotCandidate(entityId, visualState, distanceSquared));
                     }
                 }
 
@@ -1070,13 +1083,15 @@ namespace AFPS.NetCode.Sessions
             return entityId;
         }
 
-        private void SendAssignment(TransportConnectionId connectionId, uint entityId)
+        private bool SendAssignment(TransportConnectionId connectionId, uint entityId)
         {
             uint sequence = lifecycleSequence++;
             if (PlayerSessionAssignmentCodec.TrySerialize(new PlayerSessionAssignment(entityId), sequence, new ArraySegment<byte>(assignmentBuffer), out int packetBytes))
             {
-                serverTransport.Send(connectionId, TransportDelivery.ReliableSequenced, new ArraySegment<byte>(assignmentBuffer, 0, packetBytes));
+                return serverTransport.Send(connectionId, TransportDelivery.ReliableSequenced,
+                    new ArraySegment<byte>(assignmentBuffer, 0, packetBytes)) == TransportSendResult.Success;
             }
+            return false;
         }
 
         private bool SendDespawn(TransportConnectionId targetConnectionId, uint entityId)
@@ -1100,7 +1115,11 @@ namespace AFPS.NetCode.Sessions
 
             foreach (TransportConnectionId targetConnectionId in serverSessions.Keys)
             {
-                serverTransport.Send(targetConnectionId, TransportDelivery.ReliableSequenced, new ArraySegment<byte>(despawnBuffer, 0, packetBytes));
+                if (serverTransport.Send(targetConnectionId, TransportDelivery.ReliableSequenced,
+                    new ArraySegment<byte>(despawnBuffer, 0, packetBytes)) == TransportSendResult.Success)
+                {
+                    serverVisibleEntities[targetConnectionId].Remove(entityId);
+                }
             }
         }
     }

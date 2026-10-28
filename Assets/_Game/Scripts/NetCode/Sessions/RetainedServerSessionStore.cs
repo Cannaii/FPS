@@ -7,7 +7,7 @@ namespace AFPS.NetCode.Sessions
 {
     /// <summary>
     /// 服务器进程内的有界会话保留区。只负责保存/过期/迁移，不提供网络身份认证，也不保存对局级生命与分数。
-    /// 尚未接入NetworkMovementSessionManager断线生命周期；后续协议层验证恢复凭据后才能调用TryRestore。
+    /// 管理器完成世界准入与恢复凭据校验后才能调用TryRestore。
     /// </summary>
     public sealed class RetainedServerSessionStore
     {
@@ -80,7 +80,7 @@ namespace AFPS.NetCode.Sessions
             return true;
         }
 
-        public int Expire(uint serverWorldTick)
+        public int Expire(uint serverWorldTick, ICollection<uint> expiredEntityIds = null)
         {
             // 按半个uint域解释连续世界时钟；调用方须定期维护，不能跨越半个域后才访问。
             if (hasClock && serverWorldTick != lastTick && !SequenceMath.IsNewer(serverWorldTick, lastTick))
@@ -100,6 +100,7 @@ namespace AFPS.NetCode.Sessions
             foreach (uint entityId in expired)
             {
                 entries.Remove(entityId);
+                expiredEntityIds?.Add(entityId);
             }
             return expired.Count;
         }
