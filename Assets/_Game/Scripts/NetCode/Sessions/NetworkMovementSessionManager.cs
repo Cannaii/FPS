@@ -320,7 +320,9 @@ namespace AFPS.NetCode.Sessions
             deathmatchReplicationIntervalTicks = (uint)Mathf.Max(1, Mathf.CeilToInt(deathmatchReplicationIntervalSeconds / tickDeltaTime));
             if (clientTransport != null)
             {
-                RemotePlayers = new RemotePlayerReplicaSet(remoteSnapshotCapacity, tickDeltaTime, remoteInterpolationDelayTicks, remoteMaxExtrapolationTicks, remoteTeleportDistance);
+                RemotePlayers = new RemotePlayerReplicaSet(remoteSnapshotCapacity, tickDeltaTime,
+                    remoteInterpolationDelayTicks, remoteMaxExtrapolationTicks, remoteTeleportDistance,
+                    new AdaptiveInterpolationClock(serverTickRate, remoteSnapshotRate, remoteInterpolationDelayTicks));
             }
 
             if (simulationWorld != null)

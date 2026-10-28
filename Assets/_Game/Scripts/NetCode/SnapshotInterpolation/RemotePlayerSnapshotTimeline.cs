@@ -56,13 +56,18 @@ namespace AFPS.NetCode.SnapshotInterpolation
         public SnapshotBufferInsertResult Insert(in RemotePlayerSnapshot snapshot) => buffer.Insert(snapshot);
         public bool TrySample(double estimatedServerTick, out RemotePlayerRenderState state)
         {
+            return TrySampleAtTick(estimatedServerTick, estimatedServerTick - interpolationDelayTicks, out state);
+        }
+
+        // 自适应入口传入共享且单调的显示时刻；固定延迟入口保留可任意查询历史的旧语义。
+        internal bool TrySampleAtTick(double estimatedServerTick, double targetTick, out RemotePlayerRenderState state)
+        {
             state = default;
             if (buffer.Count == 0 || estimatedServerTick < 0.0 || double.IsNaN(estimatedServerTick) || double.IsInfinity(estimatedServerTick))
             {
                 return false;
             }
 
-            double targetTick = estimatedServerTick - interpolationDelayTicks;
             RemotePlayerSnapshot newest = buffer.GetAt(buffer.Count - 1);
             double estimatedWholeTick = System.Math.Floor(estimatedServerTick);
             uint estimatedRawTick = unchecked((uint)(long)estimatedWholeTick);

@@ -39,6 +39,7 @@ namespace AFPS.NetCode.Sessions
                 return;
             }
             ulong now = timeSyncClock();
+            UpdateRemoteInterpolation(now);
             if (hasTimeSyncAttempt && unchecked(now - lastTimeSyncAttempt) < TimeSyncIntervalMicroseconds)
             {
                 return;
@@ -67,15 +68,30 @@ namespace AFPS.NetCode.Sessions
             }
             double previous = Metrics.LastNetworkRoundTripMilliseconds;
             Metrics.LastNetworkRoundTripMilliseconds = sample.NetworkRoundTripMilliseconds;
-            if (hasTimeSyncResponse)
+            if (hasTimeSyncResponse && unchecked(now - lastTimeSyncResponse) <= TimeSyncExpiryMicroseconds)
             {
                 Metrics.RoundTripJitterMilliseconds += (System.Math.Abs(previous - sample.NetworkRoundTripMilliseconds)
                     - Metrics.RoundTripJitterMilliseconds) * 0.2;
             }
+            else
+            {
+                // 旧链路样本已过期，不能把跨断流的RTT变化当作当前抖动继续累积。
+                Metrics.RoundTripJitterMilliseconds = 0d;
+            }
             Metrics.TimeSyncResponsesReceived++;
             lastTimeSyncResponse = now;
             hasTimeSyncResponse = true;
+            UpdateRemoteInterpolation(now);
             return true;
+        }
+
+        private void UpdateRemoteInterpolation(ulong now)
+        {
+            bool fresh = hasTimeSyncResponse && unchecked(now - lastTimeSyncResponse) <= TimeSyncExpiryMicroseconds;
+            RemotePlayers?.UpdateInterpolationQuality(now, fresh,
+                Metrics.LastNetworkRoundTripMilliseconds, Metrics.RoundTripJitterMilliseconds);
+            Metrics.RemoteInterpolationDelayTicks = RemotePlayers?.InterpolationDelayTicks ?? 0d;
+            Metrics.TargetRemoteInterpolationDelayTicks = RemotePlayers?.TargetInterpolationDelayTicks ?? 0d;
         }
 
         private void ResetClientTimeSync(TransportConnectionId connection)
@@ -90,6 +106,9 @@ namespace AFPS.NetCode.Sessions
             Metrics.TimeSyncResponsesReceived = 0;
             Metrics.LastNetworkRoundTripMilliseconds = 0;
             Metrics.RoundTripJitterMilliseconds = 0;
+            // 新连接/恢复连接从基础延迟与新显示世代开始，不继承旧链路的缓冲和播放时钟。
+            RemotePlayers?.Clear();
+            UpdateRemoteInterpolation(timeSyncClock());
         }
 
         private static ulong ReadMonotonicMicroseconds()

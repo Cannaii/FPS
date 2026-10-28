@@ -197,13 +197,16 @@ namespace AFPS.Bootstrap
                 && manager.ClientWeapon.Ammo == manager.ClientWeapon.State.Ammo
                 && (replicas.LocalEntityId != 1 || ownerReloadObserved);
             bool timeSynced = manager.HasTimeSync && manager.Metrics.TimeSyncResponsesReceived >= 2;
+            bool adaptiveInterpolation = replicas.HasAdaptiveInterpolation
+                && manager.Metrics.RemoteInterpolationDelayTicks >= 3d
+                && manager.Metrics.RemoteInterpolationDelayTicks <= 12d;
             bool shotPresented = movementController.PresentedShotResultCount > 0
                 && (replicas.LocalEntityId != 1 || movementController.ConfirmedLocalHitCount > 0);
             bool footstepsPresented = movementController.LocalFootstepCount > 0
                 && movementController.RemoteFootstepCount > 0;
             bool passed = hasAssignment && hasRemote && sampledRemote && moved && jumped && turned
                 && authoritativeHit && timeSynced && reloadVerified && automaticFireVerified
-                && weaponSynced && shotPresented && footstepsPresented;
+                && weaponSynced && shotPresented && footstepsPresented && adaptiveInterpolation;
             string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0}"
                 + $" remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned}"
                 + $" sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} timeSynced={timeSynced}"
@@ -214,6 +217,9 @@ namespace AFPS.Bootstrap
                 + $" remoteSteps={movementController.RemoteFootstepCount}";
             details += $" remoteSnapshotsSent={manager.Metrics.SnapshotPacketsSent}"
                 + $" remoteSnapshotBytes={manager.Metrics.SnapshotBytesSent}";
+            details += $" adaptiveInterpolation={adaptiveInterpolation}"
+                + $" interpolationTicks={manager.Metrics.RemoteInterpolationDelayTicks:F3}"
+                + $" targetInterpolationTicks={manager.Metrics.TargetRemoteInterpolationDelayTicks:F3}";
             Finish(passed, details);
         }
 

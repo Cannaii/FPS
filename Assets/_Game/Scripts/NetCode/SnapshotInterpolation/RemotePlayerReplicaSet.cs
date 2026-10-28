@@ -16,6 +16,7 @@ namespace AFPS.NetCode.SnapshotInterpolation
         private readonly int snapshotCapacity;
         private readonly float tickDeltaTime;
         private readonly double interpolationDelayTicks;
+        private readonly AdaptiveInterpolationClock adaptiveClock;
         private readonly double maxExtrapolationTicks;
         private readonly float teleportDistance;
         private bool hasLatestServerTick;
@@ -30,8 +31,12 @@ namespace AFPS.NetCode.SnapshotInterpolation
         public uint SnapshotVersion { get; private set; }
 
         public int Count => timelines.Count;
+        public bool HasAdaptiveInterpolation => adaptiveClock != null;
+        public double InterpolationDelayTicks => adaptiveClock?.CurrentDelayTicks ?? interpolationDelayTicks;
+        public double TargetInterpolationDelayTicks => adaptiveClock?.TargetDelayTicks ?? interpolationDelayTicks;
 
-        public RemotePlayerReplicaSet(int snapshotCapacity, float tickDeltaTime, double interpolationDelayTicks, double maxExtrapolationTicks, float teleportDistance)
+        public RemotePlayerReplicaSet(int snapshotCapacity, float tickDeltaTime, double interpolationDelayTicks,
+            double maxExtrapolationTicks, float teleportDistance, AdaptiveInterpolationClock adaptiveClock = null)
         {
             if (snapshotCapacity < 2)
             {
@@ -61,6 +66,7 @@ namespace AFPS.NetCode.SnapshotInterpolation
             this.snapshotCapacity = snapshotCapacity;
             this.tickDeltaTime = tickDeltaTime;
             this.interpolationDelayTicks = interpolationDelayTicks;
+            this.adaptiveClock = adaptiveClock;
             this.maxExtrapolationTicks = maxExtrapolationTicks;
             this.teleportDistance = teleportDistance;
         }
@@ -143,7 +149,22 @@ namespace AFPS.NetCode.SnapshotInterpolation
         public bool TrySample(uint entityId, double estimatedServerTick, out RemotePlayerRenderState state)
         {
             state = default;
-            return timelines.TryGetValue(entityId, out RemotePlayerSnapshotTimeline timeline) && timeline.TrySample(estimatedServerTick, out state);
+            if (!timelines.TryGetValue(entityId, out RemotePlayerSnapshotTimeline timeline))
+            {
+                return false;
+            }
+            if (adaptiveClock == null)
+            {
+                return timeline.TrySample(estimatedServerTick, out state);
+            }
+            return adaptiveClock.TryGetRenderTime(estimatedServerTick, out double continuous, out double renderTime)
+                && timeline.TrySampleAtTick(continuous, renderTime, out state);
+        }
+
+        /// <summary>质量数据单位毫秒，now为单调微秒；无新鲜样本时平滑回到基础延迟。</summary>
+        public void UpdateInterpolationQuality(ulong now, bool hasFreshQuality, double rttMilliseconds, double jitterMilliseconds)
+        {
+            adaptiveClock?.Update(now, hasFreshQuality, rttMilliseconds, jitterMilliseconds);
         }
 
         /// <summary>把当前远端实体 ID 复制到调用方复用列表，避免每帧产生迭代器分配。</summary>
@@ -163,6 +184,7 @@ namespace AFPS.NetCode.SnapshotInterpolation
 
         public void Clear()
         {
+            adaptiveClock?.Reset();
             timelines.Clear();
             lastSequences.Clear();
             LocalEntityId = 0;

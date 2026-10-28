@@ -883,6 +883,53 @@ namespace AFPS.Tests.EditMode
         }
 
         [Test]
+        public void TimeSync_AdaptiveDelayUsesRttAndJitter_ExpiresAndResetsOnNewConnection()
+        {
+            ulong now = 1000000;
+            var serverTransport = new FakeTransport(TransportRole.Server);
+            var clientTransport = new FakeTransport(TransportRole.Client);
+            var server = CreateManager(serverTransport, null, clock: () => now);
+            var client = CreateManager(null, clientTransport, clock: () => now);
+            var connection = new TransportConnectionId(10);
+            server.HandleConnected(NetworkTransportSide.Server, connection);
+            client.HandleConnected(NetworkTransportSide.Client, connection);
+
+            void Exchange(ulong oneWayMicroseconds, uint worldTick)
+            {
+                client.AdvanceTimeSync(0, 0f);
+                now += oneWayMicroseconds;
+                server.AdvanceTimeSync(worldTick, 0f);
+                Assert.That(server.TryHandleData(NetworkTransportSide.Server, connection,
+                    FindPacket(clientTransport, NetworkMessageType.TimeSyncRequest, true), out _), Is.True);
+                now += oneWayMicroseconds;
+                Assert.That(client.TryHandleData(NetworkTransportSide.Client, connection,
+                    FindPacket(serverTransport, NetworkMessageType.TimeSyncResponse, true), out _), Is.True);
+            }
+
+            Exchange(50000, 500);
+            Assert.That(client.RemotePlayers.HasAdaptiveInterpolation, Is.True);
+            Assert.That(client.Metrics.TargetRemoteInterpolationDelayTicks, Is.EqualTo(5.5d));
+            now += 500000;
+            Exchange(200000, 540);
+            Assert.That(client.Metrics.RoundTripJitterMilliseconds, Is.EqualTo(60d));
+            Assert.That(client.Metrics.TargetRemoteInterpolationDelayTicks, Is.EqualTo(12d));
+            Assert.That(client.Metrics.RemoteInterpolationDelayTicks, Is.InRange(3d, 12d));
+            now += 3000001;
+            client.AdvanceTimeSync(0, 0f);
+            Assert.That(client.HasTimeSync, Is.False);
+            Assert.That(client.Metrics.TargetRemoteInterpolationDelayTicks, Is.EqualTo(3d));
+            Exchange(50000, 560);
+            Assert.That(client.Metrics.RoundTripJitterMilliseconds, Is.Zero);
+            Assert.That(client.Metrics.TargetRemoteInterpolationDelayTicks, Is.EqualTo(5.5d));
+            client.HandleDisconnected(NetworkTransportSide.Client, connection);
+            Assert.That(client.Metrics.RemoteInterpolationDelayTicks, Is.EqualTo(3d));
+            Assert.That(client.Metrics.TargetRemoteInterpolationDelayTicks, Is.EqualTo(3d));
+            client.HandleConnected(NetworkTransportSide.Client, connection);
+            Assert.That(client.RemotePlayers.Count, Is.Zero);
+            Assert.That(client.Metrics.RemoteInterpolationDelayTicks, Is.EqualTo(3d));
+        }
+
+        [Test]
         public void TimeSync_IdleRoundTripMeasuresRttExpiresAndReconnectClearsSamples()
         {
             ulong now = 1000000;

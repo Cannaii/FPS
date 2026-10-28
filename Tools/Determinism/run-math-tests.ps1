@@ -101,6 +101,8 @@ $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/De
 if ($IncludeReplication) {
     # Exclude UnityFacade so DTO and Raw codecs compile without engine references in checked mode.
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/SnapshotInterpolation/RemotePlayerSnapshot.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/SnapshotInterpolation/AdaptiveInterpolationClock.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/AdaptiveInterpolationClockTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/StateReplication/RemoteSnapshotSendState.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Protocol/SequenceMath.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/RemoteSnapshotSendStateTests.cs'

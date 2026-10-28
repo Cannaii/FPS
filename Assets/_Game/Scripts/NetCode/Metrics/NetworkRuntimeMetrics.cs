@@ -8,6 +8,9 @@ namespace AFPS.NetCode.Metrics
         /// <summary>扣除服务器处理时间的真实往返毫秒；不表示单向延迟。</summary>
         public double LastNetworkRoundTripMilliseconds { get; internal set; }
         public double RoundTripJitterMilliseconds { get; internal set; }
+        /// <summary>当前/目标远端表现延迟，单位服务器Tick；不影响权威模拟。</summary>
+        public double RemoteInterpolationDelayTicks { get; internal set; }
+        public double TargetRemoteInterpolationDelayTicks { get; internal set; }
         public ulong SnapshotPacketsSent { get; internal set; }
         public ulong SnapshotBytesSent { get; internal set; }
         public ulong ShotResultsSent { get; internal set; }
