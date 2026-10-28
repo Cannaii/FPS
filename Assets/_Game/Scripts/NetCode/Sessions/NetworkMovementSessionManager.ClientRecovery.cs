@@ -24,6 +24,22 @@ namespace AFPS.NetCode.Sessions
         public bool CanPredictClientInput => ClientSession != null && !ClientRecoveryPending;
         public int PendingRecoveryInputCount => recoveryInputs.Count;
 
+        /// <summary>仅显式选择新加入时清除旧身份；自动重试绝不能调用此方法。</summary>
+        public void ForgetClientRecovery()
+        {
+            if (ClientSession != null)
+            {
+                throw new InvalidOperationException("清除恢复身份前必须先断开客户端会话。");
+            }
+            ClientResumeCredential = default;
+            clientResumeEntityId = 0;
+            ClientShotSequenceFloor = 0;
+            clientRecoveryEpoch = 0;
+            clientRecoveryConfirmed = false;
+            recoveryInputs.Clear();
+            hasCapturedLife = false;
+        }
+
         private void CaptureClientRecoveryInputs()
         {
             if (ClientSession == null)

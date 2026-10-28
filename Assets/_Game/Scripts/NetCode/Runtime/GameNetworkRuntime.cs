@@ -11,6 +11,8 @@ namespace AFPS.NetCode.Runtime
     {
         private const string HostLoopbackAddress = "127.0.0.1";
         private readonly Func<IGameTransport> transportFactory;
+        private string clientAddress;
+        private ushort clientPort;
 
         /// <summary>
         /// 当前成功启动的进程模式；未运行时为 None。
@@ -131,6 +133,8 @@ namespace AFPS.NetCode.Runtime
             }
 
             Mode = options.Mode;
+            clientAddress = options.Mode == NetworkLaunchMode.Host ? HostLoopbackAddress : options.ServerAddress;
+            clientPort = options.Port;
             error = null;
             return true;
         }
@@ -142,6 +146,27 @@ namespace AFPS.NetCode.Runtime
         {
             ServerTransport?.Pump();
             ClientTransport?.Pump();
+        }
+
+        /// <summary>仅重启原客户端驱动，保留服务器和管理器引用；调用方须先撤销旧客户端会话。</summary>
+        public bool TryRestartClient(out string error)
+        {
+            if ((Mode != NetworkLaunchMode.Client && Mode != NetworkLaunchMode.Host) || ClientTransport == null)
+            {
+                error = "当前模式不支持客户端重连。";
+                return false;
+            }
+            try
+            {
+                ClientTransport.Stop();
+                return ClientTransport.TryStartClient(clientAddress, clientPort, out error);
+            }
+            catch (Exception exception)
+            {
+                error = $"重新连接失败：{exception.Message}";
+                ClientTransport.Stop();
+                return false;
+            }
         }
 
         /// <summary>

@@ -124,6 +124,7 @@ namespace AFPS.Bootstrap
         /// 当前组件创建并拥有的网络运行时；启动失败或销毁后为 null。
         /// </summary>
         public GameNetworkRuntime Runtime { get; private set; }
+        public ClientReconnectController Reconnect { get; private set; }
 
         /// <summary>
         /// 当前成功启动的实际模式，供运行时 UI 和后续会话组装读取。
@@ -174,12 +175,15 @@ namespace AFPS.Bootstrap
             }
 
             Runtime.Pump();
+            EnsureReconnectController();
             DrainTransportEvents(Runtime.ServerTransport, NetworkTransportSide.Server, serverReceiveBuffer);
             DrainTransportEvents(Runtime.ClientTransport, NetworkTransportSide.Client, clientReceiveBuffer);
+            Reconnect?.Advance(Time.realtimeSinceStartupAsDouble);
         }
 
         private void OnDestroy()
         {
+            Reconnect = null;
             Runtime?.Dispose();
             Runtime = null;
         }
@@ -318,7 +322,47 @@ namespace AFPS.Bootstrap
 
                 ArraySegment<byte> payload = transportEvent.Type == TransportEventType.Data ? new ArraySegment<byte>(receiveBuffer, 0, transportEvent.PayloadLength) : default;
                 TransportEventReceived?.Invoke(side, transportEvent, payload);
+                if (side == NetworkTransportSide.Client)
+                {
+                    if (transportEvent.Type == TransportEventType.Connected)
+                    {
+                        Reconnect?.NotifyConnected(transportEvent.ConnectionId);
+                    }
+                    else if (transportEvent.Type == TransportEventType.Disconnected)
+                    {
+                        Reconnect?.NotifyDisconnected(transportEvent.ConnectionId, Time.realtimeSinceStartupAsDouble);
+                    }
+                }
             }
+        }
+
+        private void EnsureReconnectController()
+        {
+            if (Reconnect != null || (ActiveMode != NetworkLaunchMode.Client && ActiveMode != NetworkLaunchMode.Host))
+            {
+                return;
+            }
+            var movement = GetComponent<UnityNetworkMovementController>();
+            if (movement == null || movement.SessionManager == null)
+            {
+                return;
+            }
+            Reconnect = new ClientReconnectController(Runtime, movement.SessionManager);
+            if (GetComponent<NetworkRecoveryOverlay>() == null)
+            {
+                gameObject.AddComponent<NetworkRecoveryOverlay>().Configure(this);
+            }
+            if (ReconnectSmokeTestDriver.IsRequested)
+            {
+                gameObject.AddComponent<ReconnectSmokeTestDriver>().Configure(this, movement);
+            }
+        }
+
+        /// <summary>显式回归入口：模拟客户端掉线，保留服务器和管理器。</summary>
+        internal void DisconnectClientForRecovery()
+        {
+            EnsureReconnectController();
+            Reconnect?.SimulateDisconnect(Time.realtimeSinceStartupAsDouble);
         }
 
         private IGameTransport CreateTransport(in NetworkImpairmentConfig baseConfig, uint seedOffset)

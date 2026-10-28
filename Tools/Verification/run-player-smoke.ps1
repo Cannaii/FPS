@@ -1,6 +1,6 @@
 ﻿param(
     [string]$PlayerPath = 'Library/AFPSVerification/Player/AFPSGame.exe',
-    [ValidateSet('Baseline', 'Combat', 'Sprint', 'Dash', 'Jump', 'Wall', 'Stance', 'WallRun', 'Climb', 'Grapple', 'Practice')]
+    [ValidateSet('Baseline', 'Combat', 'Sprint', 'Dash', 'Jump', 'Wall', 'Stance', 'WallRun', 'Climb', 'Grapple', 'Reconnect', 'Practice')]
     [string]$Scenario = 'Baseline',
     [string]$OutputDirectory,
     [ValidateRange(1, 65534)][int]$BasePort = 18100,
@@ -38,6 +38,7 @@ $taskFlags = @{
     WallRun = @('-afpsWallRunSmoke', 'AFPS_WALLRUN_RESULT')
     Climb = @('-afpsClimbSmoke', 'AFPS_CLIMB_RESULT')
     Grapple = @('-afpsGrappleSmoke', 'AFPS_GRAPPLE_RESULT')
+    Reconnect = @('-afpsReconnectSmoke', 'AFPS_RECONNECT_RESULT')
     Practice = @('-afpsPracticeSmoke', 'AFPS_PRACTICE_RESULT')
 }
 $taskResults = @()
