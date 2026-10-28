@@ -284,7 +284,7 @@ namespace AFPS.Tests.EditMode
 
             transport.SentPackets.Clear();
             transport.SentConnectionIds.Clear();
-            SendTick(manager, first, second, 2, 101,
+            SendTick(manager, first, second, 2, 102,
                 new PlayerInputCommand { MoveX = 1f }, default);
             bool found = false;
             foreach (var packet in transport.SentPackets)
@@ -681,6 +681,89 @@ namespace AFPS.Tests.EditMode
         }
 
         [Test]
+        public void SnapshotReplication_DefaultRateSendsTwentyPerSecondPerRemoteEntity()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null);
+            var first = new TransportConnectionId(1);
+            var second = new TransportConnectionId(2);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            for (uint tick = 1; tick <= 50; tick++)
+            {
+                SendTick(manager, first, second, tick, 99 + tick, default, default);
+            }
+            Assert.That(manager.Metrics.SnapshotPacketsSent, Is.EqualTo(40));
+        }
+
+        [Test]
+        public void SnapshotReplication_FailedFirstFullRetriesNextTickWithoutWaitingForCadence()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null);
+            var first = new TransportConnectionId(1);
+            var second = new TransportConnectionId(2);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            transport.FailNextMessageType = NetworkMessageType.RemotePlayerSnapshot;
+            SendTick(manager, first, second, 1, 100, default, default);
+            Assert.That(manager.Metrics.SnapshotPacketsSent, Is.EqualTo(1));
+            transport.SentPackets.Clear();
+            SendTick(manager, first, second, 2, 101, default, default);
+            Assert.That(manager.Metrics.SnapshotPacketsSent, Is.EqualTo(2));
+            Assert.That(RemotePlayerSnapshotCodec.TryDeserialize(
+                FindPacket(transport, NetworkMessageType.RemotePlayerSnapshot), out _, out var retried), Is.True);
+            Assert.That(retried.ServerTick, Is.EqualTo(101));
+        }
+
+        [Test]
+        public void SnapshotReplication_LargeDisplacementImmediatelySendsFullWithTeleportFlag()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null);
+            var first = new TransportConnectionId(1);
+            var second = new TransportConnectionId(2);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            SendTick(manager, first, second, 1, 100, default, default);
+            Assert.That(manager.TryGetServerSession(second, out var authority), Is.True);
+            authority.Teleport(new FixVec3(Fix.FromInt(20), Fix.Zero, Fix.Zero));
+            transport.SentPackets.Clear();
+            SendTick(manager, first, second, 2, 101, default, default);
+            Assert.That(manager.Metrics.SnapshotPacketsSent, Is.EqualTo(3));
+            Assert.That(RemotePlayerSnapshotCodec.TryDeserialize(
+                FindPacket(transport, NetworkMessageType.RemotePlayerSnapshot), out _, out var snapshot), Is.True);
+            Assert.That(snapshot.ServerTick, Is.EqualTo(101));
+            Assert.That(snapshot.IsTeleport, Is.True);
+            Assert.That(snapshot.PositionFixed, Is.EqualTo(authority.CurrentState.PositionFixed));
+        }
+
+        [Test]
+        public void SnapshotReplication_NotDueEntitiesDoNotConsumeBudgetForUnseenPeers()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, snapshotBudget: 1);
+            var connections = new[]
+            {
+                new TransportConnectionId(1), new TransportConnectionId(2), new TransportConnectionId(3)
+            };
+            foreach (var connection in connections)
+            {
+                manager.HandleConnected(NetworkTransportSide.Server, connection);
+            }
+            for (uint tick = 1; tick <= 2; tick++)
+            {
+                foreach (var connection in connections)
+                {
+                    Assert.That(manager.TryHandleData(NetworkTransportSide.Server, connection,
+                        CreateInputPacket(new PlayerInputCommand { Tick = tick }), out _), Is.True);
+                }
+                Assert.That(manager.AdvanceServerSessions(99 + tick), Is.EqualTo(3));
+            }
+            Assert.That(manager.Metrics.SnapshotPacketsSent, Is.EqualTo(6));
+        }
+
+        [Test]
         public void SnapshotReplication_SendsCompactDeltaBetweenPeriodicFullBaselines()
         {
             FakeTransport serverTransport = new FakeTransport(TransportRole.Server);
@@ -694,7 +777,8 @@ namespace AFPS.Tests.EditMode
             SendTick(manager, first, second, 1, 100, default, default);
             ulong fullBytes = manager.Metrics.SnapshotBytesSent;
             serverTransport.SentPackets.Clear();
-            SendTick(manager, first, second, 2, 101, default, default);
+            // 默认20Hz在50Hz世界中交替间隔2/3 Tick；101尚未到期，102才发送首个delta。
+            SendTick(manager, first, second, 2, 102, default, default);
 
             int deltaCount = 0;
             for (int i = 0; i < serverTransport.SentPackets.Count; i++)

@@ -4,6 +4,7 @@ using AFPS.NetCode.Messages;
 using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Runtime;
 using AFPS.NetCode.SnapshotInterpolation;
+using AFPS.NetCode.StateReplication;
 using AFPS.NetCode.TimeSync;
 using AFPS.NetCode.Transport;
 
@@ -86,7 +87,7 @@ namespace AFPS.NetCode.Sessions
             }
             serverSessions.Add(connectionId, session);
             serverEntityIds.Add(connectionId, entityId);
-            serverSnapshotBaselines.Add(connectionId, new Dictionary<uint, RemotePlayerSnapshot>());
+            serverSnapshotStates.Add(connectionId, new Dictionary<uint, RemoteSnapshotSendState>());
             serverVisibleEntities.Add(connectionId, new HashSet<uint>());
             timeSyncResponders.Add(connectionId, new ServerTimeSyncResponder(serverTransport, connectionId));
             recoveringConnections.Add(connectionId, latestServerWorldTick);
@@ -245,9 +246,9 @@ namespace AFPS.NetCode.Sessions
             rewindHistories.Remove(entityId);
             recoveringEntityIds.Remove(entityId);
             snapshotSequences.Remove(entityId);
-            foreach (var baselines in serverSnapshotBaselines.Values)
+            foreach (var states in serverSnapshotStates.Values)
             {
-                baselines.Remove(entityId);
+                states.Remove(entityId);
             }
             // Despawn发送失败时保留可见集合项，下一Tick的兴趣差集会继续重试，避免远端永久留下占位体。
             BroadcastDespawn(entityId);

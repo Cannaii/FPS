@@ -212,6 +212,8 @@ namespace AFPS.Bootstrap
             details += $" shotPresented={shotPresented} presentedCount={movementController.PresentedShotResultCount}";
             details += $" footsteps={footstepsPresented} localSteps={movementController.LocalFootstepCount}"
                 + $" remoteSteps={movementController.RemoteFootstepCount}";
+            details += $" remoteSnapshotsSent={manager.Metrics.SnapshotPacketsSent}"
+                + $" remoteSnapshotBytes={manager.Metrics.SnapshotBytesSent}";
             Finish(passed, details);
         }
 

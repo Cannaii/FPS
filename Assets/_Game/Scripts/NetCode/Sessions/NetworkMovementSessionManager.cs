@@ -11,6 +11,7 @@ using AFPS.NetCode.Prediction;
 using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Runtime;
 using AFPS.NetCode.SnapshotInterpolation;
+using AFPS.NetCode.StateReplication;
 using AFPS.NetCode.Transport;
 using AFPS.NetCode.Weapons;
 using AFPS.Simulation.Characters;
@@ -34,7 +35,8 @@ namespace AFPS.NetCode.Sessions
         private readonly Dictionary<uint, ushort> serverDeaths = new Dictionary<uint, ushort>();
         private readonly Dictionary<uint, uint> serverRespawnTicks = new Dictionary<uint, uint>();
         private readonly Dictionary<uint, RewindHitboxHistory> rewindHistories = new Dictionary<uint, RewindHitboxHistory>();
-        private readonly Dictionary<TransportConnectionId, Dictionary<uint, RemotePlayerSnapshot>> serverSnapshotBaselines = new Dictionary<TransportConnectionId, Dictionary<uint, RemotePlayerSnapshot>>();
+        private readonly Dictionary<TransportConnectionId, Dictionary<uint, RemoteSnapshotSendState>> serverSnapshotStates =
+            new Dictionary<TransportConnectionId, Dictionary<uint, RemoteSnapshotSendState>>();
         private readonly Dictionary<TransportConnectionId, HashSet<uint>> serverVisibleEntities = new Dictionary<TransportConnectionId, HashSet<uint>>();
         private readonly Dictionary<uint, RemotePlayerSnapshot> clientSnapshotBaselines = new Dictionary<uint, RemotePlayerSnapshot>();
         private readonly List<WeaponFireResult> pendingWeaponFireResults = new List<WeaponFireResult>();
@@ -65,6 +67,9 @@ namespace AFPS.NetCode.Sessions
         private readonly uint maximumRewindTicks;
         private readonly int snapshotBudgetPerClientPerTick;
         private readonly uint fullSnapshotIntervalTicks;
+        private readonly int remoteSnapshotRate;
+        private readonly int serverTickRate;
+        private readonly Fix remoteTeleportDistanceFixed;
         private readonly List<SnapshotCandidate> snapshotCandidates = new List<SnapshotCandidate>();
         private readonly HashSet<uint> interestedEntityIds = new HashSet<uint>();
         private readonly List<uint> noLongerVisibleEntityIds = new List<uint>();
@@ -130,12 +135,14 @@ namespace AFPS.NetCode.Sessions
             public readonly uint EntityId;
             public readonly PlayerState State;
             public readonly ulong DistanceSquared;
+            public readonly bool IsUrgent;
 
-            public SnapshotCandidate(uint entityId, in PlayerState state, ulong distanceSquared)
+            public SnapshotCandidate(uint entityId, in PlayerState state, ulong distanceSquared, bool isUrgent)
             {
                 EntityId = entityId;
                 State = state;
                 DistanceSquared = distanceSquared;
+                IsUrgent = isUrgent;
             }
         }
 
@@ -173,7 +180,9 @@ namespace AFPS.NetCode.Sessions
             uint admissionTimeoutTicks = 250,
             uint admissionRetryTicks = 25,
             Func<ulong> monotonicMicroseconds = null,
-            bool isLocalPractice = false)
+            bool isLocalPractice = false,
+            // 仅远端表现复制频率，单位Hz；不改变权威模拟步长/结果，最高每Tick一包。
+            int remoteSnapshotRate = 20)
         {
             if (isLocalPractice && (!(serverTransport is LocalGameTransport) || !(clientTransport is LocalGameTransport)))
             {
@@ -289,6 +298,22 @@ namespace AFPS.NetCode.Sessions
             this.maximumRewindTicks = maximumRewindTicks;
             this.snapshotBudgetPerClientPerTick = snapshotBudgetPerClientPerTick;
             this.fullSnapshotIntervalTicks = fullSnapshotIntervalTicks;
+            if (remoteSnapshotRate <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(remoteSnapshotRate));
+            }
+            this.remoteSnapshotRate = remoteSnapshotRate;
+            serverTickRate = System.Math.Max(1, (int)System.Math.Round(1d / tickDeltaTime));
+            if (remoteTeleportDistance <= 0f || float.IsNaN(remoteTeleportDistance)
+                || float.IsInfinity(remoteTeleportDistance) || remoteTeleportDistance > Fix.MaxValue.ToDouble())
+            {
+                throw new ArgumentOutOfRangeException(nameof(remoteTeleportDistance));
+            }
+            remoteTeleportDistanceFixed = Fix.FromFloat(remoteTeleportDistance);
+            if (remoteTeleportDistanceFixed == Fix.Zero)
+            {
+                remoteTeleportDistanceFixed = Fix.Epsilon;
+            }
             this.deathmatchKillLimit = deathmatchKillLimit;
             deathmatchDurationTicks = (uint)Mathf.Max(1, Mathf.CeilToInt(deathmatchDurationSeconds / tickDeltaTime));
             deathmatchRespawnTicks = (uint)Mathf.Max(0, Mathf.CeilToInt(deathmatchRespawnSeconds / tickDeltaTime));
@@ -352,7 +377,7 @@ namespace AFPS.NetCode.Sessions
                 serverKills.Add(entityId, 0);
                 serverDeaths.Add(entityId, 0);
                 rewindHistories.Add(entityId, new RewindHitboxHistory((int)maximumRewindTicks + 2));
-                serverSnapshotBaselines.Add(connectionId, new Dictionary<uint, RemotePlayerSnapshot>());
+                serverSnapshotStates.Add(connectionId, new Dictionary<uint, RemoteSnapshotSendState>());
                 serverVisibleEntities.Add(connectionId, new HashSet<uint>());
                 SendAssignment(connectionId, entityId);
                 deathmatchStateDirty = true;
@@ -402,7 +427,7 @@ namespace AFPS.NetCode.Sessions
                 serverSessions.Remove(connectionId);
                 serverEntityIds.Remove(connectionId);
                 timeSyncResponders.Remove(connectionId);
-                serverSnapshotBaselines.Remove(connectionId);
+                serverSnapshotStates.Remove(connectionId);
                 serverVisibleEntities.Remove(connectionId);
                 recoveringConnections.Remove(connectionId);
                 recoveryTransfers.Remove(connectionId);
@@ -996,7 +1021,14 @@ namespace AFPS.NetCode.Sessions
                             // 冻结实体仍可见/受击；快照速度归零，避免远端按旧速度外推，权威Raw不变。
                             visualState.VelocityFixed = FixVec3.Zero;
                         }
-                        snapshotCandidates.Add(new SnapshotCandidate(entityId, visualState, distanceSquared));
+                        var states = serverSnapshotStates[targetPair.Key];
+                        bool hasState = states.TryGetValue(entityId, out var sendState);
+                        // 兴趣差集仍每Tick计算；未到发送时间的实体不能占用其他实体的发送预算。
+                        if (!hasState || sendState.IsDue(serverWorldTick, visualState.PositionFixed))
+                        {
+                            bool urgent = !hasState || sendState.IsUrgent(visualState.PositionFixed);
+                            snapshotCandidates.Add(new SnapshotCandidate(entityId, visualState, distanceSquared, urgent));
+                        }
                     }
                 }
 
@@ -1016,13 +1048,18 @@ namespace AFPS.NetCode.Sessions
                     if (SendDespawn(targetPair.Key, entityId))
                     {
                         visibleEntities.Remove(entityId);
-                        serverSnapshotBaselines[targetPair.Key].Remove(entityId);
+                        serverSnapshotStates[targetPair.Key].Remove(entityId);
                     }
                 }
 
                 // 预算截断前给等距离实体唯一顺序，避免字典插入顺序决定谁能收到快照。
                 snapshotCandidates.Sort((left, right) =>
                 {
+                    int urgency = right.IsUrgent.CompareTo(left.IsUrgent);
+                    if (urgency != 0)
+                    {
+                        return urgency;
+                    }
                     int comparison = left.DistanceSquared.CompareTo(right.DistanceSquared);
                     return comparison != 0 ? comparison : left.EntityId.CompareTo(right.EntityId);
                 });
@@ -1042,16 +1079,23 @@ namespace AFPS.NetCode.Sessions
             in SnapshotCandidate candidate,
             uint serverWorldTick)
         {
+            var states = serverSnapshotStates[targetConnectionId];
+            if (!states.TryGetValue(candidate.EntityId, out var sendState))
+            {
+                sendState = new RemoteSnapshotSendState(serverTickRate, remoteSnapshotRate, remoteTeleportDistanceFixed);
+                states.Add(candidate.EntityId, sendState);
+            }
+            bool teleport = sendState.HasSent && sendState.IsUrgent(candidate.State.PositionFixed);
             uint sequence = snapshotSequences.TryGetValue(candidate.EntityId, out uint lastSequence)
                 ? unchecked(lastSequence + 1) : 1;
             RemotePlayerSnapshot snapshot = new RemotePlayerSnapshot(
                 candidate.EntityId, serverWorldTick, candidate.State.PositionFixed,
                 candidate.State.YawFixedDegrees, candidate.State.PitchFixedDegrees,
-                candidate.State.VelocityFixed, isGrounded: candidate.State.IsGrounded,
+                candidate.State.VelocityFixed, isTeleport: teleport, isGrounded: candidate.State.IsGrounded,
                 isCrouched: candidate.State.IsCrouched,
                 isGrappling: candidate.State.IsGrappling, grapplePoint: candidate.State.GrapplePointFixed);
-            Dictionary<uint, RemotePlayerSnapshot> baselines = serverSnapshotBaselines[targetConnectionId];
-            bool sendFull = !baselines.TryGetValue(candidate.EntityId, out RemotePlayerSnapshot baseline)
+            RemotePlayerSnapshot baseline = sendState.FullBaseline;
+            bool sendFull = !sendState.HasSent || teleport
                 || unchecked(serverWorldTick - baseline.ServerTick) >= fullSnapshotIntervalTicks;
             int packetBytes;
             ArraySegment<byte> packet;
@@ -1078,11 +1122,7 @@ namespace AFPS.NetCode.Sessions
             if (serverTransport.Send(targetConnectionId, TransportDelivery.Unreliable, packet)
                 == TransportSendResult.Success)
             {
-                if (sendFull)
-                {
-                    // 全量 Raw 无损，直接保存原值；仅发送成功才推进基线，失败后仍重试全量。
-                    baselines[candidate.EntityId] = snapshot;
-                }
+                sendState.RecordSuccessfulSend(snapshot, sendFull);
                 Metrics.SnapshotPacketsSent++;
                 Metrics.SnapshotBytesSent += (ulong)packetBytes;
                 return true;
