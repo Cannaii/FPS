@@ -99,6 +99,8 @@ namespace AFPS.NetCode.Sessions
         /// 当前服务器侧维护的已连接玩家权威会话数量。
         /// </summary>
         public int ServerSessionCount => serverSessions.Count;
+        /// <summary>只发布实际推进的步骤；等待输入时不生成伪帧，观察者不得修改对局状态。</summary>
+        public event Action<AFPS.NetCode.Replay.AuthoritativeSimulationStep> AuthoritativeSimulationStepCompleted;
         public bool IsLocalPractice { get; }
 
         /// <summary>
@@ -595,6 +597,9 @@ namespace AFPS.NetCode.Sessions
                 if (pair.Value.TryAdvance(serverWorldTick, out _, out _))
                 {
                     advancedCount++;
+                    AuthoritativeSimulationStepCompleted?.Invoke(new AFPS.NetCode.Replay.AuthoritativeSimulationStep(
+                        entityId, serverWorldTick, pair.Value.PreviousSimulationState,
+                        pair.Value.LastAppliedInput, pair.Value.CurrentState));
                     if (pair.Value.LastWeaponFireResult.Accepted)
                     {
                         pendingWeaponFireResults.Add(pair.Value.LastWeaponFireResult);

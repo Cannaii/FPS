@@ -5,6 +5,7 @@
     [string]$OutputDirectory,
     [ValidateRange(1, 65534)][int]$BasePort = 18100,
     [ValidateRange(5000, 60000)][int]$TimeoutMilliseconds = 45000,
+    [string]$AuthorityTraceDirectory,
     [switch]$Capture
 )
 $ErrorActionPreference = 'Stop'
@@ -90,6 +91,12 @@ try
                 if ($taskSpec.Mode -ne 'Server' -or $Scenario -in @('Wall', 'Stance', 'WallRun', 'Climb', 'Grapple'))
                 {
                     $taskArguments += $taskFlags[$Scenario][0]
+                }
+                # 仅记录会自行正常退出的Host；独服由此脚本强制清理时不能生成完整页脚。
+                if ($AuthorityTraceDirectory -and $taskSpec.Mode -eq 'Host')
+                {
+                    $taskTraceRoot = if ([IO.Path]::IsPathRooted($AuthorityTraceDirectory)) { $AuthorityTraceDirectory } else { Join-Path $taskRoot $AuthorityTraceDirectory }
+                    $taskArguments += @('-afpsAuthorityTrace', (Join-Path $taskTraceRoot $Scenario))
                 }
                 $taskProcess = Start-Process $taskPlayer -WindowStyle Hidden -WorkingDirectory $taskRoot -ArgumentList $taskArguments -PassThru
                 $taskEntries += @{ Process = $taskProcess; Log = $taskLog; Mode = $taskSpec.Mode; Name = $taskSpec.Name }

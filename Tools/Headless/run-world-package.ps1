@@ -10,24 +10,8 @@ $taskPackage = if ([IO.Path]::IsPathRooted($PackagePath)) { $PackagePath } else 
 New-Item -ItemType Directory -Force -Path $taskOutput | Out-Null
 $taskReferences = Join-Path $taskEditor 'Data/MonoBleedingEdge/lib/mono/4.7.2-api'
 $taskDotnet = Join-Path $taskEditor 'Data/NetCoreRuntime/dotnet.exe'
-# 白名单只含纯定点核心与协议；不引用UnityEngine.dll，也不编译旧引擎兼容门面。
-$taskSources = @((Get-ChildItem (Join-Path $taskRoot 'Assets/_Game/Scripts/Math') -Filter '*.cs').FullName)
-$taskSources += @((Get-ChildItem (Join-Path $taskRoot 'Assets/_Game/Scripts/Simulation/World') -Filter '*.cs').FullName)
-$taskSources += @((Get-ChildItem (Join-Path $taskRoot 'Assets/_Game/Scripts/Simulation/Characters') -Filter '*.cs' |
-    Where-Object { $_.Name -notlike '*.Compatibility.cs' }).FullName)
-$taskSources += @((Get-ChildItem (Join-Path $taskRoot 'Assets/_Game/Scripts/Simulation/Weapons') -Filter '*.cs').FullName)
-$taskSources += @('CharacterCollisionConfig.cs','IFixedCharacterCollisionWorld.cs','FixedFlatGroundCollisionWorld.cs',
-    'KinematicCharacterMotor.cs','KinematicCharacterMotor.Contacts.cs','KinematicCharacterMotor.Resize.cs',
-    'FixedCharacterContacts.cs','FixedCharacterCollisionWorld.cs') | ForEach-Object {
-        Join-Path $taskRoot ('Assets/_Game/Scripts/Simulation/Characters/Collision/' + $_)
-    }
-$taskSources += @('PacketHeader.cs','PacketHeaderCodec.cs','NetworkMessageType.cs') | ForEach-Object {
-    Join-Path $taskRoot ('Assets/_Game/Scripts/NetCode/Protocol/' + $_)
-}
-$taskSources += @('InputCommandBatch.cs','InputCommandBatchCodec.cs') | ForEach-Object {
-    Join-Path $taskRoot ('Assets/_Game/Scripts/NetCode/Messages/' + $_)
-}
-$taskSources += Join-Path $taskRoot 'Assets/_Game/Scripts/NetCode/Serialization/PacketBuffer.cs'
+. (Join-Path $PSScriptRoot 'PureSimulationSources.ps1')
+$taskSources = @(Get-AfpsPureSimulationSources -ProjectRoot $taskRoot)
 $taskSources += Join-Path $PSScriptRoot 'WorldPackageProbe.cs'
 $taskArguments = @('-nologo','-langversion:9','-checked+','-optimize+','-target:exe',
     ('-out:' + (Join-Path $taskOutput 'WorldPackageProbe.exe')))

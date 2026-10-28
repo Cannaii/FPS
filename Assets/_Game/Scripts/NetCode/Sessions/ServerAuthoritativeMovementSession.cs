@@ -54,6 +54,8 @@ namespace AFPS.NetCode.Sessions
         /// 最近一次真正推进权威模拟时使用的输入。等待输入期间保持上一次的值。
         /// </summary>
         public PlayerInputCommand LastAppliedInput { get; private set; }
+        /// <summary>最近一次移动模拟的精确初态，已包含外部能力取消，供离线轨迹记录。</summary>
+        public PlayerState PreviousSimulationState { get; private set; }
         public AFPS.NetCode.Metrics.ServerStateDriftTracker StateDrift { get; }
             = new AFPS.NetCode.Metrics.ServerStateDriftTracker();
 
@@ -270,6 +272,7 @@ namespace AFPS.NetCode.Sessions
 
             ApplyWeaponSwitch(serverWorldTick, ref appliedCommand);
             LastAppliedInput = appliedCommand;
+            PreviousSimulationState = CurrentState;
             CurrentState = PlayerSimulation.Simulate(CurrentState, appliedCommand, simulationConfig, tickDeltaTime, collisionWorld);
             StateDrift.Record(CurrentState, appliedCommand);
             LastWeaponFireResult = ProcessActiveWeapon(serverWorldTick, appliedCommand);
