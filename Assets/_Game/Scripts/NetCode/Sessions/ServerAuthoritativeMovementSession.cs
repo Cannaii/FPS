@@ -18,8 +18,8 @@ namespace AFPS.NetCode.Sessions
     /// </summary>
     public sealed partial class ServerAuthoritativeMovementSession
     {
-        private readonly ServerInputCommandReceiver inputReceiver;
-        private readonly ServerAuthoritativeStateSender stateSender;
+        private ServerInputCommandReceiver inputReceiver;
+        private ServerAuthoritativeStateSender stateSender;
         private readonly PlayerSimulationConfig simulationConfig;
         private readonly Fix tickDeltaTime;
         private readonly int maxMissingInputWaitTicks;
@@ -27,8 +27,8 @@ namespace AFPS.NetCode.Sessions
         private readonly IFixedCharacterCollisionWorld collisionWorld;
         private readonly uint entityId;
         private ServerWeaponFireController weaponFireController;
-        private readonly IGameTransport weaponTransport;
-        private readonly TransportConnectionId weaponConnection;
+        private IGameTransport weaponTransport;
+        private TransportConnectionId weaponConnection;
         private readonly byte[] weaponStateBuffer = new byte[AuthoritativeWeaponStateCodec.PacketSize];
         private bool hasSentWeaponState;
         private AuthoritativeWeaponState lastSentWeaponState;
@@ -168,6 +168,11 @@ namespace AFPS.NetCode.Sessions
         /// </summary>
         public bool TryReceiveInputPacket(ArraySegment<byte> packet, out InputBatchReceiveResult result)
         {
+            if (IsRetainedOffline || RecoverySnapshotPending)
+            {
+                result = default;
+                return false;
+            }
             return inputReceiver.TryReceivePacket(packet, out result);
         }
 
@@ -186,6 +191,12 @@ namespace AFPS.NetCode.Sessions
 
             hasAdvancedServerTick = true;
             lastServerTick = serverWorldTick;
+            if (IsRetainedOffline || RecoverySnapshotPending)
+            {
+                // 恢复种子尚未完整入队时不消费输入，也不产生替代输入或重复开火。
+                LastAdvanceStatus = ServerInputAdvanceStatus.WaitingForInput;
+                return false;
+            }
             if (inputReceiver.TryDequeueNext(out PlayerInputCommand command))
             {
                 hasLastReceivedInput = true;
@@ -264,24 +275,24 @@ namespace AFPS.NetCode.Sessions
             stateSender.TrySend(authoritativeState, out sendResult);
             return true;
         }
-        private void SendWeaponState(uint serverTick, in PlayerInputCommand command)
+        private bool SendWeaponState(uint serverTick, in PlayerInputCommand command, bool force = false)
         {
             if (weaponFireController == null || entityId == 0)
             {
-                return;
+                return true;
             }
             var state = new AuthoritativeWeaponState(entityId, serverTick, command.Tick,
                 weaponFireController.Ammo, weaponFireController.Capacity,
                 weaponFireController.RemainingReloadTicks(serverTick), weaponFireController.IsEquipped,
                 weaponFireController.WeaponId, weaponFireController.IsEquipped ? RemainingEquipTicks(serverTick) : 0);
             // 动作结算（包括拒绝）必须确认；空闲基线每 10 Tick 更新，避免每帧可靠包积压。
-            if (hasSentWeaponState && !command.FirePressed && !command.ReloadPressed && !command.SwitchWeaponPressed
+            if (!force && hasSentWeaponState && !command.FirePressed && !command.ReloadPressed && !command.SwitchWeaponPressed
                 && state.Ammo == lastSentWeaponState.Ammo && state.IsReloading == lastSentWeaponState.IsReloading
                 && state.IsEquipped == lastSentWeaponState.IsEquipped
                 && state.IsEquipping == lastSentWeaponState.IsEquipping
                 && unchecked(serverTick - lastSentWeaponState.ServerTick) < 10)
             {
-                return;
+                return true;
             }
             if (AuthoritativeWeaponStateCodec.TrySerialize(state, weaponStateSequence,
                 new ArraySegment<byte>(weaponStateBuffer), out int count)
@@ -291,7 +302,9 @@ namespace AFPS.NetCode.Sessions
                 lastSentWeaponState = state;
                 hasSentWeaponState = true;
                 weaponStateSequence = unchecked(weaponStateSequence + 1);
+                return true;
             }
+            return false;
         }
     }
 }

@@ -28,9 +28,10 @@ namespace AFPS.NetCode.StateReplication
         }
 
         /// <summary>
-        /// 将最新权威状态交给不可靠有序通道；只有成功入队后才消耗包序号。
+        /// 普通确认默认走不可靠有序通道，恢复种子可显式选可靠通道；只有成功入队后才消耗包序号。
         /// </summary>
-        public bool TrySend(in AuthoritativePlayerState authoritativeState, out AuthoritativeStateSendResult result)
+        public bool TrySend(in AuthoritativePlayerState authoritativeState, out AuthoritativeStateSendResult result,
+            TransportDelivery delivery = TransportDelivery.UnreliableSequenced)
         {
             uint packetSequence = nextPacketSequence;
             if (!AuthoritativePlayerStateCodec.TrySerialize(authoritativeState, packetSequence, new ArraySegment<byte>(packetBuffer), out int packetBytes))
@@ -39,7 +40,7 @@ namespace AFPS.NetCode.StateReplication
                 return false;
             }
 
-            TransportSendResult transportResult = transport.Send(clientConnectionId, TransportDelivery.UnreliableSequenced, new ArraySegment<byte>(packetBuffer, 0, packetBytes));
+            TransportSendResult transportResult = transport.Send(clientConnectionId, delivery, new ArraySegment<byte>(packetBuffer, 0, packetBytes));
             if (transportResult == TransportSendResult.Success)
             {
                 nextPacketSequence = unchecked(nextPacketSequence + 1);
