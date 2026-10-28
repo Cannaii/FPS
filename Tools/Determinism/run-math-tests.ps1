@@ -100,6 +100,8 @@ $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/De
 }
 if ($IncludeReplication) {
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/InputReplication/AdaptiveInputWindow.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Metrics/NetworkMetricsRateSampler.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/NetworkMetricsRateSamplerTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/TimeSync/ServerRoundTripTracker.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/TimeSync/TimeSyncAcknowledgementCodec.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/AdaptiveInputWindowTests.cs'

@@ -6,6 +6,7 @@
     [ValidateRange(1, 65534)][int]$BasePort = 18100,
     [ValidateRange(5000, 60000)][int]$TimeoutMilliseconds = 45000,
     [string]$AuthorityTraceDirectory,
+    [switch]$NetworkDebug,
     [switch]$Capture
 )
 $ErrorActionPreference = 'Stop'
@@ -74,6 +75,10 @@ try
                 $taskLog = Join-Path $OutputDirectory ($Scenario.ToLowerInvariant() + '-' + $taskSpec.Name + '.log')
                 # 两工作线程/进程，并按房间串行；避免测试进程争抢主编辑器资源。
                 $taskArguments = @('-batchmode', '-job-worker-count', '2', '-logFile', $taskLog)
+                if ($NetworkDebug)
+                {
+                    $taskArguments += '-afpsNetworkDebug'
+                }
                 if ($taskRoom -eq 'Practice')
                 {
                     $taskArguments += @('-force-d3d11', '-screen-width', '1280', '-screen-height', '720')

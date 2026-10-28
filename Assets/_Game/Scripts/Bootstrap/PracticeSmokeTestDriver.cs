@@ -37,6 +37,7 @@ namespace AFPS.Bootstrap
         private bool menuCaptured;
         private double scenarioSeconds;
         private double lastScenarioUpdate;
+        private bool diagnosticsVerified;
 
         public void Configure(UnityNetworkBootstrap owner)
         {
@@ -136,12 +137,17 @@ namespace AFPS.Bootstrap
                 reloadPressed: requestReload, switchWeaponPressed: switchWeapon);
             if (elapsed >= 7d)
             {
+                bool diagnosticsRequested = Array.Exists(Environment.GetCommandLineArgs(),
+                    value => value.Equals("-afpsNetworkDebug", StringComparison.OrdinalIgnoreCase));
+                var diagnostics = movement.GetComponent<NetworkDebugPanel>();
+                diagnosticsVerified = !diagnosticsRequested || (diagnostics != null && diagnostics.IsVisible
+                    && diagnostics.DisplayedText.Contains("单人练习") && diagnostics.DisplayedText.Contains("无公网RTT"));
                 bool passed = menuClicked && bootstrap.ActiveMode == NetworkLaunchMode.Practice
                     && manager.IsLocalPractice && manager.ServerSessionCount == 1
                     && FindObjectOfType<NetworkConnectionMenu>() == null
                     && moved && jumped && rifle && automatic && reload && refilled && launcher
                     && rifleView && launcherView && reloadView && movement.PresentedShotResultCount > 0
-                    && checkedArms && singleArms;
+                    && checkedArms && singleArms && diagnosticsVerified;
                 Finish(passed);
             }
         }
@@ -153,7 +159,8 @@ namespace AFPS.Bootstrap
             Debug.Log($"[AFPS_PRACTICE_RESULT] {(passed ? "PASS" : "FAIL")} menu={menuClicked}"
                 + $" moved={moved} jumped={jumped} rifle={rifle} auto={automatic} reload={reload}"
                 + $" refilled={refilled} launcher={launcher} rifleView={rifleView}"
-                + $" launcherView={launcherView} reloadView={reloadView} singleArms={checkedArms && singleArms}");
+                + $" launcherView={launcherView} reloadView={reloadView} singleArms={checkedArms && singleArms}"
+                + $" diagnostics={diagnosticsVerified}");
             Application.Quit(passed ? 0 : 2);
         }
 
@@ -182,8 +189,11 @@ namespace AFPS.Bootstrap
 
         private static string CapturePath(string name)
         {
+            bool diagnostics = Array.Exists(Environment.GetCommandLineArgs(),
+                value => value.Equals("-afpsNetworkDebug", StringComparison.OrdinalIgnoreCase));
             string directory = System.IO.Path.Combine(Environment.CurrentDirectory,
-                "Library/AFPSVerification/Results/ChineseUI-" + Screen.width + "x" + Screen.height);
+                "Library/AFPSVerification/Results/" + (diagnostics ? "NetworkDebug-" : "ChineseUI-")
+                    + Screen.width + "x" + Screen.height);
             System.IO.Directory.CreateDirectory(directory);
             return System.IO.Path.Combine(directory, name);
         }

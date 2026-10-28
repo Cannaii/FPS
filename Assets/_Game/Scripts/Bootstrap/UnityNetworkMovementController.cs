@@ -340,6 +340,12 @@ namespace AFPS.Bootstrap
 
             Debug.Log($"AFPS 定点世界已装配：{preparedWorld.Identity.WorldHash}，配置={preparedWorld.Identity.ConfigurationHash}。", this);
             initialized = true;
+            var debugPanel = GetComponent<NetworkDebugPanel>();
+            if (debugPanel == null)
+            {
+                debugPanel = gameObject.AddComponent<NetworkDebugPanel>();
+            }
+            debugPanel.Configure(sessionManager, networkBootstrap);
             if (networkBootstrap.Runtime.ServerTransport != null && AuthorityTraceRecorder.IsRequested)
             {
                 gameObject.AddComponent<AuthorityTraceRecorder>().Configure(sessionManager);

@@ -202,13 +202,23 @@ namespace AFPS.Bootstrap
             bool adaptiveInterpolation = replicas.HasAdaptiveInterpolation
                 && manager.Metrics.RemoteInterpolationDelayTicks >= 3d
                 && manager.Metrics.RemoteInterpolationDelayTicks <= 12d;
+            var diagnostics = movementController.GetComponent<NetworkDebugPanel>();
+            bool diagnosticsReady = diagnostics != null && diagnostics.IsConfigured;
+            if (diagnosticsReady)
+            {
+                bool wasVisible = diagnostics.IsVisible;
+                diagnostics.SetVisible(true);
+                diagnosticsReady = diagnostics.DisplayedText.Contains("往返延迟")
+                    && diagnostics.DisplayedText.Contains("预测校正") && diagnostics.DisplayedText.Contains("快照");
+                diagnostics.SetVisible(wasVisible);
+            }
             bool shotPresented = movementController.PresentedShotResultCount > 0
                 && (replicas.LocalEntityId != 1 || movementController.ConfirmedLocalHitCount > 0);
             bool footstepsPresented = movementController.LocalFootstepCount > 0
                 && movementController.RemoteFootstepCount > 0;
             bool passed = hasAssignment && hasRemote && sampledRemote && moved && jumped && turned
                 && authoritativeHit && timeSynced && reloadVerified && automaticFireVerified
-                && weaponSynced && shotPresented && footstepsPresented && adaptiveInterpolation && serverQuality;
+                && weaponSynced && shotPresented && footstepsPresented && adaptiveInterpolation && serverQuality && diagnosticsReady;
             string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0}"
                 + $" remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned}"
                 + $" sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} timeSynced={timeSynced}"
@@ -226,6 +236,7 @@ namespace AFPS.Bootstrap
                 + $" serverRttSamples={manager.Metrics.ServerRoundTripSamplesReceived}"
                 + $" inputWaits={manager.Metrics.ServerInputWaits} repeatedInputs={manager.Metrics.ServerRepeatedInputTicks}"
                 + $" neutralInputs={manager.Metrics.ServerNeutralInputTicks}";
+            details += $" diagnostics={diagnosticsReady}";
             Finish(passed, details);
         }
 

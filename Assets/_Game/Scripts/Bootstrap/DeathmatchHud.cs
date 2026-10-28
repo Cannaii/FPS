@@ -43,7 +43,9 @@ namespace AFPS.Bootstrap
             }
 
             DeathmatchState match = sessionManager.ClientDeathmatchState;
-            bool visible = match != null;
+            // 诊断展开时使用独立阅读层，避免只遮住半块生命/弹药HUD；关闭后按当前对局状态恢复。
+            var diagnostics = GetComponent<NetworkDebugPanel>();
+            bool visible = match != null && (diagnostics == null || !diagnostics.IsVisible);
             if (canvas != null)
             {
                 canvas.enabled = visible;
@@ -206,7 +208,7 @@ namespace AFPS.Bootstrap
             damageDirectionText.color = new Color(1f, 0.25f, 0.18f);
             rejectionText = CreateText(root.transform, "", 23f, TextAlignmentOptions.Center,
                 new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 130f), new Vector2(700f, 50f));
-            CreateText(root.transform, "Shift 冲刺   Alt 突进   空格 跳跃/双跳   Ctrl 下蹲/滑铲   E 蹬墙反弹   右键/F 钩索", 20f,
+            CreateText(root.transform, "Shift 冲刺   Alt 突进   空格 跳跃/双跳   Ctrl 下蹲/滑铲   E 蹬墙反弹   右键/F 钩索   F3 网络诊断", 20f,
                 TextAlignmentOptions.Center, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                 new Vector2(0f, 24f), new Vector2(1500f, 42f));
         }

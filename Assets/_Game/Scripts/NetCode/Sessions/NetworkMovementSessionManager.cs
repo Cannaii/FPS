@@ -104,6 +104,8 @@ namespace AFPS.NetCode.Sessions
         /// 当前服务器侧维护的已连接玩家权威会话数量。
         /// </summary>
         public int ServerSessionCount => serverSessions.Count;
+        public bool IsServerRunning => serverTransport != null && serverTransport.IsRunning;
+        public bool IsClientRunning => clientTransport != null && clientTransport.IsRunning;
         /// <summary>只发布实际推进的步骤；等待输入时不生成伪帧，观察者不得修改对局状态。</summary>
         public event Action<AFPS.NetCode.Replay.AuthoritativeSimulationStep> AuthoritativeSimulationStepCompleted;
         public bool IsLocalPractice { get; }
@@ -669,6 +671,27 @@ namespace AFPS.NetCode.Sessions
         }
 
         public bool TryGetServerSession(TransportConnectionId connectionId, out ServerAuthoritativeMovementSession session) => serverSessions.TryGetValue(connectionId, out session);
+
+        /// <summary>复制当前在线连接诊断，按实体排序；不消费输入、不暴露凭据，调用方复用列表。</summary>
+        public void CopyServerDiagnostics(List<ServerConnectionDiagnostics> destination)
+        {
+            if (destination == null)
+            {
+                throw new ArgumentNullException(nameof(destination));
+            }
+            destination.Clear();
+            if (!IsServerRunning)
+            {
+                return;
+            }
+            foreach (var pair in serverSessions)
+            {
+                bool fresh = TryGetServerNetworkQuality(pair.Key, out double rtt, out double jitter);
+                destination.Add(new ServerConnectionDiagnostics(serverEntityIds[pair.Key], pair.Value.CurrentState.Tick,
+                    fresh, rtt, jitter, pair.Value.InputWaitLimitTicks, pair.Value.RepeatedMovementLimitTicks));
+            }
+            destination.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
 
         public bool TryGetServerEntityId(TransportConnectionId connectionId, out uint entityId) => serverEntityIds.TryGetValue(connectionId, out entityId);
 
