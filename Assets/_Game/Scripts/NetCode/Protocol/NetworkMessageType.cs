@@ -22,6 +22,9 @@ namespace AFPS.NetCode.Protocol
         AuthoritativeWeaponState = 14,
         ShotRejection = 15,
         SessionResumeGrant = 16,
-        SessionResumeRequest = 17
+        SessionResumeRequest = 17,
+        SessionRecoverySeed = 18,
+        SessionRecoveryAck = 19,
+        SessionRecoveryConfirmed = 20
     }
 }

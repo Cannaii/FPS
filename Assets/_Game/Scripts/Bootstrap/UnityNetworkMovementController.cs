@@ -502,7 +502,7 @@ namespace AFPS.Bootstrap
             }
 
             ClientPredictedMovementSession clientSession = sessionManager.ClientSession;
-            if (clientSession != null)
+            if (clientSession != null && sessionManager.CanPredictClientInput)
             {
                 uint inputTick = unchecked(clientSession.CurrentState.Tick + 1);
                 if (sessionManager.ClientWeapon.HasState && inputWeaponId != sessionManager.ClientWeapon.State.WeaponId)
@@ -558,7 +558,16 @@ namespace AFPS.Bootstrap
                 }
             }
 
+            bool wasRecovering = sessionManager.ClientRecoveryPending;
+            if (wasRecovering)
+            {
+                inputCollector.DiscardPendingActions();
+            }
             sessionManager.AdvanceServerSessions(serverWorldTick);
+            if (wasRecovering && sessionManager.ClientSession != null && playerView != null)
+            {
+                playerView.ApplyState(sessionManager.ClientSession.CurrentState);
+            }
             RefreshClientAdmission();
         }
 
@@ -642,6 +651,10 @@ namespace AFPS.Bootstrap
                 }
                 if (client != null && playerView != null)
                 {
+                    if (sessionManager.ClientRecoveryPending)
+                    {
+                        inputCollector.RestoreShotSequence(sessionManager.ClientShotSequenceFloor);
+                    }
                     playerView.SnapToState(client.CurrentState);
                     inputCollector.SetLookAngles(client.CurrentState.Yaw, client.CurrentState.Pitch);
                 }
@@ -734,7 +747,7 @@ namespace AFPS.Bootstrap
 
         private bool IsLocalGameplayActive()
         {
-            if (!CanEnterGame)
+            if (!CanEnterGame || !sessionManager.CanPredictClientInput)
             {
                 return false;
             }

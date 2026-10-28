@@ -423,6 +423,8 @@ namespace AFPS.Tests.EditMode
 
         internal sealed class Pair
         {
+            internal TransportConnectionId ActiveServerId = ServerId;
+            internal TransportConnectionId ActiveClientId = ClientId;
             internal readonly FakeTransport ServerTransport = new FakeTransport(TransportRole.Server);
             internal readonly FakeTransport ClientTransport = new FakeTransport(TransportRole.Client);
             internal readonly NetworkMovementSessionManager Server;
@@ -450,10 +452,10 @@ namespace AFPS.Tests.EditMode
             }
 
             internal void RouteClient() => Server.TryHandleData(
-                NetworkTransportSide.Server, ServerId, ClientTransport.Pending.Dequeue().Data, out _);
+                NetworkTransportSide.Server, ActiveServerId, ClientTransport.Pending.Dequeue().Data, out _);
 
             internal void RouteServer() => Client.TryHandleData(
-                NetworkTransportSide.Client, ClientId, ServerTransport.Pending.Dequeue().Data, out _);
+                NetworkTransportSide.Client, ActiveClientId, ServerTransport.Pending.Dequeue().Data, out _);
 
             internal void Flush()
             {

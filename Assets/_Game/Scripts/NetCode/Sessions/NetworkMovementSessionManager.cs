@@ -302,7 +302,7 @@ namespace AFPS.NetCode.Sessions
                     CreateConnectedSession, RemoveConnectedSession,
                     () => RemotePlayers != null && RemotePlayers.LocalEntityId != 0,
                     ResendSessionAssignment, admissionTimeoutTicks, admissionRetryTicks,
-                    RestoreServerSession, SendResumeGrant, ReceiveResumeGrant);
+                    RestoreServerSession, SendResumeGrant, ReceiveResumeGrant, () => ClientResumeCredential);
             }
         }
 
@@ -365,6 +365,8 @@ namespace AFPS.NetCode.Sessions
             ResetClientShotResults();
             hasWeaponStateSequence = false;
             clientConnectionId = connectionId;
+            clientRecoveryConfirmed = false;
+            clientRecoveryEpoch = 0;
             ResetClientTimeSync(connectionId);
             ClientSession = new ClientPredictedMovementSession(
                 clientTransport, connectionId, clientInitialState, simulationConfig, tickDeltaTime,
@@ -399,6 +401,7 @@ namespace AFPS.NetCode.Sessions
                 serverSnapshotBaselines.Remove(connectionId);
                 serverVisibleEntities.Remove(connectionId);
                 recoveringConnections.Remove(connectionId);
+                recoveryTransfers.Remove(connectionId);
                 recoveringEntityIds.Remove(entityId);
                 if (!retained)
                 {
@@ -413,6 +416,7 @@ namespace AFPS.NetCode.Sessions
                 return false;
             }
 
+            CaptureClientRecoveryInputs();
             ClientWeapon.Clear();
             ResetClientShotResults();
             hasWeaponStateSequence = false;
@@ -440,6 +444,10 @@ namespace AFPS.NetCode.Sessions
 
             if (side == NetworkTransportSide.Server)
             {
+                if (header.MessageType == NetworkMessageType.SessionRecoveryAck)
+                {
+                    return ReceiveRecoveryAck(connectionId, packet);
+                }
                 if (header.MessageType == NetworkMessageType.InputCommandBatch
                     && recoveringConnections.ContainsKey(connectionId))
                 {
@@ -463,9 +471,17 @@ namespace AFPS.NetCode.Sessions
 
             switch (header.MessageType)
             {
+                case NetworkMessageType.SessionRecoverySeed:
+                    return ReceiveRecoverySeed(packet);
+                case NetworkMessageType.SessionRecoveryConfirmed:
+                    return ReceiveRecoveryConfirmed(packet);
                 case NetworkMessageType.ShotRejection:
                     return ReceiveShotRejection(packet);
                 case NetworkMessageType.AuthoritativeWeaponState:
+                    if (ClientRecoveryPending)
+                    {
+                        return false;
+                    }
                     if (!AuthoritativeWeaponStateCodec.TryDeserialize(packet, out var weaponHeader, out var weaponState)
                         || RemotePlayers == null || weaponState.EntityId != RemotePlayers.LocalEntityId
                         || !IsCompatibleWeaponState(weaponState)
@@ -480,6 +496,10 @@ namespace AFPS.NetCode.Sessions
                 case NetworkMessageType.TimeSyncResponse:
                     return ReceiveTimeSync(packet);
                 case NetworkMessageType.AuthoritativePlayerState:
+                    if (ClientRecoveryPending)
+                    {
+                        return false;
+                    }
                     bool handled = ClientSession != null && ClientSession.TryReceiveAuthoritativePacket(packet, out _, out reconciliationResult);
                     if (handled && reconciliationResult.Status == ReconciliationStatus.Corrected) Metrics.CorrectionsApplied++;
                     return handled;
@@ -529,7 +549,7 @@ namespace AFPS.NetCode.Sessions
         /// </summary>
         public bool TryPredictAndSend(in PlayerInputCommand command, out PlayerState state, out InputBatchSendResult sendResult)
         {
-            if (ClientSession == null)
+            if (!CanPredictClientInput)
             {
                 state = default;
                 sendResult = default;
@@ -550,6 +570,7 @@ namespace AFPS.NetCode.Sessions
             // 普通 Client 也调用此入口推进准入时钟；等待握手时不存在预测会话。
             admission?.Advance(serverWorldTick);
             latestServerWorldTick = serverWorldTick;
+            AdvanceClientRecovery();
             ExpireRetainedSessions();
             AdvanceRecoveringConnections();
             int advancedCount = 0;

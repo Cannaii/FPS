@@ -229,6 +229,28 @@ namespace AFPS.Input
             return sequence;
         }
 
+        /// <summary>恢复后从服务器与本地缓存共同确认的最大射击序号续接；允许uint回绕，零保留。</summary>
+        public void RestoreShotSequence(uint lastObservedSequence)
+        {
+            nextShotSequence = unchecked(lastObservedSequence + 1);
+            if (nextShotSequence == 0)
+            {
+                nextShotSequence = 1;
+            }
+            hasAutomaticShot = false;
+            DiscardPendingActions();
+        }
+
+        public void DiscardPendingActions()
+        {
+            jumpPressedSinceLastTick = false;
+            firePressedSinceLastTick = false;
+            reloadPressedSinceLastTick = false;
+            switchWeaponSinceLastTick = false;
+            dashPressedSinceLastTick = false;
+            wallBouncePressedSinceLastTick = false;
+        }
+
         private static Vector2 ReadKeyboardMove()
         {
             if (Keyboard.current == null)

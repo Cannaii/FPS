@@ -54,6 +54,7 @@ namespace AFPS.NetCode.Sessions
         private readonly Func<TransportConnectionId, SessionResumeCredential, bool> resumeSession;
         private readonly Action<TransportConnectionId, uint> sendResumeGrant;
         private readonly Func<uint, SessionResumeCredential, bool> receiveResumeGrant;
+        private readonly Func<SessionResumeCredential> getClientCredential;
         private readonly uint timeoutTicks;
         private readonly uint retryTicks;
         private readonly Dictionary<TransportConnectionId, Connection> serverConnections = new Dictionary<TransportConnectionId, Connection>();
@@ -66,6 +67,13 @@ namespace AFPS.NetCode.Sessions
 
         internal ConnectionAdmissionStatus ClientStatus { get; private set; }
         internal SimulationWorldIdentity? ExpectedServerIdentity { get; private set; }
+        internal uint ClientAttempt => client?.Attempt ?? 0;
+        internal bool ClientIsResuming => client != null && client.ResumeCredential.IsValid;
+
+        internal uint ServerAttempt(TransportConnectionId connectionId)
+        {
+            return serverConnections.TryGetValue(connectionId, out var connection) ? connection.Attempt : 0;
+        }
 
         internal SimulationSessionAdmission(
             SimulationWorldIdentity identity,
@@ -79,7 +87,8 @@ namespace AFPS.NetCode.Sessions
             uint retryTicks,
             Func<TransportConnectionId, SessionResumeCredential, bool> resumeSession,
             Action<TransportConnectionId, uint> sendResumeGrant,
-            Func<uint, SessionResumeCredential, bool> receiveResumeGrant)
+            Func<uint, SessionResumeCredential, bool> receiveResumeGrant,
+            Func<SessionResumeCredential> getClientCredential)
         {
             // 时间单位为本地模拟 Tick；窗口小于半个 uint 周期，以保证回绕后的差值无歧义。
             if (timeoutTicks == 0 || timeoutTicks > int.MaxValue || retryTicks == 0 || retryTicks >= timeoutTicks)
@@ -99,6 +108,7 @@ namespace AFPS.NetCode.Sessions
             this.resumeSession = resumeSession;
             this.sendResumeGrant = sendResumeGrant;
             this.receiveResumeGrant = receiveResumeGrant;
+            this.getClientCredential = getClientCredential;
         }
 
         internal bool HandleConnected(NetworkTransportSide side, TransportConnectionId id)
@@ -131,7 +141,11 @@ namespace AFPS.NetCode.Sessions
                 return false;
             }
 
-            client = new Connection(id, currentTick) { Attempt = nextAttempt };
+            client = new Connection(id, currentTick)
+            {
+                Attempt = nextAttempt,
+                ResumeCredential = getClientCredential()
+            };
             nextAttempt = unchecked(nextAttempt + 1);
             if (nextAttempt == 0)
             {
@@ -447,6 +461,19 @@ namespace AFPS.NetCode.Sessions
 
         private void SendHello()
         {
+            if (client.ResumeCredential.IsValid)
+            {
+                client.LastSendTick = currentTick;
+                client.HasSent = true;
+                byte[] buffer = new byte[SessionResumeCodec.RequestPacketSize];
+                if (SessionResumeCodec.TryWriteRequest(identity, client.ResumeCredential, client.Attempt,
+                    new ArraySegment<byte>(buffer), out int count))
+                {
+                    clientTransport.Send(client.Id, TransportDelivery.ReliableSequenced,
+                        new ArraySegment<byte>(buffer, 0, count));
+                }
+                return;
+            }
             Send(clientTransport, client, NetworkMessageType.SimulationHello, SimulationCompatibility.Compatible);
         }
 

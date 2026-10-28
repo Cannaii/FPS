@@ -24,10 +24,24 @@ namespace AFPS.NetCode.Sessions
         private readonly List<uint> expiredRetainedEntities = new List<uint>();
         private readonly List<TransportConnectionId> expiredRecoveryConnections = new List<TransportConnectionId>();
         private readonly byte[] resumeGrantBuffer = new byte[SessionResumeCodec.GrantPacketSize];
+        private readonly Dictionary<TransportConnectionId, RecoveryTransfer> recoveryTransfers
+            = new Dictionary<TransportConnectionId, RecoveryTransfer>();
+        private uint nextRecoveryEpoch = 1;
+
+        private sealed class RecoveryTransfer
+        {
+            internal uint Epoch;
+            internal SessionRecoverySeed Seed;
+            internal byte[] Packet;
+            internal bool HasSent;
+            internal uint LastSendTick;
+            internal ushort Deaths;
+            internal AFPS.NetCode.Match.DeathmatchPhase Phase;
+        }
 
         public int RetainedServerSessionCount => retainedSessions.Count;
 
-        /// <summary>仅当前管理器内存保存；11C接客户端重试前不会自动发送恢复请求，禁止记录原文。</summary>
+        /// <summary>仅当前管理器内存保存；新连接用此凭据恢复，禁止记录原文。</summary>
         public SessionResumeCredential ClientResumeCredential { get; private set; }
 
         public bool IsServerRecoveryPending(TransportConnectionId connectionId)
@@ -44,6 +58,7 @@ namespace AFPS.NetCode.Sessions
                 return false;
             }
             ClientResumeCredential = credential;
+            clientResumeEntityId = entityId;
             return true;
         }
 
@@ -92,6 +107,86 @@ namespace AFPS.NetCode.Sessions
             {
                 session.TrySendRecoverySnapshot(latestServerWorldTick, out _);
             }
+            if (!recoveryTransfers.TryGetValue(connectionId, out var transfer)
+                || !IsCurrentRecoveryTransfer(transfer, session))
+            {
+                // 等待期间可能死亡/重生；Raw改变后生成新世代，旧ACK不能打开新状态的门禁。
+                uint epoch = nextRecoveryEpoch;
+                nextRecoveryEpoch = unchecked(nextRecoveryEpoch + 1);
+                if (nextRecoveryEpoch == 0)
+                {
+                    nextRecoveryEpoch = 1;
+                }
+                var seed = session.CreateRecoverySeed(admission.ServerAttempt(connectionId), latestServerWorldTick);
+                byte[] packet = new byte[SessionRecoveryCodec.SeedPacketSize];
+                if (!SessionRecoveryCodec.TryWriteSeed(seed, epoch, new ArraySegment<byte>(packet), out _))
+                {
+                    return;
+                }
+                transfer = new RecoveryTransfer
+                {
+                    Epoch = epoch,
+                    Seed = seed,
+                    Packet = packet,
+                    Deaths = serverDeaths[session.EntityId],
+                    Phase = deathmatchPhase
+                };
+                recoveryTransfers[connectionId] = transfer;
+            }
+            if (!transfer.HasSent || unchecked(latestServerWorldTick - transfer.LastSendTick) >= 25)
+            {
+                // 同世代重试复用原字节，不能让重复种子把客户端反复回滚。
+                if (SendAssignment(connectionId, session.EntityId)
+                    && serverTransport.Send(connectionId, TransportDelivery.ReliableSequenced,
+                        new ArraySegment<byte>(transfer.Packet)) == TransportSendResult.Success)
+                {
+                    transfer.HasSent = true;
+                    transfer.LastSendTick = latestServerWorldTick;
+                }
+            }
+        }
+
+        private bool ReceiveRecoveryAck(TransportConnectionId connectionId, ArraySegment<byte> packet)
+        {
+            if (!SessionRecoveryCodec.TryReadReceipt(packet, NetworkMessageType.SessionRecoveryAck,
+                    out uint attempt, out uint epoch, out uint entityId)
+                || !recoveryTransfers.TryGetValue(connectionId, out var transfer) || !transfer.HasSent
+                || transfer.Epoch != epoch || transfer.Seed.Attempt != attempt || transfer.Seed.EntityId != entityId
+                || !serverSessions.TryGetValue(connectionId, out var session))
+            {
+                return false;
+            }
+            if (recoveringConnections.ContainsKey(connectionId))
+            {
+                if (session.RecoverySnapshotPending || !IsCurrentRecoveryTransfer(transfer, session))
+                {
+                    TrySendRecoverySeed(connectionId, session);
+                    return false;
+                }
+                recoveringConnections.Remove(connectionId);
+                recoveringEntityIds.Remove(entityId);
+            }
+            // 已放行后的重复ACK只重发确认；不能再次创建、重置或补发旧种子。
+            SendRecoveryReceipt(serverTransport, connectionId, NetworkMessageType.SessionRecoveryConfirmed,
+                attempt, epoch, entityId);
+            return true;
+        }
+
+        private bool IsCurrentRecoveryTransfer(RecoveryTransfer transfer, ServerAuthoritativeMovementSession session)
+        {
+            // 在同出生点立即重生时Raw可能完全相同；生命计数和对局阶段也必须属于当前世代。
+            return transfer.Seed.Movement.State.RawEquals(session.CurrentState)
+                && transfer.Deaths == serverDeaths[session.EntityId] && transfer.Phase == deathmatchPhase;
+        }
+
+        private static bool SendRecoveryReceipt(IGameTransport transport, TransportConnectionId connection,
+            NetworkMessageType type, uint attempt, uint epoch, uint entityId)
+        {
+            byte[] buffer = new byte[SessionRecoveryCodec.ReceiptPacketSize];
+            return SessionRecoveryCodec.TryWriteReceipt(type, attempt, epoch, entityId,
+                new ArraySegment<byte>(buffer), out int count)
+                && transport.Send(connection, TransportDelivery.ReliableSequenced,
+                    new ArraySegment<byte>(buffer, 0, count)) == TransportSendResult.Success;
         }
 
         private void AdvanceRecoveringConnections()

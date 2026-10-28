@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using AFPS.Math;
 using AFPS.Core.Collections;
 using AFPS.NetCode.InputReplication;
@@ -31,6 +32,20 @@ namespace AFPS.NetCode.Sessions
         public PlayerState CurrentState { get; private set; }
         /// <summary>最近通过包序号校验的权威完整状态，用于诊断；不含客户端重放产生的后续状态。</summary>
         public PlayerState LastAuthoritativeState { get; private set; }
+
+        /// <summary>只在断线边界复制最多32条连续输入；缺失历史时停止，不能跨缺口补造命令。</summary>
+        internal List<PlayerInputCommand> CaptureRecoveryInputs()
+        {
+            var result = new List<PlayerInputCommand>();
+            uint tick = CurrentState.Tick;
+            for (int i = 0; i < 32 && inputHistory.TryGet(tick, out var command); i++)
+            {
+                result.Add(command);
+                tick = unchecked(tick - 1);
+            }
+            result.Reverse();
+            return result;
+        }
 
         public ClientPredictedMovementSession(
             IGameTransport transport,

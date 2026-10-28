@@ -20,6 +20,17 @@ namespace AFPS.NetCode.Sessions
             IsRetainedOffline = true;
         }
 
+        internal SessionRecoverySeed CreateRecoverySeed(uint attempt, uint worldTick)
+        {
+            var movement = new AuthoritativePlayerState(worldTick, CurrentState.Tick, CurrentState);
+            var weapon = new AFPS.NetCode.Weapons.AuthoritativeWeaponState(entityId, worldTick, CurrentState.Tick,
+                weaponFireController.Ammo, weaponFireController.Capacity,
+                weaponFireController.RemainingReloadTicks(worldTick), weaponFireController.IsEquipped,
+                weaponFireController.WeaponId, weaponFireController.IsEquipped ? RemainingEquipTicks(worldTick) : 0);
+            return new SessionRecoverySeed(attempt, entityId, LastObservedShotSequence, movement, weapon,
+                (uint)System.Math.Min(32, inputReceiver.WindowCapacity));
+        }
+
         /// <summary>
         /// 服务器内部迁移入口。调用者必须先完成恢复身份认证和世界准入，不能直接信任网络传来的实体ID。
         /// 不重建玩家、武器或计时器；只更换输出连接并丢弃旧输入窗口，等待客户端补发未确认输入。
