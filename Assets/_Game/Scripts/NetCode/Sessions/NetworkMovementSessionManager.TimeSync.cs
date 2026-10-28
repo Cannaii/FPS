@@ -21,6 +21,7 @@ namespace AFPS.NetCode.Sessions
         private ulong lastTimeSyncResponse;
         private bool hasTimeSyncAttempt;
         private bool hasTimeSyncResponse;
+        private readonly byte[] timeSyncAcknowledgementBuffer = new byte[TimeSyncAcknowledgementCodec.PacketSize];
 
         public bool HasTimeSync => clientTimeSync != null && hasTimeSyncResponse
             && unchecked(timeSyncClock() - lastTimeSyncResponse) <= TimeSyncExpiryMicroseconds;
@@ -82,6 +83,44 @@ namespace AFPS.NetCode.Sessions
             lastTimeSyncResponse = now;
             hasTimeSyncResponse = true;
             UpdateRemoteInterpolation(now);
+            // 只确认通过现有请求匹配/时钟校验的响应；ACK失败不回滚客户端采样，下一周期重新测量。
+            if (AFPS.NetCode.Protocol.PacketHeaderCodec.TryRead(packet, out var header)
+                && TimeSyncAcknowledgementCodec.TrySerialize(header.Sequence,
+                    new ArraySegment<byte>(timeSyncAcknowledgementBuffer), out int bytes)
+                && clientTransport.Send(clientConnectionId, TransportDelivery.Unreliable,
+                    new ArraySegment<byte>(timeSyncAcknowledgementBuffer, 0, bytes)) == TransportSendResult.Success)
+            {
+                Metrics.TimeSyncAcknowledgementsSent++;
+            }
+            return true;
+        }
+
+        private bool ReceiveTimeSyncAcknowledgement(TransportConnectionId connection, ArraySegment<byte> packet)
+        {
+            if (!serverSessions.TryGetValue(connection, out var session)
+                || !timeSyncResponders.TryGetValue(connection, out var responder)
+                || !TimeSyncAcknowledgementCodec.TryDeserialize(packet, out uint sequence)
+                || !responder.RoundTrip.TryAcknowledge(sequence, timeSyncClock()))
+            {
+                return false;
+            }
+            session.ObserveNetworkQuality(responder.RoundTrip.RoundTripMilliseconds, responder.RoundTrip.JitterMilliseconds);
+            Metrics.ServerRoundTripSamplesReceived++;
+            return true;
+        }
+
+        public bool TryGetServerNetworkQuality(TransportConnectionId connection, out double rttMilliseconds,
+            out double jitterMilliseconds)
+        {
+            rttMilliseconds = 0d;
+            jitterMilliseconds = 0d;
+            if (!timeSyncResponders.TryGetValue(connection, out var responder)
+                || !responder.RoundTrip.HasFreshSample(timeSyncClock()))
+            {
+                return false;
+            }
+            rttMilliseconds = responder.RoundTrip.RoundTripMilliseconds;
+            jitterMilliseconds = responder.RoundTrip.JitterMilliseconds;
             return true;
         }
 
@@ -104,6 +143,7 @@ namespace AFPS.NetCode.Sessions
             hasTimeSyncResponse = false;
             Metrics.TimeSyncRequestsSent = 0;
             Metrics.TimeSyncResponsesReceived = 0;
+            Metrics.TimeSyncAcknowledgementsSent = 0;
             Metrics.LastNetworkRoundTripMilliseconds = 0;
             Metrics.RoundTripJitterMilliseconds = 0;
             // 新连接/恢复连接从基础延迟与新显示世代开始，不继承旧链路的缓冲和播放时钟。

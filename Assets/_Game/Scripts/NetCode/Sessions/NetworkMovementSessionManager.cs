@@ -373,6 +373,7 @@ namespace AFPS.NetCode.Sessions
                     collisionWorld, entityId, weaponConfig, WorldContext?.CollisionWorld));
                 serverEntityIds.Add(connectionId, entityId);
                 allServerSessions.Add(entityId, serverSessions[connectionId]);
+                serverSessions[connectionId].EnableAdaptiveInputWindow(serverTickRate);
                 serverSessions[connectionId].StateDrift.Compared += OnStateHashCompared;
                 timeSyncResponders[connectionId] = new AFPS.NetCode.TimeSync.ServerTimeSyncResponder(serverTransport, connectionId);
                 serverHealth.Add(entityId, Fix.FromInt(100));
@@ -496,6 +497,10 @@ namespace AFPS.NetCode.Sessions
                     return responder.TryRespond(packet, received, timeSyncClock(),
                         timeSyncWorldTick, timeSyncTickAlpha, out _);
                 }
+                if (header.MessageType == NetworkMessageType.TimeSyncAcknowledgement)
+                {
+                    return ReceiveTimeSyncAcknowledgement(connectionId, packet);
+                }
                 return header.MessageType == NetworkMessageType.InputCommandBatch && serverSessions.TryGetValue(connectionId, out ServerAuthoritativeMovementSession serverSession) && serverSession.TryReceiveInputPacket(packet, out _);
             }
 
@@ -611,6 +616,7 @@ namespace AFPS.NetCode.Sessions
             AdvanceRecoveringConnections();
             int advancedCount = 0;
             UpdateDeathmatchBeforeSimulation(serverWorldTick);
+            ulong networkQualityNow = timeSyncClock();
             pendingWeaponFireResults.Clear();
             foreach (KeyValuePair<TransportConnectionId, ServerAuthoritativeMovementSession> pair in serverSessions)
             {
@@ -621,6 +627,11 @@ namespace AFPS.NetCode.Sessions
                 }
                 pair.Value.GameplayEnabled = deathmatchPhase != DeathmatchPhase.Finished && IsServerPlayerAlive(entityId);
                 pair.Value.WeaponEnabled = deathmatchPhase == DeathmatchPhase.Playing && IsServerPlayerAlive(entityId);
+                if (!timeSyncResponders.TryGetValue(pair.Key, out var responder)
+                    || !responder.RoundTrip.HasFreshSample(networkQualityNow))
+                {
+                    pair.Value.ResetNetworkQuality();
+                }
                 if (pair.Value.TryAdvance(serverWorldTick, out _, out _))
                 {
                     advancedCount++;
@@ -631,6 +642,18 @@ namespace AFPS.NetCode.Sessions
                     {
                         pendingWeaponFireResults.Add(pair.Value.LastWeaponFireResult);
                     }
+                }
+                switch (pair.Value.LastAdvanceStatus)
+                {
+                    case ServerInputAdvanceStatus.WaitingForInput:
+                        Metrics.ServerInputWaits++;
+                        break;
+                    case ServerInputAdvanceStatus.RepeatedContinuousInput:
+                        Metrics.ServerRepeatedInputTicks++;
+                        break;
+                    case ServerInputAdvanceStatus.NeutralFallback:
+                        Metrics.ServerNeutralInputTicks++;
+                        break;
                 }
             }
 

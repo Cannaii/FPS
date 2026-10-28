@@ -99,6 +99,10 @@ $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/De
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/TriangleWorldTests.cs'
 }
 if ($IncludeReplication) {
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/InputReplication/AdaptiveInputWindow.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/TimeSync/ServerRoundTripTracker.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/TimeSync/TimeSyncAcknowledgementCodec.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/AdaptiveInputWindowTests.cs'
     # Exclude UnityFacade so DTO and Raw codecs compile without engine references in checked mode.
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/SnapshotInterpolation/RemotePlayerSnapshot.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/SnapshotInterpolation/AdaptiveInterpolationClock.cs'

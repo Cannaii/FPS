@@ -197,6 +197,8 @@ namespace AFPS.Bootstrap
                 && manager.ClientWeapon.Ammo == manager.ClientWeapon.State.Ammo
                 && (replicas.LocalEntityId != 1 || ownerReloadObserved);
             bool timeSynced = manager.HasTimeSync && manager.Metrics.TimeSyncResponsesReceived >= 2;
+            bool serverQuality = manager.Metrics.TimeSyncAcknowledgementsSent >= 2
+                && (manager.ServerSessionCount == 0 || manager.Metrics.ServerRoundTripSamplesReceived >= 2);
             bool adaptiveInterpolation = replicas.HasAdaptiveInterpolation
                 && manager.Metrics.RemoteInterpolationDelayTicks >= 3d
                 && manager.Metrics.RemoteInterpolationDelayTicks <= 12d;
@@ -206,7 +208,7 @@ namespace AFPS.Bootstrap
                 && movementController.RemoteFootstepCount > 0;
             bool passed = hasAssignment && hasRemote && sampledRemote && moved && jumped && turned
                 && authoritativeHit && timeSynced && reloadVerified && automaticFireVerified
-                && weaponSynced && shotPresented && footstepsPresented && adaptiveInterpolation;
+                && weaponSynced && shotPresented && footstepsPresented && adaptiveInterpolation && serverQuality;
             string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0}"
                 + $" remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned}"
                 + $" sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} timeSynced={timeSynced}"
@@ -220,6 +222,10 @@ namespace AFPS.Bootstrap
             details += $" adaptiveInterpolation={adaptiveInterpolation}"
                 + $" interpolationTicks={manager.Metrics.RemoteInterpolationDelayTicks:F3}"
                 + $" targetInterpolationTicks={manager.Metrics.TargetRemoteInterpolationDelayTicks:F3}";
+            details += $" serverQuality={serverQuality} timeSyncAcks={manager.Metrics.TimeSyncAcknowledgementsSent}"
+                + $" serverRttSamples={manager.Metrics.ServerRoundTripSamplesReceived}"
+                + $" inputWaits={manager.Metrics.ServerInputWaits} repeatedInputs={manager.Metrics.ServerRepeatedInputTicks}"
+                + $" neutralInputs={manager.Metrics.ServerNeutralInputTicks}";
             Finish(passed, details);
         }
 

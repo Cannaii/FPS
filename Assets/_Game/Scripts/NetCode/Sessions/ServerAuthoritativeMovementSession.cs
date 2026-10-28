@@ -24,6 +24,22 @@ namespace AFPS.NetCode.Sessions
         private readonly Fix tickDeltaTime;
         private readonly int maxMissingInputWaitTicks;
         private readonly int maxRepeatedMovementTicks;
+        private AdaptiveInputWindow adaptiveInputWindow;
+        public int InputWaitLimitTicks => adaptiveInputWindow?.WaitTicks ?? maxMissingInputWaitTicks;
+        public int RepeatedMovementLimitTicks => adaptiveInputWindow?.RepeatTicks ?? maxRepeatedMovementTicks;
+
+        internal void EnableAdaptiveInputWindow(int tickRate)
+        {
+            adaptiveInputWindow = new AdaptiveInputWindow(tickRate, maxMissingInputWaitTicks,
+                maxRepeatedMovementTicks, inputReceiver.WindowCapacity);
+        }
+
+        internal void ObserveNetworkQuality(double rttMilliseconds, double jitterMilliseconds)
+        {
+            adaptiveInputWindow?.Observe(rttMilliseconds, jitterMilliseconds);
+        }
+
+        internal void ResetNetworkQuality() => adaptiveInputWindow?.Reset();
         private readonly IFixedCharacterCollisionWorld collisionWorld;
         private readonly uint entityId;
         private ServerWeaponFireController weaponFireController;
@@ -38,6 +54,7 @@ namespace AFPS.NetCode.Sessions
         private uint lastServerTick;
         private int missingInputWaitTicks;
         private int consecutiveSubstitutedInputTicks;
+        private bool neutralFallbackLatched;
         private PlayerInputCommand lastReceivedInput;
 
         /// <summary>
@@ -208,11 +225,12 @@ namespace AFPS.NetCode.Sessions
                 lastReceivedInput = command;
                 missingInputWaitTicks = 0;
                 consecutiveSubstitutedInputTicks = 0;
+                neutralFallbackLatched = false;
                 LastAdvanceStatus = ServerInputAdvanceStatus.ReceivedInput;
                 return SimulateAndSend(serverWorldTick, command, out authoritativeState, out sendResult);
             }
 
-            if (missingInputWaitTicks < maxMissingInputWaitTicks)
+            if (missingInputWaitTicks < InputWaitLimitTicks)
             {
                 missingInputWaitTicks++;
                 LastAdvanceStatus = ServerInputAdvanceStatus.WaitingForInput;
@@ -224,7 +242,10 @@ namespace AFPS.NetCode.Sessions
                 throw new InvalidOperationException("输入接收窗口状态在同一个服务器 Tick 内发生了意外变化。");
             }
 
-            bool repeatContinuousInput = hasLastReceivedInput && consecutiveSubstitutedInputTicks < maxRepeatedMovementTicks;
+            // 一旦本缺口已归中性，后续RTT升高不能重新激活陈旧移动/挂钩；只有新的真实输入能解锁。
+            bool repeatContinuousInput = hasLastReceivedInput && !neutralFallbackLatched
+                && consecutiveSubstitutedInputTicks < RepeatedMovementLimitTicks;
+            neutralFallbackLatched |= !repeatContinuousInput;
             command = lastReceivedInput.CreateFallback(substitutedTick, repeatContinuousInput);
             if (!hasLastReceivedInput)
             {

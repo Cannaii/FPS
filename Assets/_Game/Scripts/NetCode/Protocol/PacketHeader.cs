@@ -12,8 +12,8 @@ namespace AFPS.NetCode.Protocol
         /// <summary>
         /// 当前协议版本；产生不兼容的二进制布局变化时必须递增。
         /// </summary>
-        // v24增加预测哈希诊断消息；同Tick输入/状态哈希只用于定位差异，不改变模拟结果。
-        public const byte CurrentProtocolVersion = 24;
+        // v25增加TimeSync响应ACK，服务器据此测量闭环RTT并调整输入窗口；旧端不得静默混用。
+        public const byte CurrentProtocolVersion = 25;
         /// <summary>
         /// 固定包头占用的字节数。
         /// </summary>

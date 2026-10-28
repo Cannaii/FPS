@@ -12,6 +12,7 @@ namespace AFPS.NetCode.TimeSync
         private readonly TransportConnectionId clientConnectionId;
         private readonly byte[] responseBuffer = new byte[TimeSyncCodec.ResponsePacketSize];
         private uint nextResponseSequence = 1;
+        public ServerRoundTripTracker RoundTrip { get; } = new ServerRoundTripTracker();
         public ServerTimeSyncResponder(IGameTransport transport, TransportConnectionId clientConnectionId)
         {
             this.transport = transport ?? throw new ArgumentNullException(nameof(transport));
@@ -62,6 +63,7 @@ namespace AFPS.NetCode.TimeSync
             sendResult = transport.Send(clientConnectionId, TransportDelivery.Unreliable, new ArraySegment<byte>(responseBuffer, 0, packetBytes));
             if (sendResult == TransportSendResult.Success)
             {
+                RoundTrip.RecordSent(responseSequence, serverSendTimestampMicroseconds);
                 nextResponseSequence = unchecked(nextResponseSequence + 1);
             }
 

@@ -53,6 +53,8 @@ namespace AFPS.NetCode.Sessions
             lastReceivedInput = default;
             missingInputWaitTicks = 0;
             consecutiveSubstitutedInputTicks = 0;
+            neutralFallbackLatched = false;
+            ResetNetworkQuality();
             pendingRejections.Clear();
             LastWeaponFireResult = default;
             hasSentWeaponState = false;

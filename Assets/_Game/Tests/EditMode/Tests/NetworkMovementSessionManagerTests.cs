@@ -10,7 +10,10 @@ using AFPS.NetCode.Runtime;
 using AFPS.NetCode.Sessions;
 using AFPS.NetCode.SnapshotInterpolation;
 using AFPS.NetCode.StateReplication;
+using AFPS.NetCode.TimeSync;
 using AFPS.NetCode.Transport;
+using AFPS.NetCode.Transport.Simulation;
+using AFPS.Transport.Unity;
 using AFPS.NetCode.Weapons;
 using AFPS.Simulation.Characters;
 using AFPS.Simulation.Characters.Collision;
@@ -883,6 +886,234 @@ namespace AFPS.Tests.EditMode
         }
 
         [Test]
+        public void GrowingRepeatWindowCannotReviveInputAfterNeutralFallback()
+        {
+            ulong now = 1000000;
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, clock: () => now);
+            var connection = new TransportConnectionId(1);
+            manager.HandleConnected(NetworkTransportSide.Server, connection);
+            manager.TryGetServerSession(connection, out var session);
+            manager.TryHandleData(NetworkTransportSide.Server, connection,
+                CreateInputPacket(new PlayerInputCommand { Tick = 1, MoveY = 1f, GrappleHeld = true }), out _);
+            for (uint tick = 100; tick <= 105; tick++)
+            {
+                manager.AdvanceServerSessions(tick);
+            }
+            Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.NeutralFallback));
+            var request = new byte[TimeSyncCodec.RequestPacketSize];
+            TimeSyncCodec.TrySerializeRequest(1, 1, new ArraySegment<byte>(request), out _);
+            manager.TryHandleData(NetworkTransportSide.Server, connection, new ArraySegment<byte>(request), out _);
+            var ack = new byte[TimeSyncAcknowledgementCodec.PacketSize];
+            TimeSyncAcknowledgementCodec.TrySerialize(1, new ArraySegment<byte>(ack), out _);
+            now += 200000;
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Server, connection,
+                new ArraySegment<byte>(ack), out _), Is.True);
+            Assert.That(session.RepeatedMovementLimitTicks, Is.EqualTo(5));
+            for (uint tick = 106; tick <= 109; tick++)
+            {
+                manager.AdvanceServerSessions(tick);
+            }
+            Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.NeutralFallback));
+            Assert.That(session.LastAppliedInput.MoveY, Is.Zero);
+            Assert.That(session.LastAppliedInput.GrappleHeld, Is.False);
+        }
+
+        [Test]
+        public void AdaptiveInputWindow_TravelsThroughRealUtpWithDelayJitterAndLoss()
+        {
+            ulong now = 1000000;
+            var serverFaults = new NetworkImpairmentConfig(0.06d, 0.01d, 0.03d, 0.05d, 0.02d, 17, 512);
+            var clientFaults = new NetworkImpairmentConfig(0.06d, 0.01d, 0.03d, 0.05d, 0.02d, 23, 512);
+            using (var serverTransport = new NetworkImpairmentTransport(new UnityGameTransport(), serverFaults, () => now / 1000000d))
+            using (var clientTransport = new NetworkImpairmentTransport(new UnityGameTransport(), clientFaults, () => now / 1000000d))
+            {
+                Assert.That(serverTransport.TryStartServer(19865, 2, out string serverError), Is.True, serverError);
+                Assert.That(clientTransport.TryStartClient("127.0.0.1", 19865, out string clientError), Is.True, clientError);
+                var server = CreateManager(serverTransport, null, clock: () => now);
+                var client = CreateManager(null, clientTransport, clock: () => now);
+                var buffer = new byte[2048];
+                TransportConnectionId owner = default;
+                int received = 0;
+                int maximumWait = 0;
+
+                void Drain(IGameTransport transport, NetworkMovementSessionManager manager, NetworkTransportSide side)
+                {
+                    while (transport.TryPollEvent(new ArraySegment<byte>(buffer), out var transportEvent))
+                    {
+                        if (transportEvent.Type == TransportEventType.Connected)
+                        {
+                            Assert.That(manager.HandleConnected(side, transportEvent.ConnectionId), Is.True);
+                            if (side == NetworkTransportSide.Server)
+                            {
+                                owner = transportEvent.ConnectionId;
+                            }
+                        }
+                        else if (transportEvent.Type == TransportEventType.Data)
+                        {
+                            manager.TryHandleData(side, transportEvent.ConnectionId,
+                                new ArraySegment<byte>(buffer, 0, transportEvent.PayloadLength), out _);
+                        }
+                    }
+                }
+
+                // 真实UTP收发，应用层故障释放时间/RTT采用可控微秒时钟；不冒充实际广域网耗时。
+                for (uint tick = 1; tick <= 800; tick++)
+                {
+                    now += 20000;
+                    serverTransport.Pump();
+                    clientTransport.Pump();
+                    Drain(serverTransport, server, NetworkTransportSide.Server);
+                    Drain(clientTransport, client, NetworkTransportSide.Client);
+                    server.AdvanceTimeSync(tick, 0f);
+                    client.AdvanceTimeSync(tick, 0f);
+                    if (client.CanPredictClientInput)
+                    {
+                        client.TryPredictAndSend(new PlayerInputCommand
+                        {
+                            Tick = unchecked(client.ClientSession.CurrentState.Tick + 1), MoveY = 1f
+                        }, out _, out _);
+                    }
+                    server.AdvanceServerSessions(tick);
+                    if (owner.IsValid && server.TryGetServerSession(owner, out var session))
+                    {
+                        maximumWait = System.Math.Max(maximumWait, session.InputWaitLimitTicks);
+                        if (session.LastAdvanceStatus == ServerInputAdvanceStatus.ReceivedInput)
+                        {
+                            received++;
+                        }
+                    }
+                    System.Threading.Thread.Sleep(1);
+                }
+                Assert.That(server.Metrics.ServerRoundTripSamplesReceived, Is.GreaterThan(8));
+                Assert.That(maximumWait, Is.InRange(3, 8));
+                Assert.That(received, Is.GreaterThan(200));
+                Assert.That(serverTransport.DroppedPacketCount + clientTransport.DroppedPacketCount, Is.GreaterThan(0));
+                Assert.That(server.TryGetServerSession(owner, out var final), Is.True);
+                Assert.That(final.CurrentState.PositionFixed.Z, Is.GreaterThan(Fix.FromInt(10)));
+            }
+        }
+
+        [Test]
+        public void AdaptiveInputWaitAcceptsDelayedCommandBeforeFallback_AndRebindResetsLimits()
+        {
+            ulong now = 1000000;
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, clock: () => now);
+            var connection = new TransportConnectionId(1);
+            manager.HandleConnected(NetworkTransportSide.Server, connection);
+            var request = new byte[TimeSyncCodec.RequestPacketSize];
+            TimeSyncCodec.TrySerializeRequest(1, 999, new ArraySegment<byte>(request), out _);
+            manager.AdvanceTimeSync(500, 0f);
+            transport.FailNextMessageType = NetworkMessageType.TimeSyncResponse;
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Server, connection,
+                new ArraySegment<byte>(request), out _), Is.False);
+            var ack = new byte[TimeSyncAcknowledgementCodec.PacketSize];
+            TimeSyncAcknowledgementCodec.TrySerialize(1, new ArraySegment<byte>(ack), out _);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Server, connection,
+                new ArraySegment<byte>(ack), out _), Is.False, "失败的响应不能登记可确认样本");
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Server, connection,
+                new ArraySegment<byte>(request), out _), Is.True);
+            now += 200000;
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Server, connection,
+                new ArraySegment<byte>(ack), out _), Is.True);
+            manager.TryGetServerSession(connection, out var adaptive);
+            var initial = new PlayerState { IsGrounded = true };
+            var configuration = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
+            var fixedWait = new ServerAuthoritativeMovementSession(transport, new TransportConnectionId(99),
+                initial, configuration, 0.02f, 16);
+            var first = CreateInputPacket(new PlayerInputCommand { Tick = 1, MoveY = 1f });
+            manager.TryHandleData(NetworkTransportSide.Server, connection, first, out _);
+            fixedWait.TryReceiveInputPacket(first, out _);
+            manager.AdvanceServerSessions(100);
+            fixedWait.TryAdvance(100, out _, out _);
+            for (uint tick = 101; tick <= 103; tick++)
+            {
+                manager.AdvanceServerSessions(tick);
+                fixedWait.TryAdvance(tick, out _, out _);
+            }
+            var delayed = CreateInputPacket(new PlayerInputCommand { Tick = 2, MoveX = 1f });
+            manager.TryHandleData(NetworkTransportSide.Server, connection, delayed, out _);
+            fixedWait.TryReceiveInputPacket(delayed, out _);
+            manager.AdvanceServerSessions(104);
+            fixedWait.TryAdvance(104, out _, out _);
+            Assert.That(adaptive.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.ReceivedInput));
+            Assert.That(fixedWait.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.RepeatedContinuousInput));
+            Assert.That(manager.Metrics.ServerRepeatedInputTicks, Is.Zero);
+            Assert.That(adaptive.InputWaitLimitTicks, Is.EqualTo(5));
+            Assert.That(adaptive.TryRebindConnection(transport, new TransportConnectionId(88)), Is.True);
+            Assert.That(adaptive.InputWaitLimitTicks, Is.EqualTo(2));
+            Assert.That(adaptive.RepeatedMovementLimitTicks, Is.EqualTo(2));
+            Assert.That(adaptive.RecoverySnapshotPending, Is.True);
+        }
+
+        [Test]
+        public void ServerQualityAckControlsOnlyItsConnection_AndInputGapHasBoundedFallback()
+        {
+            ulong now = 1000000;
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, clock: () => now);
+            var owner = new TransportConnectionId(1);
+            var peer = new TransportConnectionId(2);
+            manager.HandleConnected(NetworkTransportSide.Server, owner);
+            manager.HandleConnected(NetworkTransportSide.Server, peer);
+            manager.TryGetServerSession(owner, out var session);
+            manager.TryGetServerSession(peer, out var other);
+            var request = new byte[TimeSyncCodec.RequestPacketSize];
+            TimeSyncCodec.TrySerializeRequest(1, 999, new ArraySegment<byte>(request), out _);
+            manager.AdvanceTimeSync(500, 0f);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Server, owner,
+                new ArraySegment<byte>(request), out _), Is.True);
+            var response = FindPacket(transport, NetworkMessageType.TimeSyncResponse);
+            PacketHeaderCodec.TryRead(response, out var header);
+            var ack = new byte[TimeSyncAcknowledgementCodec.PacketSize];
+            TimeSyncAcknowledgementCodec.TrySerialize(header.Sequence, new ArraySegment<byte>(ack), out _);
+            now += 200000;
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Server, peer, new ArraySegment<byte>(ack), out _), Is.False);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Server, owner, new ArraySegment<byte>(ack), out _), Is.True);
+            Assert.That(manager.TryHandleData(NetworkTransportSide.Server, owner, new ArraySegment<byte>(ack), out _), Is.False);
+            Assert.That(manager.TryGetServerNetworkQuality(owner, out double rtt, out _), Is.True);
+            Assert.That(rtt, Is.EqualTo(200d));
+            Assert.That(session.InputWaitLimitTicks, Is.EqualTo(5));
+            Assert.That(session.RepeatedMovementLimitTicks, Is.EqualTo(5));
+            Assert.That(other.InputWaitLimitTicks, Is.EqualTo(2));
+
+            manager.TryHandleData(NetworkTransportSide.Server, owner,
+                CreateInputPacket(new PlayerInputCommand { Tick = 1, MoveY = 1f, FirePressed = true, ShotSequence = 1 }), out _);
+            manager.AdvanceServerSessions(100);
+            // Tick2丢失、Tick3已到：只等待一次有界窗口，然后跳过缺口，不为每个替代Tick重新等待。
+            manager.TryHandleData(NetworkTransportSide.Server, owner,
+                CreateInputPacket(new PlayerInputCommand { Tick = 3, MoveX = 1f }), out _);
+            for (uint tick = 101; tick <= 105; tick++)
+            {
+                manager.AdvanceServerSessions(tick);
+                Assert.That(session.CurrentState.Tick, Is.EqualTo(1));
+            }
+            manager.AdvanceServerSessions(106);
+            Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.RepeatedContinuousInput));
+            Assert.That(session.LastAppliedInput.FirePressed, Is.False);
+            Assert.That(session.LastAppliedInput.ShotSequence, Is.Zero);
+            Assert.That(session.LastAppliedInput.MoveY, Is.EqualTo(1f));
+            Assert.That(session.TryReceiveInputPacket(CreateInputPacket(new PlayerInputCommand { Tick = 2 }), out var late), Is.True);
+            Assert.That(late.DuplicateCommandCount, Is.EqualTo(1));
+            manager.AdvanceServerSessions(107);
+            Assert.That(session.CurrentState.Tick, Is.EqualTo(3));
+            Assert.That(session.MissingInputWaitTicks, Is.Zero);
+            for (uint tick = 108; tick <= 118; tick++)
+            {
+                manager.AdvanceServerSessions(tick);
+            }
+            Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.NeutralFallback));
+            Assert.That(session.LastAppliedInput.MoveX, Is.Zero);
+            Assert.That(manager.Metrics.ServerRepeatedInputTicks, Is.GreaterThanOrEqualTo(6));
+            now += 3000001;
+            manager.AdvanceServerSessions(119);
+            Assert.That(manager.TryGetServerNetworkQuality(owner, out _, out _), Is.False);
+            Assert.That(session.InputWaitLimitTicks, Is.EqualTo(2));
+            Assert.That(session.RepeatedMovementLimitTicks, Is.EqualTo(2));
+        }
+
+        [Test]
         public void TimeSync_AdaptiveDelayUsesRttAndJitter_ExpiresAndResetsOnNewConnection()
         {
             ulong now = 1000000;
@@ -965,7 +1196,8 @@ namespace AFPS.Tests.EditMode
             Assert.That(client.HasTimeSync, Is.False);
             Assert.That(client.TryGetSynchronizedServerTick(out _), Is.False);
             client.AdvanceTimeSync(0, 0f);
-            Assert.That(clientTransport.SentPackets.Count, Is.EqualTo(2));
+            Assert.That(client.Metrics.TimeSyncRequestsSent, Is.EqualTo(2));
+            Assert.That(client.Metrics.TimeSyncAcknowledgementsSent, Is.EqualTo(1));
             client.HandleDisconnected(NetworkTransportSide.Client, connection);
             Assert.That(client.HasTimeSync, Is.False);
             Assert.That(client.Metrics.TimeSyncResponsesReceived, Is.Zero);

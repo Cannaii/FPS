@@ -5,6 +5,12 @@ namespace AFPS.NetCode.Metrics
     {
         public ulong TimeSyncRequestsSent { get; internal set; }
         public ulong TimeSyncResponsesReceived { get; internal set; }
+        public ulong TimeSyncAcknowledgementsSent { get; internal set; }
+        public ulong ServerRoundTripSamplesReceived { get; internal set; }
+        /// <summary>累计服务器推进尝试/替代输入次数，单位Tick；不包含恢复确认门禁跳过的会话。</summary>
+        public ulong ServerInputWaits { get; internal set; }
+        public ulong ServerRepeatedInputTicks { get; internal set; }
+        public ulong ServerNeutralInputTicks { get; internal set; }
         /// <summary>扣除服务器处理时间的真实往返毫秒；不表示单向延迟。</summary>
         public double LastNetworkRoundTripMilliseconds { get; internal set; }
         public double RoundTripJitterMilliseconds { get; internal set; }

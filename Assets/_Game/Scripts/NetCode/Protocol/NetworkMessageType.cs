@@ -26,6 +26,7 @@ namespace AFPS.NetCode.Protocol
         SessionRecoverySeed = 18,
         SessionRecoveryAck = 19,
         SessionRecoveryConfirmed = 20,
-        ClientStateHashReport = 21
+        ClientStateHashReport = 21,
+        TimeSyncAcknowledgement = 22
     }
 }
