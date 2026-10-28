@@ -166,6 +166,8 @@ namespace AFPS.Bootstrap
         /// 当前连接事件所创建的会话管理器，供运行时诊断读取。
         /// </summary>
         public NetworkMovementSessionManager SessionManager => sessionManager;
+        public SimulationWorldContext PreparedWorld => preparedWorld;
+        public SimulationWorldContext RuntimeWorld => sessionManager?.WorldContext;
         public ulong PresentedShotResultCount => shotResultView != null ? shotResultView.ConsumedResultCount : 0;
         public ulong ConfirmedLocalHitCount => shotResultView != null ? shotResultView.LocalHitConfirmationCount : 0;
         public ulong ReceivedDamageCount => shotResultView != null ? shotResultView.ReceivedDamageCount : 0;
