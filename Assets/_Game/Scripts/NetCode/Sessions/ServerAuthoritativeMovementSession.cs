@@ -54,6 +54,8 @@ namespace AFPS.NetCode.Sessions
         /// 最近一次真正推进权威模拟时使用的输入。等待输入期间保持上一次的值。
         /// </summary>
         public PlayerInputCommand LastAppliedInput { get; private set; }
+        public AFPS.NetCode.Metrics.ServerStateDriftTracker StateDrift { get; }
+            = new AFPS.NetCode.Metrics.ServerStateDriftTracker();
 
         /// <summary>
         /// 当前缺失输入已经等待的服务器世界 Tick 数；收到真实连续输入后重置为零。
@@ -159,6 +161,7 @@ namespace AFPS.NetCode.Sessions
                 secondaryWeapon.SetEquipped(false);
             }
             CurrentState = initialState;
+            StateDrift.Reset(initialState.Tick);
             inputReceiver = new ServerInputCommandReceiver(unchecked(initialState.Tick + 1), inputWindowCapacity);
             stateSender = new ServerAuthoritativeStateSender(transport, clientConnectionId);
         }
@@ -268,6 +271,7 @@ namespace AFPS.NetCode.Sessions
             ApplyWeaponSwitch(serverWorldTick, ref appliedCommand);
             LastAppliedInput = appliedCommand;
             CurrentState = PlayerSimulation.Simulate(CurrentState, appliedCommand, simulationConfig, tickDeltaTime, collisionWorld);
+            StateDrift.Record(CurrentState, appliedCommand);
             LastWeaponFireResult = ProcessActiveWeapon(serverWorldTick, appliedCommand);
             SendWeaponState(serverWorldTick, command);
             SendShotRejections(serverWorldTick, command);

@@ -344,6 +344,7 @@ namespace AFPS.NetCode.Sessions
                     collisionWorld, entityId, weaponConfig, WorldContext?.CollisionWorld));
                 serverEntityIds.Add(connectionId, entityId);
                 allServerSessions.Add(entityId, serverSessions[connectionId]);
+                serverSessions[connectionId].StateDrift.Compared += OnStateHashCompared;
                 timeSyncResponders[connectionId] = new AFPS.NetCode.TimeSync.ServerTimeSyncResponder(serverTransport, connectionId);
                 serverHealth.Add(entityId, Fix.FromInt(100));
                 serverKills.Add(entityId, 0);
@@ -365,6 +366,7 @@ namespace AFPS.NetCode.Sessions
             ResetClientShotResults();
             hasWeaponStateSequence = false;
             clientConnectionId = connectionId;
+            ResetClientStateHash();
             clientRecoveryConfirmed = false;
             clientRecoveryEpoch = 0;
             ResetClientTimeSync(connectionId);
@@ -444,6 +446,10 @@ namespace AFPS.NetCode.Sessions
 
             if (side == NetworkTransportSide.Server)
             {
+                if (header.MessageType == NetworkMessageType.ClientStateHashReport)
+                {
+                    return ReceiveClientStateHash(connectionId, packet);
+                }
                 if (header.MessageType == NetworkMessageType.SessionRecoveryAck)
                 {
                     return ReceiveRecoveryAck(connectionId, packet);
@@ -557,6 +563,7 @@ namespace AFPS.NetCode.Sessions
             }
 
             state = ClientSession.PredictAndSend(command, out sendResult);
+            ObserveClientStateHash(state, ClientSession.LastPredictedInput);
             ClientWeapon.Observe(command);
             return true;
         }

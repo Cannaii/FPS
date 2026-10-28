@@ -232,6 +232,10 @@ namespace AFPS.NetCode.Sessions
 
         private void RemoveServerEntity(uint entityId)
         {
+            if (allServerSessions.TryGetValue(entityId, out var removedSession))
+            {
+                removedSession.StateDrift.Compared -= OnStateHashCompared;
+            }
             allServerSessions.Remove(entityId);
             serverCredentials.Revoke(entityId);
             serverHealth.Remove(entityId);

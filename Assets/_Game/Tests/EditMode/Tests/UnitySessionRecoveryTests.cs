@@ -14,6 +14,26 @@ namespace AFPS.Tests.EditMode
     public sealed class UnitySessionRecoveryTests
     {
         [Test]
+        public void RealUtpPrediction_ReportsPeriodicHashToAuthoritativeServer()
+        {
+            using (var pair = new Loopback())
+            {
+                pair.Until(() => pair.Client.ClientResumeCredential.IsValid && pair.Client.CanPredictClientInput);
+                pair.Server.TryGetServerSession(pair.ServerId, out var authority);
+                for (int step = 0; step < 30; step++)
+                {
+                    uint inputTick = unchecked(pair.Client.ClientSession.CurrentState.Tick + 1);
+                    pair.Client.TryPredictAndSend(new PlayerInputCommand { Tick = inputTick }, out _, out _);
+                    pair.Until(() => authority.CurrentState.Tick == inputTick);
+                }
+                pair.Until(() => pair.Server.Metrics.StateHashMatches > 0);
+                Assert.That(pair.Client.Metrics.StateHashReportsSent, Is.GreaterThan(0));
+                Assert.That(pair.Server.Metrics.StateHashReportsReceived, Is.GreaterThan(0));
+                Assert.That(pair.Server.Metrics.StateHashMismatches, Is.Zero);
+            }
+        }
+
+        [Test]
         public void RealUtpDisconnectAndExplicitRedial_RecoversSameEntitySessionAndAcceptsNewInput()
         {
             using (var pair = new Loopback())

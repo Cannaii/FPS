@@ -58,6 +58,7 @@ namespace AFPS.NetCode.Sessions
             hasSentWeaponState = false;
             IsRetainedOffline = false;
             RecoverySnapshotPending = true;
+            StateDrift.Reset(CurrentState.Tick);
             // 全局/分武器射击序号、弹匣、换弹/切枪起始Tick均保留，不能靠重连刷资源或重放旧射击。
             return true;
         }

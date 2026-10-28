@@ -32,6 +32,7 @@ namespace AFPS.NetCode.Sessions
         public PlayerState CurrentState { get; private set; }
         /// <summary>最近通过包序号校验的权威完整状态，用于诊断；不含客户端重放产生的后续状态。</summary>
         public PlayerState LastAuthoritativeState { get; private set; }
+        public PlayerInputCommand LastPredictedInput { get; private set; }
 
         /// <summary>只在断线边界复制最多32条连续输入；缺失历史时停止，不能跨缺口补造命令。</summary>
         internal List<PlayerInputCommand> CaptureRecoveryInputs()
@@ -108,6 +109,7 @@ namespace AFPS.NetCode.Sessions
             }
 
             command = InputCommandBatchCodec.Canonicalize(command);
+            LastPredictedInput = command;
             inputHistory.Store(command.Tick, command);
             CurrentState = PlayerSimulation.Simulate(CurrentState, command, simulationConfig, tickDeltaTime, collisionWorld);
             stateHistory.Store(command.Tick, CurrentState);

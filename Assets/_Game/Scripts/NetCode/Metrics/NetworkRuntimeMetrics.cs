@@ -12,6 +12,14 @@ namespace AFPS.NetCode.Metrics
         public ulong SnapshotBytesSent { get; internal set; }
         public ulong ShotResultsSent { get; internal set; }
         public ulong CorrectionsApplied { get; internal set; }
+        public ulong StateHashReportsSent { get; internal set; }
+        public ulong StateHashReportsSuperseded { get; internal set; }
+        public ulong StateHashReportsReceived { get; internal set; }
+        public ulong StateHashReportsRejected { get; internal set; }
+        public ulong StateHashMatches { get; internal set; }
+        public ulong StateHashMismatches { get; internal set; }
+        public ulong StateHashDifferentInputs { get; internal set; }
+        public ulong StateHashHistoryMisses { get; internal set; }
         public ulong RewindQueries { get; internal set; }
         public long LastServerTickMicroseconds { get; internal set; }
         public long MaximumServerTickMicroseconds { get; internal set; }
