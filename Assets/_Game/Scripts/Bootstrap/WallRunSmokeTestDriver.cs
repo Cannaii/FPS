@@ -144,7 +144,7 @@ namespace AFPS.Bootstrap
             Debug.Log($"[AFPS_WALLRUN_RESULT] {(passed ? "PASS" : "FAIL")} phase={phase}"
                 + $" predicted={predictedRun} authority={authorityRun} spent={spent} expired={expired}"
                 + $" noRefresh={noRefresh} landingReset={landingReset} restarted={restarted}");
-            Application.Quit(passed ? 0 : 2);
+            SmokeTestExit.Quit(this, passed ? 0 : 2);
         }
     }
 }

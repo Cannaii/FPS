@@ -156,6 +156,118 @@ namespace AFPS.Tests.EditMode
             }
         }
 
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        [TestCase(true, true)]
+        public void Stop_DisposalFailureStillReleasesBothSidesAndAllowsRestart(
+            bool clientThrows, bool serverThrows)
+        {
+            var server = new FakeTransport { ThrowOnDispose = serverThrows };
+            var client = new FakeTransport { ThrowOnDispose = clientThrows };
+            var replacement = new FakeTransport();
+            using (var runtime = new GameNetworkRuntime(new QueueFactory(server, client, replacement).Create))
+            {
+                Assert.That(runtime.TryStart(new NetworkLaunchOptions(
+                    NetworkLaunchMode.Host, "127.0.0.1", 9002, 4), out string error), Is.True, error);
+                Assert.Catch<Exception>(() => runtime.Stop());
+                Assert.That(server.DisposeCount, Is.EqualTo(1));
+                Assert.That(client.DisposeCount, Is.EqualTo(1));
+                Assert.That(runtime.Mode, Is.EqualTo(NetworkLaunchMode.None));
+                Assert.That(runtime.ServerTransport, Is.Null);
+                Assert.That(runtime.ClientTransport, Is.Null);
+                Assert.DoesNotThrow(() => runtime.Stop());
+                Assert.That(runtime.TryRestartClient(out _), Is.False);
+                Assert.That(runtime.TryStart(new NetworkLaunchOptions(
+                    NetworkLaunchMode.DedicatedServer, "ignored", 9002, 4), out error), Is.True, error);
+            }
+            Assert.That(replacement.DisposeCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void FactoryExceptionAndCleanupException_ReturnFailureWithoutLeakingRuntimeReferences()
+        {
+            var server = new FakeTransport { ThrowOnDispose = true };
+            // 第二次创建客户端时抛异常，清理服务器时也抛异常，TryStart仍应返回失败。
+            using (var runtime = new GameNetworkRuntime(new QueueFactory(server).Create))
+            {
+                Assert.That(runtime.TryStart(new NetworkLaunchOptions(
+                    NetworkLaunchMode.Host, "127.0.0.1", 9003, 4), out string error), Is.False);
+                Assert.That(error, Does.Contain("清理失败"));
+                Assert.That(server.DisposeCount, Is.EqualTo(1));
+                Assert.That(runtime.ServerTransport, Is.Null);
+                Assert.That(runtime.ClientTransport, Is.Null);
+                Assert.That(runtime.Mode, Is.EqualTo(NetworkLaunchMode.None));
+            }
+        }
+
+        [Test]
+        public void ClientRestart_StopFailureReturnsErrorAndPreservesHostServer()
+        {
+            var server = new FakeTransport();
+            var client = new FakeTransport();
+            using (var runtime = new GameNetworkRuntime(new QueueFactory(server, client).Create))
+            {
+                Assert.That(runtime.TryStart(new NetworkLaunchOptions(
+                    NetworkLaunchMode.Host, "127.0.0.1", 9003, 4), out string error), Is.True, error);
+                client.ThrowOnStop = true;
+                Assert.That(runtime.TryRestartClient(out error), Is.False);
+                Assert.That(error, Does.Contain("重新连接失败").And.Contain("清理失败"));
+                Assert.That(server.IsRunning, Is.True);
+                Assert.That(server.DisposeCount, Is.Zero);
+                client.ThrowOnStop = false;
+                Assert.That(runtime.TryRestartClient(out error), Is.True, error);
+            }
+        }
+
+        [Test]
+        public void SharedHostTransport_IsDisposedOnlyOnceOnRejectedStartup()
+        {
+            var shared = new FakeTransport();
+            using (var runtime = new GameNetworkRuntime(() => shared))
+            {
+                Assert.That(runtime.TryStart(new NetworkLaunchOptions(
+                    NetworkLaunchMode.Host, "127.0.0.1", 9003, 4), out _), Is.False);
+                Assert.That(shared.DisposeCount, Is.EqualTo(1));
+                runtime.Stop();
+                Assert.That(shared.DisposeCount, Is.EqualTo(1));
+            }
+        }
+
+        [Test]
+        public void UnityTransport_RuntimeCanRepeatedlyStopAndRebindAcrossModes()
+        {
+            using (var runtime = new GameNetworkRuntime(() => new UnityGameTransport()))
+            {
+                foreach (var mode in new[]
+                {
+                    NetworkLaunchMode.Host, NetworkLaunchMode.DedicatedServer,
+                    NetworkLaunchMode.Practice, NetworkLaunchMode.Host
+                })
+                {
+                    Assert.That(runtime.TryStart(new NetworkLaunchOptions(
+                        mode, "127.0.0.1", 47985, 4), out string error), Is.True, error);
+                    if (mode == NetworkLaunchMode.Host)
+                    {
+                        bool serverConnected = false;
+                        bool clientConnected = false;
+                        var buffer = new byte[64];
+                        for (int i = 0; i < PumpLimit && (!serverConnected || !clientConnected); i++)
+                        {
+                            runtime.Pump();
+                            serverConnected |= DrainConnected(runtime.ServerTransport, buffer);
+                            clientConnected |= DrainConnected(runtime.ClientTransport, buffer);
+                            Thread.Sleep(1);
+                        }
+                        Assert.That(serverConnected && clientConnected, Is.True);
+                    }
+                    runtime.Stop();
+                    runtime.Stop();
+                    runtime.Pump();
+                    Assert.That(runtime.IsRunning, Is.False);
+                }
+            }
+        }
+
         private static bool DrainConnected(IGameTransport transport, byte[] receiveBuffer)
         {
             bool connected = false;
@@ -188,6 +300,8 @@ namespace AFPS.Tests.EditMode
             public ushort StartedPort;
             public int StartedMaxConnections;
             public int DisposeCount;
+            public bool ThrowOnDispose;
+            public bool ThrowOnStop;
 
             public bool TryStartServer(ushort port, int maxConnections, out string error)
             {
@@ -235,12 +349,20 @@ namespace AFPS.Tests.EditMode
             {
                 IsRunning = false;
                 Role = TransportRole.None;
+                if (ThrowOnStop)
+                {
+                    throw new InvalidOperationException("测试注入停止异常。");
+                }
             }
 
             public void Dispose()
             {
                 DisposeCount++;
                 Stop();
+                if (ThrowOnDispose)
+                {
+                    throw new InvalidOperationException("测试注入释放异常。");
+                }
             }
         }
     }

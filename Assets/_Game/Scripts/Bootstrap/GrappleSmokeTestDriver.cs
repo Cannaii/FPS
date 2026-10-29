@@ -185,7 +185,7 @@ namespace AFPS.Bootstrap
             Debug.Log($"[AFPS_GRAPPLE_RESULT] {(passed ? "PASS" : "FAIL")} phase={phase} predicted={predicted} authority={authority}"
                 + $" reeled={reeled} swung={swung} airborne={airborne} rope={rope} released={released} reacquired={reacquired} canceled={canceled} latched={latched}");
             Debug.Log($"[AFPS_REMOTE_ROPE_RESULT] {(passed ? "PASS" : "FAIL")} seen={remoteRopeSeen} released={remoteReleased} hidden={remoteRopeHidden}");
-            Application.Quit(passed ? 0 : 2);
+            SmokeTestExit.Quit(this, passed ? 0 : 2);
         }
     }
 }

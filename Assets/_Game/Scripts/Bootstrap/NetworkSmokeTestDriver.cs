@@ -245,7 +245,7 @@ namespace AFPS.Bootstrap
             enabled = false;
             inputCollector?.ClearAutomationInput();
             Debug.Log($"[AFPS_SMOKE_RESULT] {(passed ? "PASS" : "FAIL")} {details}");
-            Application.Quit(passed ? 0 : 2);
+            SmokeTestExit.Quit(this, passed ? 0 : 2);
         }
     }
 }

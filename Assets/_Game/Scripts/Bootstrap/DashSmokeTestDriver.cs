@@ -96,7 +96,7 @@ namespace AFPS.Bootstrap
             Debug.Log($"[AFPS_DASH_RESULT] {(success ? "PASS" : "FAIL")} entity={entity}"
                 + $" predicted={predictedDash} authority={authoritativeDash} airborne={airborneDash}"
                 + $" spentBoth={spentBoth} recovered={recovered} synced={synchronized}");
-            Application.Quit(success ? 0 : 2);
+            SmokeTestExit.Quit(this, success ? 0 : 2);
         }
     }
 }

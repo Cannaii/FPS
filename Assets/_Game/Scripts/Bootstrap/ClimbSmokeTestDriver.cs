@@ -156,7 +156,7 @@ namespace AFPS.Bootstrap
             Debug.Log($"[AFPS_CLIMB_RESULT] {(passed ? "PASS" : "FAIL")} phase={phase} predicted={predictedClimb}"
                 + $" authority={authorityClimb} held={held} down={descended} bottom={bottomExit} top={topExit}"
                 + $" predictedJump={predictedJump} authorityJump={authorityJump}");
-            Application.Quit(passed ? 0 : 2);
+            SmokeTestExit.Quit(this, passed ? 0 : 2);
         }
     }
 }

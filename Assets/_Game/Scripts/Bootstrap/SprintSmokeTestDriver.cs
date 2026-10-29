@@ -84,7 +84,7 @@ namespace AFPS.Bootstrap
             Debug.Log($"[AFPS_SPRINT_RESULT] {(success ? "PASS" : "FAIL")} entity={entity}"
                 + $" predicted={predictedSprint} authority={authoritativeSprint} exhausted={exhausted}"
                 + $" recovered={recovered} synced={synchronized}");
-            Application.Quit(success ? 0 : 2);
+            SmokeTestExit.Quit(this, success ? 0 : 2);
         }
     }
 }

@@ -132,7 +132,7 @@ namespace AFPS.Bootstrap
             Debug.Log($"[AFPS_STANCE_RESULT] {(passed ? "PASS" : "FAIL")} phase={phase}"
                 + $" predictedSlide={predictedSlide} authoritySlide={authoritySlide} blocked={blocked} stood={stood}"
                 + $" remoteCrouched={remoteCrouched} remoteView={remoteView} predicted={lastPredicted} authority={lastAuthority}");
-            Application.Quit(passed ? 0 : 2);
+            SmokeTestExit.Quit(this, passed ? 0 : 2);
         }
     }
 }

@@ -161,7 +161,7 @@ namespace AFPS.Bootstrap
                 + $" refilled={refilled} launcher={launcher} rifleView={rifleView}"
                 + $" launcherView={launcherView} reloadView={reloadView} singleArms={checkedArms && singleArms}"
                 + $" diagnostics={diagnosticsVerified}");
-            Application.Quit(passed ? 0 : 2);
+            SmokeTestExit.Quit(this, passed ? 0 : 2);
         }
 
         private void CapturePresentation(double elapsed)

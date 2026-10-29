@@ -119,6 +119,7 @@ namespace AFPS.Bootstrap
 
         private byte[] serverReceiveBuffer;
         private byte[] clientReceiveBuffer;
+        private bool applicationQuitting;
 
         /// <summary>
         /// 当前组件创建并拥有的网络运行时；启动失败或销毁后为 null。
@@ -148,6 +149,11 @@ namespace AFPS.Bootstrap
 
         private void Awake()
         {
+            if (ServerShutdownSmokeTestDriver.IsRequested)
+            {
+                gameObject.AddComponent<ServerShutdownSmokeTestDriver>().Configure(this);
+            }
+
             if (PracticeSmokeTestDriver.IsRequested)
             {
                 gameObject.AddComponent<PracticeSmokeTestDriver>().Configure(this);
@@ -183,9 +189,42 @@ namespace AFPS.Bootstrap
 
         private void OnDestroy()
         {
-            Reconnect = null;
-            Runtime?.Dispose();
+            ShutdownNetwork();
+        }
+
+        private void OnApplicationQuit()
+        {
+            // 在Unity开始销毁对象/关闭任务系统前同步释放UTP；OnDestroy只做幂等兜底。
+            applicationQuitting = true;
+            ShutdownNetwork();
+        }
+
+        private void ShutdownNetwork()
+        {
+            GameNetworkRuntime runtime = Runtime;
             Runtime = null;
+            Reconnect = null;
+            serverReceiveBuffer = null;
+            clientReceiveBuffer = null;
+            if (runtime == null)
+            {
+                return;
+            }
+
+            long started = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
+            {
+                runtime.Dispose();
+                double milliseconds = (System.Diagnostics.Stopwatch.GetTimestamp() - started)
+                    * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+                Debug.Log($"[AFPS_NETWORK_STOPPED] PASS elapsedMs={milliseconds:F3}", this);
+            }
+            catch (Exception exception)
+            {
+                // 清理异常仍需明确报告；不能伪装成正常退出或阻止其他组件完成销毁。
+                Debug.LogException(exception, this);
+                Debug.LogError("[AFPS_NETWORK_STOPPED] FAIL", this);
+            }
         }
 
         /// <summary>
@@ -232,6 +271,12 @@ namespace AFPS.Bootstrap
         /// </summary>
         public bool TryStartNetwork(in NetworkLaunchOptions options, out string error)
         {
+            if (applicationQuitting)
+            {
+                error = "程序正在退出，不能重新启动网络。";
+                return false;
+            }
+
             if (Runtime != null)
             {
                 error = "Networking has already started.";

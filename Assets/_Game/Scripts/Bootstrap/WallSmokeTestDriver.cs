@@ -140,7 +140,7 @@ namespace AFPS.Bootstrap
             Debug.Log($"[AFPS_WALL_RESULT] {(passed ? "PASS" : "FAIL")} entity={entity} phase={phase}"
                 + $" contact={contact} predictedJump={predictedJump} authorityJump={authorityJump}"
                 + $" predictedBounce={predictedBounce} authorityBounce={authorityBounce}");
-            Application.Quit(passed ? 0 : 2);
+            SmokeTestExit.Quit(this, passed ? 0 : 2);
         }
     }
 }

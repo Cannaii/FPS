@@ -128,7 +128,15 @@ namespace AFPS.NetCode.Runtime
             catch (Exception exception)
             {
                 error = $"启动网络传输时发生异常：{exception.Message}";
-                Stop();
+                try
+                {
+                    Stop();
+                }
+                catch (Exception cleanupError)
+                {
+                    // Try入口保持失败返回契约，同时保留启动与回收两类错误，供菜单诊断。
+                    error += $" 清理失败：{cleanupError.Message}";
+                }
                 return false;
             }
 
@@ -164,7 +172,14 @@ namespace AFPS.NetCode.Runtime
             catch (Exception exception)
             {
                 error = $"重新连接失败：{exception.Message}";
-                ClientTransport.Stop();
+                try
+                {
+                    ClientTransport.Stop();
+                }
+                catch (Exception cleanupError)
+                {
+                    error += $" 清理失败：{cleanupError.Message}";
+                }
                 return false;
             }
         }
@@ -179,11 +194,39 @@ namespace AFPS.NetCode.Runtime
             ClientTransport = null;
             ServerTransport = null;
             Mode = NetworkLaunchMode.None;
+            clientAddress = null;
+            clientPort = 0;
 
-            clientTransport?.Dispose();
-            if (serverTransport != null && !ReferenceEquals(serverTransport, clientTransport))
+            // 先撤销公开引用，允许重复/重入停止；某一侧释放失败也必须尝试释放另一侧。
+            Exception clientError = null;
+            try
             {
-                serverTransport.Dispose();
+                clientTransport?.Dispose();
+            }
+            catch (Exception exception)
+            {
+                clientError = exception;
+            }
+
+            try
+            {
+                if (serverTransport != null && !ReferenceEquals(serverTransport, clientTransport))
+                {
+                    serverTransport.Dispose();
+                }
+            }
+            catch (Exception serverError)
+            {
+                if (clientError != null)
+                {
+                    throw new AggregateException("客户端和服务器传输释放均失败。", clientError, serverError);
+                }
+                throw;
+            }
+
+            if (clientError != null)
+            {
+                throw new AggregateException("客户端传输释放失败，服务器传输已执行清理。", clientError);
             }
         }
 

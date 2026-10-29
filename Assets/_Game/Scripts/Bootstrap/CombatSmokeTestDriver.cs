@@ -202,7 +202,7 @@ namespace AFPS.Bootstrap
                 + $" rifleAmmo={rifleAmmo} launcherAmmo={launcherAmmo} reload={reloadCompleted}"
                 + $" rejected={rejected} damage={damage} synced={synced} rifleView={rifleView}"
                 + $" launcherView={launcherView} reloadView={reloadView} explosionView={explosionView} remoteMuzzle={remoteMuzzle}");
-            Application.Quit(success ? 0 : 2);
+            SmokeTestExit.Quit(this, success ? 0 : 2);
         }
     }
 }

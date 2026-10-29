@@ -102,7 +102,7 @@ namespace AFPS.Bootstrap
             Debug.Log($"[AFPS_JUMP_RESULT] {(success ? "PASS" : "FAIL")} entity={entity}"
                 + $" predicted={predictedAirJump} ground={groundJump} airFlights={authoritativeAirJumpFlights}"
                 + $" landingReset={landingReset} synced={synchronized}");
-            Application.Quit(success ? 0 : 2);
+            SmokeTestExit.Quit(this, success ? 0 : 2);
         }
     }
 }

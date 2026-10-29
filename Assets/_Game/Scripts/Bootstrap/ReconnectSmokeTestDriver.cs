@@ -134,7 +134,7 @@ namespace AFPS.Bootstrap
             enabled = false;
             input?.ClearAutomationInput();
             Debug.Log($"[AFPS_RECONNECT_RESULT] {(passed ? "PASS" : "FAIL")} {details}");
-            Application.Quit(passed ? 0 : 2);
+            SmokeTestExit.Quit(this, passed ? 0 : 2);
         }
     }
 }

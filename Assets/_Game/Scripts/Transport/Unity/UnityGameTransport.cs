@@ -233,18 +233,43 @@ namespace AFPS.Transport.Unity
 
         public void Stop()
         {
-            if (driver.IsCreated)
+            try
             {
-                driver.Dispose();
-            }
+                if (driver.IsCreated)
+                {
+                    try
+                    {
+                        foreach (NetworkConnection connection in connections.Values)
+                        {
+                            driver.Disconnect(connection);
+                        }
 
-            connections.Clear();
-            pollOrder.Clear();
-            pendingConnected.Clear();
-            nextConnectionId = 1;
-            pollIndex = 0;
-            maxConnections = 0;
-            Role = TransportRole.None;
+                        if (connections.Count > 0)
+                        {
+                            // UTP 2.x断开通知要经过一次完整Update；只FlushSend不能推进断开状态。
+                            // 不等待对端ACK或超时，最多推进这一轮本地任务，然后释放原生资源。
+                            driver.ScheduleUpdate().Complete();
+                        }
+                    }
+                    finally
+                    {
+                        driver.Dispose();
+                    }
+                }
+            }
+            finally
+            {
+                driver = default;
+                unreliableSequencedPipeline = default;
+                reliableSequencedPipeline = default;
+                connections.Clear();
+                pollOrder.Clear();
+                pendingConnected.Clear();
+                nextConnectionId = 1;
+                pollIndex = 0;
+                maxConnections = 0;
+                Role = TransportRole.None;
+            }
         }
 
         public void Dispose() => Stop();

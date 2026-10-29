@@ -7,6 +7,9 @@
     [ValidateRange(5000, 60000)][int]$TimeoutMilliseconds = 45000,
     [string]$AuthorityTraceDirectory,
     [switch]$NetworkDebug,
+    [switch]$ConcurrentRooms,
+    [switch]$GracefulServerExit,
+    [ValidateRange(0, 64)][int]$JobWorkerCount = 2,
     [switch]$Capture
 )
 $ErrorActionPreference = 'Stop'
@@ -19,6 +22,15 @@ if (!(Test-Path -LiteralPath $taskPlayer))
 if ($Capture -and $Scenario -ne 'Practice')
 {
     throw 'Capture is supported only by the Practice scenario.'
+}
+if ($Scenario -eq 'Practice' -and ($ConcurrentRooms -or $GracefulServerExit))
+{
+    throw 'Practice has no UDP rooms or dedicated server.'
+}
+if ($GracefulServerExit -and $Scenario -eq 'Reconnect')
+{
+    # 重连回归会主动制造暂时空服，不能把这个中间阶段当作最终离开而关闭独服。
+    throw 'GracefulServerExit is not supported by the Reconnect scenario.'
 }
 if (!$OutputDirectory)
 {
@@ -49,11 +61,17 @@ $taskFailure = $null
 try
 {
     $taskRooms = if ($Scenario -eq 'Practice') { @('Practice') } else { @('Host', 'Dedicated') }
+    if ($ConcurrentRooms)
+    {
+        $taskRooms = @('Concurrent')
+    }
     foreach ($taskRoom in $taskRooms)
     {
         $taskEntries = @()
         try
         {
+            # 真实断开通知可能比另一端最终断言早到达；先等全组报告结果再统一允许退出。
+            $taskBarrier = Join-Path $OutputDirectory ('exit-' + [Guid]::NewGuid().ToString('N') + '.ready')
             $taskSpecs = @()
             if ($taskRoom -eq 'Practice')
             {
@@ -64,8 +82,16 @@ try
                 $taskSpecs += @{ Mode = 'Host'; Name = 'host'; Port = $BasePort }
                 $taskSpecs += @{ Mode = 'Client'; Name = 'host-client'; Port = $BasePort }
             }
+            elseif ($taskRoom -eq 'Dedicated')
+            {
+                $taskSpecs += @{ Mode = 'Server'; Name = 'server'; Port = $BasePort + 1 }
+                $taskSpecs += @{ Mode = 'Client'; Name = 'client1'; Port = $BasePort + 1 }
+                $taskSpecs += @{ Mode = 'Client'; Name = 'client2'; Port = $BasePort + 1 }
+            }
             else
             {
+                $taskSpecs += @{ Mode = 'Host'; Name = 'host'; Port = $BasePort }
+                $taskSpecs += @{ Mode = 'Client'; Name = 'host-client'; Port = $BasePort }
                 $taskSpecs += @{ Mode = 'Server'; Name = 'server'; Port = $BasePort + 1 }
                 $taskSpecs += @{ Mode = 'Client'; Name = 'client1'; Port = $BasePort + 1 }
                 $taskSpecs += @{ Mode = 'Client'; Name = 'client2'; Port = $BasePort + 1 }
@@ -73,8 +99,20 @@ try
             foreach ($taskSpec in $taskSpecs)
             {
                 $taskLog = Join-Path $OutputDirectory ($Scenario.ToLowerInvariant() + '-' + $taskSpec.Name + '.log')
-                # 两工作线程/进程，并按房间串行；避免测试进程争抢主编辑器资源。
-                $taskArguments = @('-batchmode', '-job-worker-count', '2', '-logFile', $taskLog)
+                # 0表示保留Unity默认线程数；可显式恢复历史双房间并发退出工况。
+                $taskArguments = @('-batchmode', '-logFile', $taskLog)
+                if ($JobWorkerCount -gt 0)
+                {
+                    $taskArguments += @('-job-worker-count', $JobWorkerCount)
+                }
+                if ($GracefulServerExit -and $taskSpec.Mode -eq 'Server')
+                {
+                    $taskArguments += '-afpsShutdownSmoke'
+                }
+                if ($taskSpec.Mode -ne 'Server' -and $taskRoom -ne 'Practice')
+                {
+                    $taskArguments += @('-afpsSmokeExitBarrier', $taskBarrier)
+                }
                 if ($NetworkDebug)
                 {
                     $taskArguments += '-afpsNetworkDebug'
@@ -106,9 +144,54 @@ try
                 $taskProcess = Start-Process $taskPlayer -WindowStyle Hidden -WorkingDirectory $taskRoot -ArgumentList $taskArguments -PassThru
                 $taskEntries += @{ Process = $taskProcess; Log = $taskLog; Mode = $taskSpec.Mode; Name = $taskSpec.Name }
             }
+            if ($taskRoom -ne 'Practice')
+            {
+                $taskDeadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMilliseconds)
+                do
+                {
+                    $taskReady = $true
+                    foreach ($taskEntry in $taskEntries)
+                    {
+                        if ($taskEntry.Mode -eq 'Server')
+                        {
+                            continue
+                        }
+                        $taskLines = @(Select-String -LiteralPath $taskEntry.Log -Pattern $taskFlags[$Scenario][1] -ErrorAction SilentlyContinue | ForEach-Object { $_.Line })
+                        if ($taskLines -match 'RESULT\] FAIL')
+                        {
+                            $taskResults += @{ Player = $taskEntry.Name; Results = $taskLines; Log = $taskEntry.Log }
+                            throw ('Player assertion failed before exit: ' + $taskEntry.Name)
+                        }
+                        if (!($taskLines -match 'RESULT\] PASS'))
+                        {
+                            if ($taskEntry.Process.HasExited)
+                            {
+                                $taskResults += @{ Player = $taskEntry.Name; ExitCode = $taskEntry.Process.ExitCode;
+                                    Log = $taskEntry.Log; Tail = @(Get-Content -LiteralPath $taskEntry.Log -Tail 20) }
+                                throw ('Player exited before reporting success: ' + $taskEntry.Name)
+                            }
+                            $taskReady = $false
+                        }
+                    }
+                    if (!$taskReady)
+                    {
+                        Start-Sleep -Milliseconds 100
+                    }
+                } while (!$taskReady -and [DateTime]::UtcNow -lt $taskDeadline)
+                if (!$taskReady)
+                {
+                    foreach ($taskEntry in $taskEntries)
+                    {
+                        $taskResults += @{ Player = $taskEntry.Name; ResultTimedOut = $true; Log = $taskEntry.Log;
+                            Tail = @(Get-Content -LiteralPath $taskEntry.Log -Tail 20) }
+                    }
+                    throw 'Player result barrier timeout.'
+                }
+                [IO.File]::WriteAllText($taskBarrier, 'release')
+            }
             foreach ($taskEntry in $taskEntries)
             {
-                if ($taskEntry.Mode -eq 'Server')
+                if ($taskEntry.Mode -eq 'Server' -and !$GracefulServerExit)
                 {
                     continue
                 }
@@ -116,14 +199,24 @@ try
                 $taskEntry.Process.Refresh()
                 if (!$taskFinished -and !$taskEntry.Process.HasExited)
                 {
+                    $taskResults += @{ Player = $taskEntry.Name; TimedOut = $true;
+                        Threads = $taskEntry.Process.Threads.Count; Log = $taskEntry.Log;
+                        Tail = @(Get-Content -LiteralPath $taskEntry.Log -Tail 20) }
                     throw ('Player exit timeout: ' + $taskEntry.Name)
                 }
-                $taskLines = @(Select-String -LiteralPath $taskEntry.Log -Pattern $taskFlags[$Scenario][1] | ForEach-Object { $_.Line })
-                $taskResults += @{ Player = $taskEntry.Name; ExitCode = $taskEntry.Process.ExitCode; Results = $taskLines; Log = $taskEntry.Log }
+                $taskMarker = if ($taskEntry.Mode -eq 'Server') { 'AFPS_SHUTDOWN_RESULT' } else { $taskFlags[$Scenario][1] }
+                $taskLines = @(Select-String -LiteralPath $taskEntry.Log -Pattern $taskMarker | ForEach-Object { $_.Line })
+                $taskStopped = @(Select-String -LiteralPath $taskEntry.Log -Pattern '\[AFPS_NETWORK_STOPPED\] PASS' | ForEach-Object { $_.Line })
+                $taskResults += @{ Player = $taskEntry.Name; ExitCode = $taskEntry.Process.ExitCode;
+                    Results = $taskLines; NetworkStopped = $taskStopped; Log = $taskEntry.Log }
                 Write-Output ($taskEntry.Name + ': exit=' + $taskEntry.Process.ExitCode + '; ' + ($taskLines -join ' '))
                 if ($taskEntry.Process.ExitCode -ne 0 -or !($taskLines -match 'RESULT\] PASS'))
                 {
                     throw ('Player smoke failed: ' + $taskEntry.Name)
+                }
+                if ($GracefulServerExit -and $taskStopped.Count -ne 1)
+                {
+                    throw ('Expected exactly one successful network cleanup: ' + $taskEntry.Name)
                 }
             }
         }
@@ -148,7 +241,9 @@ catch
 }
 finally
 {
-    $taskReport = @{ Scenario = $Scenario; Passed = $taskSuccess; Error = $taskFailure; Players = $taskResults }
+    $taskReport = @{ Scenario = $Scenario; Passed = $taskSuccess; Error = $taskFailure;
+        ConcurrentRooms = [bool]$ConcurrentRooms; JobWorkerCount = $JobWorkerCount;
+        GracefulServerExit = [bool]$GracefulServerExit; Players = $taskResults }
     [IO.File]::WriteAllText((Join-Path $OutputDirectory ($Scenario + '-results.json')),
         ($taskReport | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
 }

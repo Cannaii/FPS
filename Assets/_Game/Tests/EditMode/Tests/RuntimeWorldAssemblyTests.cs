@@ -91,6 +91,44 @@ namespace AFPS.Tests.EditMode
             Assert.That(movement.CanEnterGame, Is.False);
         }
 
+        [Test]
+        public void ApplicationQuit_ReleasesRuntimeOnceAndBlocksNewStartup()
+        {
+            var bootstrap = movement.GetComponent<UnityNetworkBootstrap>();
+            var options = new NetworkLaunchOptions(NetworkLaunchMode.DedicatedServer, "127.0.0.1", 47988, 2);
+            Assert.That(bootstrap.TryStartNetwork(options, out string error), Is.True, error);
+            var runtime = bootstrap.Runtime;
+            var quit = typeof(UnityNetworkBootstrap).GetMethod(
+                "OnApplicationQuit", BindingFlags.Instance | BindingFlags.NonPublic);
+            // 只调用生命周期入口，不退出编辑器；临时附加场景的销毁还会执行OnDestroy兜底。
+            quit.Invoke(bootstrap, null);
+            quit.Invoke(bootstrap, null);
+            Assert.That(runtime.IsRunning, Is.False);
+            Assert.That(runtime.ServerTransport, Is.Null);
+            Assert.That(bootstrap.Runtime, Is.Null);
+            Assert.That(bootstrap.Reconnect, Is.Null);
+            Assert.That(bootstrap.TryStartNetwork(options, out error), Is.False);
+            Assert.That(error, Does.Contain("正在退出"));
+        }
+
+        [Test]
+        public void DestroyLifecycle_ReleasesListeningPortWithoutApplicationQuit()
+        {
+            var bootstrap = movement.GetComponent<UnityNetworkBootstrap>();
+            var options = new NetworkLaunchOptions(NetworkLaunchMode.DedicatedServer, "127.0.0.1", 47989, 2);
+            Assert.That(bootstrap.TryStartNetwork(options, out string error), Is.True, error);
+            var runtime = bootstrap.Runtime;
+            // EditMode从未Awake的组件不会收到Unity自动OnDestroy，显式验证同一清理入口。
+            typeof(UnityNetworkBootstrap).GetMethod(
+                "OnDestroy", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(bootstrap, null);
+            Object.DestroyImmediate(bootstrap);
+            Assert.That(runtime.IsRunning, Is.False);
+            using (var replacement = new GameNetworkRuntime(() => new AFPS.Transport.Unity.UnityGameTransport()))
+            {
+                Assert.That(replacement.TryStart(options, out error), Is.True, error);
+            }
+        }
+
         private void SetSnapshot(TextAsset snapshot)
         {
             var serialized = new SerializedObject(movement);
