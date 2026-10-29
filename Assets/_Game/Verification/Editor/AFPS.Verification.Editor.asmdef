@@ -1,0 +1,6 @@
+{
+    "name": "AFPS.Verification.Editor",
+    "references": ["AFPS.Math", "AFPS.Simulation", "AFPS.NetCode"],
+    "includePlatforms": ["Editor"],
+    "autoReferenced": true
+}

@@ -1,0 +1,6 @@
+{
+    "name": "AFPS.Verification",
+    "references": ["AFPS.Math", "AFPS.Simulation", "AFPS.NetCode"],
+    "defineConstraints": ["UNITY_EDITOR || AFPS_DETERMINISM_VERIFICATION"],
+    "autoReferenced": true
+}

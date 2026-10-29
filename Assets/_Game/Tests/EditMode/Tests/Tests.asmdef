@@ -14,7 +14,8 @@
         "_Game.Bootstrap",
         "Unity.TextMeshPro",
         "UnityEngine.UI",
-        "AFPS.World.Editor"
+        "AFPS.World.Editor",
+        "AFPS.Verification.Editor"
     ],
     "includePlatforms": [
         "Editor"

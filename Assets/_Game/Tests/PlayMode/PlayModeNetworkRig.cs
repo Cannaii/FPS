@@ -55,16 +55,16 @@ namespace AFPS.Tests.PlayMode
             });
             var configuration = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
             var context = new SimulationWorldContext(world, configuration, SimulationStep.Step50Hz);
-            authority = Start(host ? NetworkLaunchMode.Host : NetworkLaunchMode.DedicatedServer);
+            authority = StartRuntime(host ? NetworkLaunchMode.Host : NetworkLaunchMode.DedicatedServer);
             Server = CreateManager(authority.ServerTransport, null, context);
             for (int index = 0; index < clients.Length; index++)
             {
-                clients[index] = host && index == 0 ? authority : Start(NetworkLaunchMode.Client);
+                clients[index] = host && index == 0 ? authority : StartRuntime(NetworkLaunchMode.Client);
                 Clients[index] = CreateManager(null, clients[index].ClientTransport, context);
             }
         }
 
-        private GameNetworkRuntime Start(NetworkLaunchMode mode)
+        private GameNetworkRuntime StartRuntime(NetworkLaunchMode mode)
         {
             var runtime = new GameNetworkRuntime(() => new UnityGameTransport());
             if (!runtime.TryStart(new NetworkLaunchOptions(mode, "127.0.0.1", Port, 4), out string error))
