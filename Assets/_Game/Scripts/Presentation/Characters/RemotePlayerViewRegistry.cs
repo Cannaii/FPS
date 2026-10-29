@@ -7,7 +7,7 @@ namespace AFPS.Presentation.Characters
 {
     /// <summary>
     /// 为远端实体创建独立视图，并使用各自的快照时间线更新位置和朝向。
-    /// 未配置 Prefab 时会创建无碰撞的胶囊作为开发期占位角色。
+    /// 优先使用显式Prefab，其次加载自有开发角色；资产缺失时保留无碰撞胶囊兜底。
     /// </summary>
     // 保留旧组件类型的迁移信息；文件与.meta成对移动，场景/Prefab继续沿用原GUID。
     [UnityEngine.Scripting.APIUpdating.MovedFrom(
@@ -21,6 +21,22 @@ namespace AFPS.Presentation.Characters
         private readonly Dictionary<uint, RemotePlayerView> views = new Dictionary<uint, RemotePlayerView>();
         private readonly List<uint> entityIds = new List<uint>();
         private readonly List<uint> staleEntityIds = new List<uint>();
+        private RemotePlayerView defaultPlayerPrefab;
+        public int CharacterVisualCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (RemotePlayerView view in views.Values)
+                {
+                    if (view != null && view.HasCharacterVisual)
+                    {
+                        count++;
+                    }
+                }
+                return count;
+            }
+        }
         public ulong FootstepCount
         {
             get
@@ -128,9 +144,18 @@ namespace AFPS.Presentation.Characters
         private RemotePlayerView CreateView(uint entityId)
         {
             Transform parent = remotePlayerRoot != null ? remotePlayerRoot : transform;
-            if (remotePlayerPrefab != null)
+            RemotePlayerView prefab = remotePlayerPrefab;
+            if (prefab == null)
             {
-                RemotePlayerView instance = Instantiate(remotePlayerPrefab, parent);
+                if (defaultPlayerPrefab == null)
+                {
+                    defaultPlayerPrefab = Resources.Load<RemotePlayerView>("Characters/RemotePlayer");
+                }
+                prefab = defaultPlayerPrefab;
+            }
+            if (prefab != null)
+            {
+                RemotePlayerView instance = Instantiate(prefab, parent);
                 instance.name = $"RemotePlayer_{entityId}";
                 DisableColliders(instance.gameObject);
                 return instance;

@@ -41,6 +41,8 @@ namespace AFPS.Bootstrap
         public bool HasPresentedGrappleRope => grappleRopeView != null && grappleRopeView.IsVisible;
         public int PresentedRemoteGrappleRopeCount => remotePlayerWorldView != null
             ? remotePlayerWorldView.VisibleGrappleRopeCount : 0;
+        public int PresentedRemoteCharacterCount => remotePlayerWorldView != null
+            ? remotePlayerWorldView.CharacterVisualCount : 0;
         [SerializeField] private RemotePlayerViewRegistry remotePlayerWorldView;
         [SerializeField] private bool hideLocalBodyInFirstPerson = true;
         [SerializeField, Min(0f)] private float maxGroundSpeed = 6f;

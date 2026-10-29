@@ -224,9 +224,11 @@ namespace AFPS.Bootstrap
                 && (replicas.LocalEntityId != 1 || gameplayController.ConfirmedLocalHitCount > 0);
             bool footstepsPresented = gameplayController.LocalFootstepCount > 0
                 && gameplayController.RemoteFootstepCount > 0;
+            bool characterPresented = gameplayController.PresentedRemoteCharacterCount > 0;
             bool passed = hasAssignment && hasRemote && sampledRemote && moved && jumped && turned
                 && authoritativeHit && timeSynced && reloadVerified && automaticFireVerified
-                && weaponSynced && shotPresented && footstepsPresented && adaptiveInterpolation && serverQuality && diagnosticsReady;
+                && weaponSynced && shotPresented && footstepsPresented && characterPresented
+                && adaptiveInterpolation && serverQuality && diagnosticsReady;
             string details = $"mode={networkBootstrap.ActiveMode} entity={replicas?.LocalEntityId ?? 0}"
                 + $" remoteCount={replicas?.Count ?? 0} moved={moved} jumped={jumped} turned={turned}"
                 + $" sampledRemote={sampledRemote} authoritativeHit={authoritativeHit} timeSynced={timeSynced}"
@@ -235,6 +237,7 @@ namespace AFPS.Bootstrap
             details += $" shotPresented={shotPresented} presentedCount={gameplayController.PresentedShotResultCount}";
             details += $" footsteps={footstepsPresented} localSteps={gameplayController.LocalFootstepCount}"
                 + $" remoteSteps={gameplayController.RemoteFootstepCount}";
+            details += $" remoteCharacter={characterPresented}";
             details += $" remoteSnapshotsSent={manager.Metrics.SnapshotPacketsSent}"
                 + $" remoteSnapshotBytes={manager.Metrics.SnapshotBytesSent}";
             details += $" adaptiveInterpolation={adaptiveInterpolation}"

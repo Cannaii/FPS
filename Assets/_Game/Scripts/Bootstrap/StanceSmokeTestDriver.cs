@@ -109,7 +109,8 @@ namespace AFPS.Bootstrap
             }
             foreach (var view in FindObjectsOfType<RemotePlayerView>())
             {
-                remoteView |= view.transform.localScale.y < 0.8f;
+                // 人形通过髋部/膝关节下蹲，不再依赖胶囊根节点压缩。
+                remoteView |= view.IsCrouchPresented;
             }
             input.SetAutomationInput(0f, 1f, 90f, 0f, false,
                 sprintHeld: phase == 0, crouchHeld: phase == 1);
