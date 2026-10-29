@@ -19,7 +19,7 @@ namespace AFPS.NetCode.Prediction
             float tickDeltaTime,
             float positionErrorThreshold,
             float velocityErrorThreshold,
-            ICharacterCollisionWorld collisionWorld = null)
+            ICharacterCollisionWorld collisionWorld)
         {
             if (positionErrorThreshold < 0 || float.IsNaN(positionErrorThreshold) || float.IsInfinity(positionErrorThreshold))
             {

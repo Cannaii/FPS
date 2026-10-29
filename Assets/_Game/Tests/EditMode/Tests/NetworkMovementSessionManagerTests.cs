@@ -1020,8 +1020,15 @@ namespace AFPS.Tests.EditMode
             manager.TryGetServerSession(connection, out var adaptive);
             var initial = new PlayerState { IsGrounded = true };
             var configuration = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-            var fixedWait = new ServerAuthoritativeMovementSession(transport, new TransportConnectionId(99),
-                initial, configuration, 0.02f, 16);
+            var fixedWait = new ServerAuthoritativeMovementSession(
+                transport,
+                new TransportConnectionId(99),
+                initial,
+                configuration,
+                0.02f,
+                16,
+                collisionWorld: global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
             var first = CreateInputPacket(new PlayerInputCommand { Tick = 1, MoveY = 1f });
             manager.TryHandleData(NetworkTransportSide.Server, connection, first, out _);
             fixedWait.TryReceiveInputPacket(first, out _);
@@ -1923,8 +1930,17 @@ namespace AFPS.Tests.EditMode
             PlayerState initialState = spawnState ?? new PlayerState { Tick = 0, IsGrounded = true };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
             return new NetworkMovementSessionManager(
-                serverTransport, clientTransport, initialState, initialState, config,
-                0.02f, 64, 3, 16, 2, 2,
+                serverTransport,
+                clientTransport,
+                initialState,
+                initialState,
+                config,
+                0.02f,
+                64,
+                3,
+                16,
+                2,
+                2,
                 AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold,
                 AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold,
                 serverSpawnSpacing: spawnSpacing,
@@ -1935,7 +1951,9 @@ namespace AFPS.Tests.EditMode
                 deathmatchKillLimit: deathmatchKillLimit,
                 deathmatchRespawnSeconds: deathmatchRespawnSeconds,
                 deathmatchDurationSeconds: deathmatchDurationSeconds,
-                monotonicMicroseconds: clock);
+                monotonicMicroseconds: clock,
+                collisionWorld: global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
         }
         private static void SendTick(NetworkMovementSessionManager manager, TransportConnectionId shooter, TransportConnectionId target, uint inputTick, uint serverTick, PlayerInputCommand shooterCommand, PlayerInputCommand targetCommand)
         {

@@ -25,9 +25,23 @@ namespace AFPS.Tests.EditMode
             {
                 var initial = new PlayerState { IsGrounded = true };
                 var config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-                var manager = new NetworkMovementSessionManager(server, client, initial, initial, config,
-                    0.02f, 64, 3, 16, 2, 2, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold,
-                    AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold, isLocalPractice: true);
+                var manager = new NetworkMovementSessionManager(
+                    server,
+                    client,
+                    initial,
+                    initial,
+                    config,
+                    0.02f,
+                    64,
+                    3,
+                    16,
+                    2,
+                    2,
+                    AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold,
+                    AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold,
+                    isLocalPractice: true,
+                    collisionWorld: global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+                );
                 for (uint id = 1; id <= 4; id++)
                 {
                     manager.HandleConnected(NetworkTransportSide.Server, new TransportConnectionId(id));

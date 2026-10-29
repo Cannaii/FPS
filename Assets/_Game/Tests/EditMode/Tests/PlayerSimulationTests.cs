@@ -44,7 +44,9 @@ namespace AFPS.Tests.EditMode
                 previousState,
                 input,
                 config,
-                tickDeltaTime);
+                tickDeltaTime,
+                global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
 
             Assert.AreEqual(1u, result.Tick);
 
@@ -114,13 +116,17 @@ namespace AFPS.Tests.EditMode
                 initialState,
                 forwardInput,
                 config,
-                tickDeltaTime);
+                tickDeltaTime,
+                global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
 
             var diagonalResult = PlayerSimulation.Simulate(
                 initialState,
                 diagonalInput,
                 config,
-                tickDeltaTime);
+                tickDeltaTime,
+                global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
 
             var forwardVelocity = new Vector2(
                 forwardResult.Velocity.x,
@@ -143,7 +149,13 @@ namespace AFPS.Tests.EditMode
             PlayerInputCommand input = new PlayerInputCommand { Tick = 1, MoveY = 1f, LookYaw = 90f, LookPitch = -20f };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
 
-            PlayerState result = PlayerSimulation.Simulate(initialState, input, config, 0.02f);
+            PlayerState result = PlayerSimulation.Simulate(
+                initialState,
+                input,
+                config,
+                0.02f,
+                global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
 
             Assert.That(result.Velocity.x, Is.EqualTo(0.4f).Within(0.0001f));
             Assert.That(result.Velocity.z, Is.EqualTo(0f).Within(0.0001f));
@@ -216,7 +228,9 @@ namespace AFPS.Tests.EditMode
                     firstResult,
                     input,
                     config,
-                    tickDeltaTime);
+                    tickDeltaTime,
+                    global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+                );
             }
 
             // 从相同初始状态重新播放同一组输入。
@@ -226,7 +240,9 @@ namespace AFPS.Tests.EditMode
                     secondResult,
                     input,
                     config,
-                    tickDeltaTime);
+                    tickDeltaTime,
+                    global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+                );
             }
 
             Assert.AreEqual(firstResult.Tick, secondResult.Tick);
@@ -301,7 +317,9 @@ namespace AFPS.Tests.EditMode
                 previousState,
                 input,
                 config,
-                tickDeltaTime);
+                tickDeltaTime,
+                global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
 
             Assert.AreEqual(1u, result.Tick);
             Assert.IsFalse(result.IsGrounded);
@@ -357,7 +375,9 @@ namespace AFPS.Tests.EditMode
                 previousState,
                 input,
                 config,
-                tickDeltaTime);
+                tickDeltaTime,
+                global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
 
             // 空中跳次数已耗尽时输入应被忽略，只应用重力：
             // 3 - 20 × 0.02 = 2.6 米/秒
@@ -409,7 +429,9 @@ namespace AFPS.Tests.EditMode
                     state,
                     input,
                     config,
-                    tickDeltaTime);
+                    tickDeltaTime,
+                    global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+                );
             }
 
             Assert.AreEqual(100u, state.Tick);

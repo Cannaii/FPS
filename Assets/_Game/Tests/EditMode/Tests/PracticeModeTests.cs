@@ -98,9 +98,25 @@ namespace AFPS.Tests.EditMode
             {
                 var initial = new PlayerState { IsGrounded = true };
                 var config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-                var manager = new NetworkMovementSessionManager(server, client, initial, initial, config,
-                    0.02f, 64, 3, 32, 2, 2, 0f, 0f, weaponConfig: WeaponSimulationConfig.DefaultRifle,
-                    deathmatchDurationSeconds: 0.02f, isLocalPractice: true);
+                var manager = new NetworkMovementSessionManager(
+                    server,
+                    client,
+                    initial,
+                    initial,
+                    config,
+                    0.02f,
+                    64,
+                    3,
+                    32,
+                    2,
+                    2,
+                    0f,
+                    0f,
+                    weaponConfig: WeaponSimulationConfig.DefaultRifle,
+                    deathmatchDurationSeconds: 0.02f,
+                    isLocalPractice: true,
+                    collisionWorld: global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+                );
                 Drain(server, NetworkTransportSide.Server, manager);
                 Drain(client, NetworkTransportSide.Client, manager);
                 for (uint tick = 1; tick <= 20; tick++)

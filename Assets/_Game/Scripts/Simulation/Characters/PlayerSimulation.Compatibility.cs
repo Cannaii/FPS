@@ -5,8 +5,7 @@ namespace AFPS.Simulation.Characters
 {
     public static partial class PlayerSimulation
     {
-        // 旧测试/实验接口；新的网络 Tick 路径使用 Fix 步长及显式 IFixedCharacterCollisionWorld。
-        public static PlayerState Simulate(in PlayerState state, in PlayerInputCommand input, in PlayerSimulationConfig config, float seconds) => Simulate(state, input, config, SimulationStep.FromSeconds(seconds), FixedFlatGroundCollisionWorld.Instance);
+        // 浮点秒仅作为旧调用边界；禁止省略world，以免漏接场景几何时静默落回无限平地。
         public static PlayerState Simulate(
             in PlayerState state,
             in PlayerInputCommand input,

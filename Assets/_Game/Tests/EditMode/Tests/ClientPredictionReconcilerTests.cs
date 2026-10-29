@@ -33,7 +33,9 @@ namespace AFPS.Tests.EditMode
                 config,
                 TickDeltaTime,
                 0.001f,
-                0.001f);
+                0.001f,
+                global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
 
             Assert.AreEqual(ReconciliationStatus.NoCorrection, result.Status);
             Assert.AreEqual(0, result.ReplayedTickCount);
@@ -55,8 +57,20 @@ namespace AFPS.Tests.EditMode
 
             inputs.TryGet(2, out PlayerInputCommand inputTwo);
             inputs.TryGet(3, out PlayerInputCommand inputThree);
-            PlayerState expectedState = PlayerSimulation.Simulate(serverState, inputTwo, config, TickDeltaTime);
-            expectedState = PlayerSimulation.Simulate(expectedState, inputThree, config, TickDeltaTime);
+            PlayerState expectedState = PlayerSimulation.Simulate(
+                serverState,
+                inputTwo,
+                config,
+                TickDeltaTime,
+                global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
+            expectedState = PlayerSimulation.Simulate(
+                expectedState,
+                inputThree,
+                config,
+                TickDeltaTime,
+                global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
 
             ReconciliationResult result = ClientPredictionReconciler.Reconcile(
                 authoritativeState,
@@ -67,7 +81,9 @@ namespace AFPS.Tests.EditMode
                 config,
                 TickDeltaTime,
                 0.001f,
-                0.001f);
+                0.001f,
+                global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
 
             Assert.AreEqual(ReconciliationStatus.Corrected, result.Status);
             Assert.AreEqual(2, result.ReplayedTickCount);
@@ -101,7 +117,9 @@ namespace AFPS.Tests.EditMode
                 config,
                 TickDeltaTime,
                 0.001f,
-                0.001f);
+                0.001f,
+                global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
 
             Assert.AreEqual(ReconciliationStatus.MissingInputHistory, result.Status);
             Assert.IsTrue(result.RequiresHardCorrection);
@@ -125,7 +143,13 @@ namespace AFPS.Tests.EditMode
             {
                 PlayerInputCommand input = new PlayerInputCommand { Tick = tick, MoveY = 1f };
                 inputs.Store(tick, input);
-                currentState = PlayerSimulation.Simulate(currentState, input, config, TickDeltaTime);
+                currentState = PlayerSimulation.Simulate(
+                    currentState,
+                    input,
+                    config,
+                    TickDeltaTime,
+                    global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+                );
                 states.Store(tick, currentState);
             }
         }

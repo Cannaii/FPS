@@ -296,7 +296,12 @@ namespace AFPS.NetCode.Sessions
                 }
             }
 
-            this.collisionWorld = simulationWorld == null ? collisionWorld ?? FlatGroundCollisionWorld.Instance : null;
+            if (simulationWorld == null && collisionWorld == null)
+            {
+                throw new ArgumentNullException(nameof(simulationWorld),
+                    "必须提供SimulationWorldContext或显式旧碰撞后端，禁止隐式平地回退。");
+            }
+            this.collisionWorld = simulationWorld == null ? collisionWorld : null;
             this.maximumRewindTicks = maximumRewindTicks;
             this.snapshotBudgetPerClientPerTick = snapshotBudgetPerClientPerTick;
             this.fullSnapshotIntervalTicks = fullSnapshotIntervalTicks;

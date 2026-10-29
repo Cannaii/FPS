@@ -16,6 +16,9 @@ namespace AFPS.Bootstrap
     /// </summary>
     public sealed class MovementSandboxBootstrap : MonoBehaviour
     {
+        // 旧移动实验明确只验证无限平地；预测、延迟服务器、回滚必须共用这一后端，不读取场景几何。
+        private static readonly AFPS.Simulation.Characters.Collision.ICharacterCollisionWorld SandboxWorld =
+            AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance;
         /// <summary>
         /// 负责以固定频率产生模拟 Tick 的驱动器。
         /// </summary>
@@ -233,7 +236,9 @@ namespace AFPS.Bootstrap
                 serverSimulationConfig,
                 tickRunner.TickDeltaTime,
                 simulatedInputDelayTicks,
-                simulatedStateDelayTicks);
+                simulatedStateDelayTicks,
+                collisionWorld: SandboxWorld
+            );
 
             // 保存尚未处理任何输入时的模拟起点。
             stateHistory.Store(currentState.Tick, currentState);
@@ -306,7 +311,9 @@ namespace AFPS.Bootstrap
                 currentState,
                 command,
                 simulationConfig,
-                tickDeltaTime);
+                tickDeltaTime,
+                SandboxWorld
+            );
 
             // 保存完成当前 Tick 后得到的本地预测状态。
             stateHistory.Store(tick, currentState);
@@ -342,7 +349,9 @@ namespace AFPS.Bootstrap
                 simulationConfig,
                 tickRunner.TickDeltaTime,
                 positionErrorThreshold,
-                velocityErrorThreshold);
+                velocityErrorThreshold,
+                SandboxWorld
+            );
 
             latestPositionError = result.Error.Position;
             latestVelocityError = result.Error.Velocity;

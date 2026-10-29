@@ -81,8 +81,12 @@ namespace AFPS.Tests.EditMode
                         3,
                         AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold,
                         AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold,
+                        collisionWorld: useFixedWorld ? null : FlatGroundCollisionWorld.Instance,
                         fixedCollisionWorld: fixedWorld);
-                    ServerAuthoritativeMovementSession serverSession = new ServerAuthoritativeMovementSession(serverTransport, serverConnection, initialState, serverConfig, 0.02f, 64, fixedCollisionWorld: fixedWorld);
+                    ServerAuthoritativeMovementSession serverSession = new ServerAuthoritativeMovementSession(
+                        serverTransport, serverConnection, initialState, serverConfig, 0.02f, 64,
+                        collisionWorld: useFixedWorld ? null : FlatGroundCollisionWorld.Instance,
+                        fixedCollisionWorld: fixedWorld);
                     for (uint tick = 1; tick <= 3; tick++)
                     {
                         PlayerInputCommand command = new PlayerInputCommand
@@ -153,8 +157,30 @@ namespace AFPS.Tests.EditMode
                 Tick = 0
             };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-            Assert.Throws<ArgumentOutOfRangeException>(() => new ClientPredictedMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 64, 3, -1f, AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold));
-            Assert.Throws<ArgumentOutOfRangeException>(() => new ClientPredictedMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 64, 3, AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold, -1f));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new ClientPredictedMovementSession(
+                transport,
+                new TransportConnectionId(1),
+                initialState,
+                config,
+                0.02f,
+                64,
+                3,
+                -1f,
+                AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold,
+                collisionWorld: global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            ));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new ClientPredictedMovementSession(
+                transport,
+                new TransportConnectionId(1),
+                initialState,
+                config,
+                0.02f,
+                64,
+                3,
+                AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold,
+                -1f,
+                collisionWorld: global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            ));
         }
 
         [Test]
@@ -176,7 +202,9 @@ namespace AFPS.Tests.EditMode
                 64,
                 3,
                 AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold,
-                AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold);
+                AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold,
+                collisionWorld: global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
             PlayerState serverState = new PlayerState
             {
                 Tick = 25,
@@ -206,7 +234,17 @@ namespace AFPS.Tests.EditMode
                 IsGrounded = true
             };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-            ServerAuthoritativeMovementSession session = new ServerAuthoritativeMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 16, 2, 1);
+            ServerAuthoritativeMovementSession session = new ServerAuthoritativeMovementSession(
+                transport,
+                new TransportConnectionId(1),
+                initialState,
+                config,
+                0.02f,
+                16,
+                2,
+                1,
+                collisionWorld: global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
             Assert.That(session.TryReceiveInputPacket(new ArraySegment<byte>(CreateInputPacket(1, new PlayerInputCommand { Tick = 1, MoveY = 1f, JumpPressed = true })), out _), Is.True);
             Assert.That(session.TryReceiveInputPacket(new ArraySegment<byte>(CreateInputPacket(2, new PlayerInputCommand { Tick = 4, MoveX = 1f })), out _), Is.True);
             Assert.That(session.TryAdvance(10, out _, out _), Is.True);
@@ -247,7 +285,17 @@ namespace AFPS.Tests.EditMode
                 IsGrounded = true
             };
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-            ServerAuthoritativeMovementSession session = new ServerAuthoritativeMovementSession(transport, new TransportConnectionId(1), initialState, config, 0.02f, 16, 0, 5);
+            ServerAuthoritativeMovementSession session = new ServerAuthoritativeMovementSession(
+                transport,
+                new TransportConnectionId(1),
+                initialState,
+                config,
+                0.02f,
+                16,
+                0,
+                5,
+                collisionWorld: global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
             Assert.That(session.TryAdvance(1, out AuthoritativePlayerState state, out _), Is.True);
             Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.NeutralFallback));
             Assert.That(session.LastAppliedInput.Tick, Is.EqualTo(1));

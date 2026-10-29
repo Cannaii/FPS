@@ -27,7 +27,14 @@ namespace AFPS.Tests.EditMode
             };
 
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-            SimulatedAuthoritativeServer server = new SimulatedAuthoritativeServer(initialState, config, 0.02f, 2, 2);
+            SimulatedAuthoritativeServer server = new SimulatedAuthoritativeServer(
+                initialState,
+                config,
+                0.02f,
+                2,
+                2,
+                collisionWorld: global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
 
             PlayerInputCommand command = new PlayerInputCommand
             {
@@ -78,7 +85,14 @@ namespace AFPS.Tests.EditMode
             };
 
             PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-            SimulatedAuthoritativeServer server = new SimulatedAuthoritativeServer(initialState, config, 0.02f, 0, 0);
+            SimulatedAuthoritativeServer server = new SimulatedAuthoritativeServer(
+                initialState,
+                config,
+                0.02f,
+                0,
+                0,
+                collisionWorld: global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
+            );
             PlayerInputCommand command = new PlayerInputCommand { Tick = 1, MoveY = 1f };
 
             server.SendInput(1, command);
