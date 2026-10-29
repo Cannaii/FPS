@@ -16,6 +16,7 @@ using AFPS.Presentation.Weapons;
 using AFPS.Simulation.Characters;
 using AFPS.Simulation.Characters.Collision;
 using AFPS.Simulation.Weapons;
+using AFPS.Simulation.World;
 using UnityEngine;
 
 namespace AFPS.Bootstrap
@@ -89,6 +90,8 @@ namespace AFPS.Bootstrap
         private ConnectionAdmissionStatus observedAdmissionStatus;
 
         public string ConnectionStatusMessage { get; private set; }
+        /// <summary>仅用于启动菜单的发现兼容性提示；实际准入仍由完整握手校验。</summary>
+        public SimulationWorldIdentity? PreparedWorldIdentity => preparedWorld?.Identity;
         public ushort PresentedWeaponId => firstPersonWeaponView != null && firstPersonWeaponView.HasOwnedModel
             ? firstPersonWeaponView.WeaponId : (ushort)0;
         public bool PresentedReloading => firstPersonWeaponView != null && firstPersonWeaponView.Reloading;

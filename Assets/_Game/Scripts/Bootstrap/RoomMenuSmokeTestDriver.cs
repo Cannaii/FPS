@@ -25,6 +25,8 @@ namespace AFPS.Bootstrap
         private bool clicked;
         private bool codePublished;
         private bool invalidRejected;
+        private bool discoveryJoin;
+        private bool discovered;
 
         public void Configure(UnityNetworkBootstrap owner)
         {
@@ -33,6 +35,7 @@ namespace AFPS.Bootstrap
             input = FindObjectOfType<LocalPlayerInputCollector>(true);
             started = Time.realtimeSinceStartupAsDouble;
             string[] arguments = Environment.GetCommandLineArgs();
+            discoveryJoin = Array.Exists(arguments, argument => argument == "-afpsRoomDiscoveryJoin");
             for (int index = 0; index + 1 < arguments.Length; index++)
             {
                 if (arguments[index] == "-afpsRoomMenuRole")
@@ -87,17 +90,38 @@ namespace AFPS.Bootstrap
                 }
                 else
                 {
-                    if (!File.Exists(codePath))
+                    if (discoveryJoin)
                     {
-                        return;
+                        var row = FindObjectsOfType<Button>().FirstOrDefault(button => button.interactable
+                            && button.name.StartsWith("Room Row ", StringComparison.Ordinal)
+                            && button.GetComponentInChildren<TextMeshProUGUI>().text.Contains(":" + port + "\n"));
+                        if (row == null)
+                        {
+                            return;
+                        }
+                        if (Array.Exists(Environment.GetCommandLineArgs(), value => value == "-afpsRoomMenuCapture"))
+                        {
+                            PracticeSmokeTestDriver.CaptureCameras(
+                                Path.Combine(Path.GetDirectoryName(codePath), "rooms-client.png"), true);
+                        }
+                        // 此分支不读取共享文件、不填写目标地址，必须真正点击UDP发现得到的房间。
+                        row.onClick.Invoke();
+                        discovered = bootstrap.Runtime != null;
                     }
-                    addressField.text = "AF1-R2M0-250Y-C4PRC";
-                    Button("Join Button").onClick.Invoke();
-                    invalidRejected = bootstrap.Runtime == null;
-                    addressField.text = File.ReadAllText(codePath);
-                    // 故意填写另一个有效端口，证明菜单确实使用房间码内的端口。
-                    portField.text = "1";
-                    Button("Join Button").onClick.Invoke();
+                    else
+                    {
+                        if (!File.Exists(codePath))
+                        {
+                            return;
+                        }
+                        addressField.text = "AF1-R2M0-250Y-C4PRC";
+                        Button("Join Button").onClick.Invoke();
+                        invalidRejected = bootstrap.Runtime == null;
+                        addressField.text = File.ReadAllText(codePath);
+                        // 故意填写另一个有效端口，证明菜单确实使用房间码内的端口。
+                        portField.text = "1";
+                        Button("Join Button").onClick.Invoke();
+                    }
                 }
                 clicked = true;
             }
@@ -151,9 +175,10 @@ namespace AFPS.Bootstrap
             }
             enter.onClick.Invoke();
             bool passed = input != null && input.enabled && match.PlayerCount == 2
-                && (role == "Host" ? codePublished : invalidRejected);
+                && (role == "Host" ? codePublished : discoveryJoin ? discovered : invalidRejected);
             Finish(passed, $"role={role} codeJoin=True online={match.OnlinePlayerCount}"
-                + $" total={match.PlayerCount} entered={input != null && input.enabled} invalidRejected={invalidRejected} hudHidden=True");
+                + $" total={match.PlayerCount} entered={input != null && input.enabled} invalidRejected={invalidRejected}"
+                + $" discovered={discovered} hudHidden=True");
         }
 
         private static Button Button(string name)

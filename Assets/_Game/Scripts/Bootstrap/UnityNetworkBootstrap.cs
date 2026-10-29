@@ -1,5 +1,7 @@
 using System;
 using AFPS.NetCode.Runtime;
+using AFPS.NetCode.Messages;
+using AFPS.NetCode.Protocol;
 using AFPS.NetCode.Transport;
 using AFPS.NetCode.Transport.Simulation;
 using AFPS.Transport.Unity;
@@ -120,6 +122,9 @@ namespace AFPS.Bootstrap
         private byte[] serverReceiveBuffer;
         private byte[] clientReceiveBuffer;
         private bool applicationQuitting;
+        private NetworkLaunchOptions activeOptions;
+        private LanRoomDiscovery roomAnnouncer;
+        private bool announcementAttempted;
 
         /// <summary>
         /// 当前组件创建并拥有的网络运行时；启动失败或销毁后为 null。
@@ -190,6 +195,7 @@ namespace AFPS.Bootstrap
             DrainTransportEvents(Runtime.ServerTransport, NetworkTransportSide.Server, serverReceiveBuffer);
             DrainTransportEvents(Runtime.ClientTransport, NetworkTransportSide.Client, clientReceiveBuffer);
             Reconnect?.Advance(Time.realtimeSinceStartupAsDouble);
+            PumpRoomAnnouncements();
         }
 
         private void OnDestroy()
@@ -206,6 +212,18 @@ namespace AFPS.Bootstrap
 
         private void ShutdownNetwork()
         {
+            var announcer = roomAnnouncer;
+            roomAnnouncer = null;
+            announcementAttempted = false;
+            try
+            {
+                announcer?.Dispose();
+            }
+            catch (Exception exception)
+            {
+                // 发现层清理失败不能阻断游戏传输的释放。
+                Debug.LogWarning("房间发现清理失败：" + exception.Message, this);
+            }
             GameNetworkRuntime runtime = Runtime;
             Runtime = null;
             Reconnect = null;
@@ -322,6 +340,7 @@ namespace AFPS.Bootstrap
             }
 
             Runtime = runtime;
+            activeOptions = options;
             serverReceiveBuffer = runtime.ServerTransport != null ? new byte[receiveBufferCapacity] : null;
             clientReceiveBuffer = runtime.ClientTransport != null ? new byte[receiveBufferCapacity] : null;
             if (options.Mode == NetworkLaunchMode.DedicatedServer)
@@ -333,6 +352,36 @@ namespace AFPS.Bootstrap
             NetworkStarted?.Invoke(options.Mode);
             error = null;
             return true;
+        }
+
+        private void PumpRoomAnnouncements()
+        {
+            if (Runtime?.ServerTransport == null || ActiveMode == NetworkLaunchMode.Practice)
+            {
+                return;
+            }
+            var manager = GetComponent<UnityNetworkMovementController>()?.SessionManager;
+            if (manager?.WorldContext == null)
+            {
+                return;
+            }
+            if (!announcementAttempted)
+            {
+                announcementAttempted = true;
+                roomAnnouncer = new LanRoomDiscovery();
+                if (!roomAnnouncer.TryStartAnnouncer(out string error))
+                {
+                    Debug.LogWarning(error + "，房间码/地址直连仍可使用。", this);
+                }
+            }
+            if (roomAnnouncer.IsRunning)
+            {
+                var room = new LanRoomAdvertisement(roomAnnouncer.InstanceId, PacketHeader.CurrentProtocolVersion,
+                    activeOptions.Port, (byte)manager.ServerSessionCount,
+                    (byte)System.Math.Min(activeOptions.MaxConnections, DeathmatchStateCodec.MaximumPlayerCount),
+                    manager.ServerDeathmatchPhase, manager.WorldContext.Identity);
+                roomAnnouncer.PumpAnnouncer(room, Time.realtimeSinceStartupAsDouble);
+            }
         }
 
         private static bool HasExplicitLaunchMode(string[] arguments)

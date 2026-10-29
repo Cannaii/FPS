@@ -139,6 +139,10 @@ if ($IncludeCombat) {
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/AuthoritativeShotGenerationTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DeterministicShotGenerationScenario.cs'
 }
+if ($IncludeCombat -and $IncludeReplication) {
+    $taskSources += @('LanRoomDiscoveryProtocol.cs', 'LanRoomDirectory.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Runtime/' + $_) }
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/LanRoomDiscoveryTests.cs'
+}
 $taskSources += Join-Path $PSScriptRoot 'MathTestRunner.cs'
 $taskCompilerArguments = @('-nologo', '-langversion:9', '-checked+', '-optimize+', '-target:exe', ('-out:' + (Join-Path $taskOutputDirectory 'VerifyMono.exe')))
 $taskCompilerArguments += @('mscorlib.dll', 'System.dll', 'System.Core.dll', 'System.Numerics.dll') | ForEach-Object { '-r:' + (Join-Path $taskMonoReferences $_) }

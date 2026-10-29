@@ -12,7 +12,7 @@ using UnityEngine.UI;
 namespace AFPS.Bootstrap
 {
     /// <summary>中文局域网菜单：地址/房间码直连，并显示服务器复制的在线人数。</summary>
-    public sealed class NetworkConnectionMenu : MonoBehaviour
+    public sealed partial class NetworkConnectionMenu : MonoBehaviour
     {
         private static readonly Color BackdropColor = new Color(0.025f, 0.035f, 0.055f, 0.96f);
         private static readonly Color PanelColor = new Color(0.075f, 0.095f, 0.135f, 0.98f);
@@ -58,12 +58,18 @@ namespace AFPS.Bootstrap
             Cursor.visible = true;
             EnsureEventSystem();
             BuildMenu();
+            StartBrowsing();
         }
 
         private void Update()
         {
-            if (bootstrap == null || bootstrap.Runtime == null)
+            if (bootstrap == null)
             {
+                return;
+            }
+            if (bootstrap.Runtime == null)
+            {
+                UpdateBrowsing();
                 return;
             }
 
@@ -130,6 +136,9 @@ namespace AFPS.Bootstrap
             {
                 roomCodeText.text = $"目标服务器：{options.ServerAddress}:{options.Port}";
             }
+            StopBrowsing();
+            discoveryPanel.gameObject.SetActive(false);
+            mainPanel.anchoredPosition = Vector2.zero;
         }
 
         private void CopyRoomCode()
@@ -206,6 +215,8 @@ namespace AFPS.Bootstrap
             enterButton.gameObject.SetActive(false);
             CreateText(panel, "房间码包含地址与端口，同一局域网内使用。", 17f, FontStyles.Normal,
                 TextAlignmentOptions.Center, new Vector2(0f, -400f), new Vector2(640f, 30f), new Color(0.72f, 0.78f, 0.86f));
+            mainPanel = panel;
+            BuildDiscoveryMenu(backdrop);
         }
 
         private void SetButtonsInteractable(bool interactable)
