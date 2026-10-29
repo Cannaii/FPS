@@ -142,6 +142,9 @@ if ($IncludeCombat) {
 if ($IncludeCombat -and $IncludeReplication) {
     $taskSources += @('LanRoomDiscoveryProtocol.cs', 'LanRoomDirectory.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Runtime/' + $_) }
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/LanRoomDiscoveryTests.cs'
+    $taskSources += @('LobbyState.cs', 'LobbyStartGate.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Match/' + $_) }
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Messages/LobbyPayloadCodec.cs'
+    $taskSources += @('LobbyStartGateTests.cs', 'LobbyPayloadCodecTests.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Tests/EditMode/Tests/' + $_) }
 }
 $taskSources += Join-Path $PSScriptRoot 'MathTestRunner.cs'
 $taskCompilerArguments = @('-nologo', '-langversion:9', '-checked+', '-optimize+', '-target:exe', ('-out:' + (Join-Path $taskOutputDirectory 'VerifyMono.exe')))
