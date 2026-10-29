@@ -8,18 +8,43 @@ namespace AFPS.Tests.EditMode
     public sealed class LobbyPayloadCodecTests
     {
         [Test]
+        public void SpawnPayloadRejectsOutOfRangeAndDuplicateReservedSlots()
+        {
+            var bytes = new byte[64];
+            var command = new LobbyReadyCommand(1, 1, 1, false, 64);
+            Assert.That(LobbyPayloadCodec.TryWriteReady(command, new ArraySegment<byte>(bytes)), Is.True);
+            Assert.That(LobbyPayloadCodec.TryReadReady(new ArraySegment<byte>(bytes, 0, 14), out var decoded), Is.True);
+            Assert.That(decoded.SpawnSlot, Is.EqualTo(64));
+            bytes[13] = 65;
+            Assert.That(LobbyPayloadCodec.TryReadReady(new ArraySegment<byte>(bytes, 0, 14), out _), Is.False);
+            var snapshot = new LobbySnapshot(1, 0, 0, LobbyPhase.Waiting, new[]
+            {
+                new LobbyPlayerState(1, 1, true, false, false, 0, 4),
+                new LobbyPlayerState(2, 2, false, false, false, 0, 4)
+            });
+            Assert.That(LobbyPayloadCodec.TryWriteSnapshot(snapshot, new ArraySegment<byte>(bytes), out _), Is.False);
+            var valid = new LobbySnapshot(1, 0, 0, LobbyPhase.Waiting,
+                new[] { new LobbyPlayerState(1, 1, true, false, false, 0, 64) });
+            Assert.That(LobbyPayloadCodec.TryWriteSnapshot(valid, new ArraySegment<byte>(bytes), out int written), Is.True);
+            bytes[27] = 0;
+            Assert.That(LobbyPayloadCodec.TryReadSnapshot(new ArraySegment<byte>(bytes, 0, written), out _), Is.False);
+            bytes[27] = 65;
+            Assert.That(LobbyPayloadCodec.TryReadSnapshot(new ArraySegment<byte>(bytes, 0, written), out _), Is.False);
+        }
+
+        [Test]
         public void ReadyHasStableLittleEndianPayloadAndDoesNotWriteOutsideSlice()
         {
-            var bytes = new byte[17];
+            var bytes = new byte[18];
             bytes[0] = 123;
-            bytes[16] = 234;
-            var slice = new ArraySegment<byte>(bytes, 2, 13);
+            bytes[17] = 234;
+            var slice = new ArraySegment<byte>(bytes, 2, 14);
             var command = new LobbyReadyCommand(0x01020304, 0x11121314, 0x21222324, true);
             Assert.That(LobbyPayloadCodec.TryWriteReady(command, slice), Is.True);
             CollectionAssert.AreEqual(new byte[] { 4, 3, 2, 1, 0x14, 0x13, 0x12, 0x11,
-                0x24, 0x23, 0x22, 0x21, 1 }, slice);
+                0x24, 0x23, 0x22, 0x21, 1, 0 }, slice);
             Assert.That(bytes[0], Is.EqualTo(123));
-            Assert.That(bytes[16], Is.EqualTo(234));
+            Assert.That(bytes[17], Is.EqualTo(234));
             Assert.That(LobbyPayloadCodec.TryReadReady(slice, out var decoded), Is.True);
             Assert.That(decoded.RoundEpoch, Is.EqualTo(command.RoundEpoch));
             Assert.That(decoded.MembershipEpoch, Is.EqualTo(command.MembershipEpoch));
@@ -30,12 +55,12 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void ReadyRejectsAllTruncationTrailingDataZeroTokensAndInvalidBoolean()
         {
-            var bytes = new byte[14];
+            var bytes = new byte[15];
             var command = new LobbyReadyCommand(1, 2, 3, true);
-            for (int length = 0; length <= 14; length++)
+            for (int length = 0; length <= 15; length++)
             {
                 LobbyPayloadCodec.TryWriteReady(command, new ArraySegment<byte>(bytes));
-                if (length != 13)
+                if (length != 14)
                 {
                     Assert.That(LobbyPayloadCodec.TryReadReady(
                         new ArraySegment<byte>(bytes, 0, length), out var rejected), Is.False);
@@ -53,7 +78,7 @@ namespace AFPS.Tests.EditMode
                 {
                     Array.Clear(bytes, offset, 4);
                 }
-                Assert.That(LobbyPayloadCodec.TryReadReady(new ArraySegment<byte>(bytes, 0, 13), out _), Is.False);
+                Assert.That(LobbyPayloadCodec.TryReadReady(new ArraySegment<byte>(bytes, 0, 14), out _), Is.False);
             }
             Assert.That(LobbyPayloadCodec.TryWriteReady(default, new ArraySegment<byte>(bytes)), Is.False);
             Assert.That(LobbyPayloadCodec.TryReadReady(default, out _), Is.False);
@@ -65,13 +90,13 @@ namespace AFPS.Tests.EditMode
             var players = new[] { new LobbyPlayerState(0x21222324, 0x31323334, true, false, true, 1) };
             var snapshot = new LobbySnapshot(0x01020304, 0x11121314, 0, LobbyPhase.Waiting, players);
             players[0] = default;
-            var bytes = new byte[27];
+            var bytes = new byte[28];
             Assert.That(LobbyPayloadCodec.TryWriteSnapshot(snapshot, new ArraySegment<byte>(bytes), out int written), Is.True);
-            Assert.That(written, Is.EqualTo(27));
+            Assert.That(written, Is.EqualTo(28));
             CollectionAssert.AreEqual(new byte[]
             {
                 4, 3, 2, 1, 0x14, 0x13, 0x12, 0x11, 0, 0, 0, 0, 0, 1,
-                0x24, 0x23, 0x22, 0x21, 0x34, 0x33, 0x32, 0x31, 1, 0, 0, 0, 5
+                0x24, 0x23, 0x22, 0x21, 0x34, 0x33, 0x32, 0x31, 1, 0, 0, 0, 5, 36
             }, bytes);
             Assert.That(LobbyPayloadCodec.TryReadSnapshot(new ArraySegment<byte>(bytes), out var decoded), Is.True);
             Assert.That(decoded.GetPlayer(0).Ready, Is.True);
@@ -89,7 +114,7 @@ namespace AFPS.Tests.EditMode
             var snapshot = new LobbySnapshot(1, uint.MaxValue, 0, LobbyPhase.Waiting, players);
             var bytes = new byte[LobbyPayloadCodec.MaximumSnapshotSize + 1];
             Assert.That(LobbyPayloadCodec.TryWriteSnapshot(snapshot, new ArraySegment<byte>(bytes), out int written), Is.True);
-            Assert.That(written, Is.EqualTo(846));
+            Assert.That(written, Is.EqualTo(910));
             Assert.That(LobbyPayloadCodec.TryReadSnapshot(new ArraySegment<byte>(bytes, 0, written), out var decoded), Is.True);
             Assert.That(decoded.PlayerCount, Is.EqualTo(64));
             for (int length = 0; length < bytes.Length; length++)
@@ -116,7 +141,7 @@ namespace AFPS.Tests.EditMode
         {
             var snapshot = new LobbySnapshot(1, 100, 0, LobbyPhase.Waiting,
                 new[] { new LobbyPlayerState(1, 1, true, false, true, 1) });
-            var bytes = new byte[27];
+            var bytes = new byte[28];
             LobbyPayloadCodec.TryWriteSnapshot(snapshot, new ArraySegment<byte>(bytes), out _);
             bytes[offset] = (byte)value;
             Assert.That(LobbyPayloadCodec.TryReadSnapshot(new ArraySegment<byte>(bytes), out var rejected), Is.False);

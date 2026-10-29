@@ -16,13 +16,16 @@ namespace AFPS.NetCode.Match
         public readonly uint MembershipEpoch;
         public readonly uint Sequence;
         public readonly bool Ready;
+        /// <summary>1～64的出生点编号；0表示仅改变准备状态，保留原出生点。</summary>
+        public readonly byte SpawnSlot;
 
-        public LobbyReadyCommand(uint roundEpoch, uint membershipEpoch, uint sequence, bool ready)
+        public LobbyReadyCommand(uint roundEpoch, uint membershipEpoch, uint sequence, bool ready, byte spawnSlot = 0)
         {
             RoundEpoch = roundEpoch;
             MembershipEpoch = membershipEpoch;
             Sequence = sequence;
             Ready = ready;
+            SpawnSlot = spawnSlot;
         }
     }
 
@@ -36,9 +39,11 @@ namespace AFPS.NetCode.Match
         public readonly bool Connected;
         public readonly bool Recovering;
         public readonly bool Ready;
+        /// <summary>服务器分配的出生点编号，1～64；离线保留期间继续占用。</summary>
+        public readonly byte SpawnSlot;
 
         public LobbyPlayerState(uint entityId, uint membershipEpoch, bool connected, bool recovering,
-            bool ready, uint readySequence = 0)
+            bool ready, uint readySequence = 0, byte spawnSlot = 0)
         {
             EntityId = entityId;
             MembershipEpoch = membershipEpoch;
@@ -46,9 +51,11 @@ namespace AFPS.NetCode.Match
             Connected = connected;
             Recovering = recovering;
             Ready = ready;
+            SpawnSlot = spawnSlot == 0 ? (byte)(unchecked(entityId - 1) % 64 + 1) : spawnSlot;
         }
 
         public bool IsValid => EntityId != 0 && MembershipEpoch != 0
+            && SpawnSlot >= 1 && SpawnSlot <= LobbyStartGate.MaximumPlayers
             && (!Recovering || Connected) && (!Ready || (Connected && !Recovering && ReadySequence != 0));
     }
 

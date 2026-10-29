@@ -4,24 +4,26 @@ using AFPS.NetCode.Serialization;
 
 namespace AFPS.NetCode.Messages
 {
-    /// <summary>大厅负载规范；尚未分配线上消息类型，不把这些字节当成已接入的游戏数据包。</summary>
+    /// <summary>大厅准备及出生点负载；编号由服务器解释，不接受客户端坐标。</summary>
     public static class LobbyPayloadCodec
     {
-        public const int ReadyPayloadSize = 13;
+        public const int ReadyPayloadSize = 14;
         public const int SnapshotFixedSize = 14;
-        public const int PlayerSize = 13;
+        public const int PlayerSize = 14;
         public const int MaximumSnapshotSize = SnapshotFixedSize + LobbyStartGate.MaximumPlayers * PlayerSize;
 
         public static bool TryWriteReady(in LobbyReadyCommand command, ArraySegment<byte> destination)
         {
             if (command.RoundEpoch == 0 || command.MembershipEpoch == 0 || command.Sequence == 0
+                || command.SpawnSlot > LobbyStartGate.MaximumPlayers
                 || destination.Array == null || destination.Count < ReadyPayloadSize)
             {
                 return false;
             }
             var writer = new PacketBufferWriter(destination);
             return writer.TryWriteUInt32(command.RoundEpoch) && writer.TryWriteUInt32(command.MembershipEpoch)
-                && writer.TryWriteUInt32(command.Sequence) && writer.TryWriteByte(command.Ready ? (byte)1 : (byte)0);
+                && writer.TryWriteUInt32(command.Sequence) && writer.TryWriteByte(command.Ready ? (byte)1 : (byte)0)
+                && writer.TryWriteByte(command.SpawnSlot);
         }
 
         public static bool TryReadReady(ArraySegment<byte> payload, out LobbyReadyCommand command)
@@ -35,11 +37,12 @@ namespace AFPS.NetCode.Messages
             if (!reader.TryReadUInt32(out uint round) || round == 0
                 || !reader.TryReadUInt32(out uint membership) || membership == 0
                 || !reader.TryReadUInt32(out uint sequence) || sequence == 0
-                || !reader.TryReadByte(out byte ready) || ready > 1)
+                || !reader.TryReadByte(out byte ready) || ready > 1
+                || !reader.TryReadByte(out byte slot) || slot > LobbyStartGate.MaximumPlayers)
             {
                 return false;
             }
-            command = new LobbyReadyCommand(round, membership, sequence, ready == 1);
+            command = new LobbyReadyCommand(round, membership, sequence, ready == 1, slot);
             return true;
         }
 
@@ -68,7 +71,7 @@ namespace AFPS.NetCode.Messages
                 byte flags = (byte)((player.Connected ? 1 : 0) | (player.Recovering ? 2 : 0) | (player.Ready ? 4 : 0));
                 if (!writer.TryWriteUInt32(player.EntityId) || !writer.TryWriteUInt32(player.MembershipEpoch)
                     || !writer.TryWriteUInt32(player.ReadySequence)
-                    || !writer.TryWriteByte(flags))
+                    || !writer.TryWriteByte(flags) || !writer.TryWriteByte(player.SpawnSlot))
                 {
                     return false;
                 }
@@ -97,12 +100,13 @@ namespace AFPS.NetCode.Messages
             {
                 if (!reader.TryReadUInt32(out uint entity) || !reader.TryReadUInt32(out uint membership)
                     || !reader.TryReadUInt32(out uint readySequence)
-                    || !reader.TryReadByte(out byte flags) || flags > 7)
+                    || !reader.TryReadByte(out byte flags) || flags > 7
+                    || !reader.TryReadByte(out byte slot) || slot == 0 || slot > LobbyStartGate.MaximumPlayers)
                 {
                     return false;
                 }
                 players[index] = new LobbyPlayerState(entity, membership,
-                    (flags & 1) != 0, (flags & 2) != 0, (flags & 4) != 0, readySequence);
+                    (flags & 1) != 0, (flags & 2) != 0, (flags & 4) != 0, readySequence, slot);
             }
             var decoded = new LobbySnapshot(round, tick, remaining, (LobbyPhase)phase, players);
             if (!ValidSnapshot(decoded))
@@ -121,6 +125,7 @@ namespace AFPS.NetCode.Messages
                 return false;
             }
             uint previousEntity = 0;
+            ulong occupiedSlots = 0;
             int connected = 0;
             bool allReady = true;
             for (int index = 0; index < snapshot.PlayerCount; index++)
@@ -133,6 +138,12 @@ namespace AFPS.NetCode.Messages
                     return false;
                 }
                 previousEntity = player.EntityId;
+                ulong slotBit = 1UL << (player.SpawnSlot - 1);
+                if ((occupiedSlots & slotBit) != 0)
+                {
+                    return false;
+                }
+                occupiedSlots |= slotBit;
                 if (player.Connected)
                 {
                     connected++;

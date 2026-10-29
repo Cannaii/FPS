@@ -8,7 +8,8 @@ namespace AFPS.NetCode.Match
     {
         Rejected,
         Applied,
-        Duplicate
+        Duplicate,
+        Declined
     }
 
     /// <summary>纯权威准备状态机；不读客户端时钟，不推进模拟，不自行重开已结束对局。</summary>
@@ -49,9 +50,43 @@ namespace AFPS.NetCode.Match
             {
                 Epoch = membershipSerial,
                 Connected = true,
-                Recovering = recovering
+                Recovering = recovering,
+                SpawnSlot = existing != null ? existing.SpawnSlot : FindAvailableSpawnSlot(entityId)
             };
             CancelCountdown();
+            return true;
+        }
+
+        public byte FindAvailableSpawnSlot(uint entityId)
+        {
+            byte preferred = (byte)(unchecked(entityId - 1) % MaximumPlayers + 1);
+            for (int offset = 0; offset < MaximumPlayers; offset++)
+            {
+                byte slot = (byte)((preferred - 1 + offset) % MaximumPlayers + 1);
+                if (IsSpawnSlotAvailable(entityId, slot))
+                {
+                    return slot;
+                }
+            }
+            return 0;
+        }
+
+        public bool TryGetSpawnSlot(uint entityId, out byte slot)
+        {
+            slot = members.TryGetValue(entityId, out var member) ? member.SpawnSlot : (byte)0;
+            return slot != 0;
+        }
+
+        private bool IsSpawnSlotAvailable(uint entityId, byte slot)
+        {
+            foreach (var pair in members)
+            {
+                // 暂离仍占用出生点，防止恢复后与已经选点的玩家重叠。
+                if (pair.Key != entityId && pair.Value.SpawnSlot == slot)
+                {
+                    return false;
+                }
+            }
             return true;
         }
 
@@ -94,7 +129,7 @@ namespace AFPS.NetCode.Match
             return true;
         }
 
-        public LobbyCommandResult Apply(uint entityId, in LobbyReadyCommand command)
+        public LobbyCommandResult Apply(uint entityId, in LobbyReadyCommand command, bool spawnAllowed = true)
         {
             if ((Phase != LobbyPhase.Waiting && Phase != LobbyPhase.Countdown)
                 || command.RoundEpoch != RoundEpoch || command.Sequence == 0
@@ -103,9 +138,15 @@ namespace AFPS.NetCode.Match
             {
                 return LobbyCommandResult.Rejected;
             }
+            byte requestedSlot = command.SpawnSlot == 0 ? member.SpawnSlot : command.SpawnSlot;
+            if (requestedSlot > MaximumPlayers)
+            {
+                return LobbyCommandResult.Rejected;
+            }
             if (member.HasSequence && command.Sequence == member.Sequence)
             {
-                return command.Ready == member.Ready ? LobbyCommandResult.Duplicate : LobbyCommandResult.Rejected;
+                return command.Ready == member.Ready && requestedSlot == member.SpawnSlot
+                    ? LobbyCommandResult.Duplicate : LobbyCommandResult.Rejected;
             }
             if (member.HasSequence && !SequenceMath.IsNewer(command.Sequence, member.Sequence))
             {
@@ -113,6 +154,14 @@ namespace AFPS.NetCode.Match
             }
             member.Sequence = command.Sequence;
             member.HasSequence = true;
+            if (!spawnAllowed || !IsSpawnSlotAvailable(entityId, requestedSlot)
+                || (requestedSlot != member.SpawnSlot && (member.Ready || command.Ready)))
+            {
+                // 合法世代的新请求也要确认“未接受”，否则抢占同一点位的失败方会永久重试。
+                // 保留原点位和Ready，只推进确认序号；客户端以权威选择判断结果。
+                return LobbyCommandResult.Declined;
+            }
+            member.SpawnSlot = requestedSlot;
             if (member.Ready != command.Ready)
             {
                 member.Ready = command.Ready;
@@ -198,7 +247,7 @@ namespace AFPS.NetCode.Match
                 var member = members[id];
                 players[index] = new LobbyPlayerState(id, member.Epoch,
                     member.Connected, member.Recovering, member.Ready,
-                    member.HasSequence ? member.Sequence : 0);
+                    member.HasSequence ? member.Sequence : 0, member.SpawnSlot);
             }
             uint remaining = Phase == LobbyPhase.Countdown ? unchecked(countdownDeadline - lastTick) : 0;
             return new LobbySnapshot(RoundEpoch, lastTick, remaining, Phase, players);
@@ -244,6 +293,7 @@ namespace AFPS.NetCode.Match
             internal bool Connected;
             internal bool Recovering;
             internal bool Ready;
+            internal byte SpawnSlot;
         }
     }
 }

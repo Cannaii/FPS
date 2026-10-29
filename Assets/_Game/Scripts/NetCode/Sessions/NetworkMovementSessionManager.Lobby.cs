@@ -25,6 +25,7 @@ namespace AFPS.NetCode.Sessions
 
         public LobbySnapshot ClientLobby { get; private set; }
         public bool LobbyReadyPending => hasPendingReady;
+        public bool SpawnSelectionDeclined { get; private set; }
         public bool CanEnterMatch => IsLocalPractice || ClientLobby?.Phase == LobbyPhase.Playing;
         public uint LobbyCountdownSeconds => ClientLobby?.Phase == LobbyPhase.Countdown
             ? (ClientLobby.RemainingTicks + (uint)serverTickRate - 1) / (uint)serverTickRate : 0;
@@ -50,23 +51,81 @@ namespace AFPS.NetCode.Sessions
 
         public bool TrySetLobbyReady(bool ready)
         {
+            return TrySetLobbyIntent(ready, 0);
+        }
+
+        public bool TrySelectSpawnSlot(byte slot)
+        {
+            return slot >= 1 && slot <= LobbyStartGate.MaximumPlayers
+                && TryGetLocalLobbyPlayer(out var player) && !player.Ready && !hasPendingReady
+                && IsClientSpawnSlotAvailable(slot)
+                && sessionSpatial.TryGetSpawnPosition(slot, out _)
+                && TrySetLobbyIntent(false, slot);
+        }
+
+        public bool IsClientSpawnSlotAvailable(byte slot)
+        {
+            if (ClientLobby == null || slot == 0 || slot > LobbyStartGate.MaximumPlayers)
+            {
+                return false;
+            }
+            uint local = RemotePlayers?.LocalEntityId ?? 0;
+            for (int index = 0; index < ClientLobby.PlayerCount; index++)
+            {
+                var player = ClientLobby.GetPlayer(index);
+                if (player.EntityId != local && player.SpawnSlot == slot)
+                {
+                    return false;
+                }
+            }
+            return IsSupportedSpawnSlot(slot);
+        }
+
+        private bool IsSupportedSpawnSlot(byte slot)
+        {
+            if (!sessionSpatial.TryGetSpawnPosition(slot, out var position))
+            {
+                return false;
+            }
+            if (WorldContext == null)
+            {
+                // 旧测试/显式碰撞适配器没有世界查询；正式游戏均装配不可变FixedWorld。
+                return true;
+            }
+            var collision = simulationConfig.Collision;
+            var halfHeight = collision.HeightFixed / AFPS.Math.Fix.FromInt(2);
+            var center = position + AFPS.Math.FixVec3.Up * halfHeight;
+            // 不能让出生线编号把玩家送到地图外；只接受当前世界在探地距离内可支撑的位置。
+            return WorldContext.CollisionWorld.GroundCheck(center, collision.RadiusFixed,
+                halfHeight, collision.GroundProbeDistanceFixed).DidHit;
+        }
+
+        public bool TryGetSpawnPosition(byte slot, out AFPS.Math.FixVec3 position)
+        {
+            return sessionSpatial.TryGetSpawnPosition(slot, out position);
+        }
+
+        private bool TrySetLobbyIntent(bool ready, byte slot)
+        {
             if (IsLocalPractice || !CanPredictClientInput || ClientAdmissionStatus != ConnectionAdmissionStatus.Admitted
                 || !TryGetLocalLobbyPlayer(out var player) || !player.Connected || player.Recovering
                 || (ClientLobby.Phase != LobbyPhase.Waiting && ClientLobby.Phase != LobbyPhase.Countdown))
             {
                 return false;
             }
-            if (hasPendingReady && pendingReady.Ready == ready)
+            if (hasPendingReady && pendingReady.Ready == ready && pendingReady.SpawnSlot == slot)
             {
                 return true;
             }
-            pendingReady = new LobbyReadyCommand(ClientLobby.RoundEpoch, player.MembershipEpoch, nextReadySequence, ready);
+            pendingReady = new LobbyReadyCommand(
+                ClientLobby.RoundEpoch, player.MembershipEpoch, nextReadySequence, ready, slot);
             nextReadySequence = unchecked(nextReadySequence + 1);
             if (nextReadySequence == 0)
             {
                 nextReadySequence = 1;
             }
             hasPendingReady = true;
+            SpawnSelectionDeclined = false;
             hasSentReady = false;
             FlushLobbyReady();
             return true;
@@ -79,6 +138,7 @@ namespace AFPS.NetCode.Sessions
             hasPendingReady = false;
             hasSentReady = false;
             nextReadySequence = 1;
+            SpawnSelectionDeclined = false;
         }
 
         private void FlushLobbyReady()
@@ -101,16 +161,24 @@ namespace AFPS.NetCode.Sessions
         {
             if (IsLocalPractice || recoveringConnections.ContainsKey(connection)
                 || !serverEntityIds.TryGetValue(connection, out uint entity)
-                || !LobbyMessageCodec.TryReadReady(packet, out var command))
+                || !LobbyMessageCodec.TryReadReady(packet, out var command)
+                || (command.SpawnSlot != 0 && !sessionSpatial.TryGetSpawnPosition(command.SpawnSlot, out _)))
             {
                 return false;
             }
-            var result = lobby.Apply(entity, command);
+            var result = lobby.Apply(entity, command,
+                command.SpawnSlot == 0 || IsSupportedSpawnSlot(command.SpawnSlot));
             if (result == LobbyCommandResult.Rejected)
             {
                 return false;
             }
             lobbyDirty = true;
+            if (result == LobbyCommandResult.Applied && command.SpawnSlot != 0
+                && serverSessions.TryGetValue(connection, out var session))
+            {
+                // 只在未准备时允许改点；权威传送保留输入Tick，普通状态复制负责校正客户端。
+                session.Teleport(sessionSpatial.GetSpawnPosition(command.SpawnSlot));
+            }
             return true;
         }
 
@@ -141,10 +209,14 @@ namespace AFPS.NetCode.Sessions
                     || pendingReady.MembershipEpoch != player.MembershipEpoch
                     || !player.Connected || player.Recovering
                     || snapshot.Phase == LobbyPhase.Playing || snapshot.Phase == LobbyPhase.Finished;
-                bool confirmed = player.Ready == pendingReady.Ready
-                    && (player.ReadySequence == pendingReady.Sequence
-                        || SequenceMath.IsNewer(player.ReadySequence, pendingReady.Sequence));
-                if (reset || confirmed)
+                // 新序号已被处理但点位被占用时也结束等待，由菜单保留权威点位供玩家重选。
+                bool superseded = player.ReadySequence == pendingReady.Sequence
+                    || SequenceMath.IsNewer(player.ReadySequence, pendingReady.Sequence);
+                if (!reset && superseded && pendingReady.SpawnSlot != 0)
+                {
+                    SpawnSelectionDeclined = player.SpawnSlot != pendingReady.SpawnSlot;
+                }
+                if (reset || superseded)
                 {
                     hasPendingReady = false;
                 }

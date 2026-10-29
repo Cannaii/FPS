@@ -35,6 +35,9 @@ namespace AFPS.Bootstrap
         private bool cancelConfirmed;
         private bool restartedCountdown;
         private double reReadyAt;
+        private bool spawnRequested;
+        private bool spawnConfirmed;
+        private byte originalSpawn;
 
         public void Configure(UnityNetworkBootstrap owner)
         {
@@ -165,6 +168,25 @@ namespace AFPS.Bootstrap
             }
             var enter = Button("Enter Button");
             var manager = movement.SessionManager;
+            if (!spawnConfirmed && manager.TryGetLocalLobbyPlayer(out var spawnPlayer))
+            {
+                if (spawnRequested && !manager.LobbyReadyPending)
+                {
+                    spawnConfirmed = !manager.SpawnSelectionDeclined && spawnPlayer.SpawnSlot != originalSpawn;
+                    spawnRequested = false;
+                }
+                if (!spawnConfirmed)
+                {
+                    var nextSpawn = Button("Next Spawn Button");
+                    if (!spawnRequested && nextSpawn != null && nextSpawn.interactable)
+                    {
+                        originalSpawn = spawnPlayer.SpawnSlot;
+                        nextSpawn.onClick.Invoke();
+                        spawnRequested = manager.LobbyReadyPending;
+                    }
+                    return;
+                }
+            }
             // 菜单可能比测试驱动晚一帧刷新，等实际文字更新后再截图和取消准备。
             bool countdownVisible = FindObjectsOfType<TextMeshProUGUI>()
                 .Any(text => text.text.Contains("秒后开局"))
@@ -237,11 +259,13 @@ namespace AFPS.Bootstrap
             }
             enter.onClick.Invoke();
             bool passed = input != null && input.enabled && match.PlayerCount == 2
-                && sawCountdown && (role == "Host" ? codePublished : discoveryJoin ? discovered : invalidRejected)
+                && sawCountdown && spawnConfirmed
+                && (role == "Host" ? codePublished : discoveryJoin ? discovered : invalidRejected)
                 && (!cancelMode || role != "Host" || (cancelConfirmed && restartedCountdown));
             Finish(passed, $"role={role} codeJoin=True online={match.OnlinePlayerCount}"
                 + $" total={match.PlayerCount} entered={input != null && input.enabled} invalidRejected={invalidRejected}"
                 + $" discovered={discovered} countdown={sawCountdown} canceled={cancelConfirmed}"
+                + $" spawnSelected={spawnConfirmed}"
                 + $" restarted={restartedCountdown} hudHidden=True");
         }
 

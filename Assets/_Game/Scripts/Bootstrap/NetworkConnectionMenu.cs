@@ -33,6 +33,9 @@ namespace AFPS.Bootstrap
         private Button joinButton;
         private Button practiceButton;
         private Button enterButton;
+        private Button previousSpawnButton;
+        private Button nextSpawnButton;
+        private TextMeshProUGUI spawnText;
         private bool initialized;
         private string localAddress;
         private double copiedUntil;
@@ -99,6 +102,7 @@ namespace AFPS.Bootstrap
             }
 
             bool ready = movement.CanEnterGame;
+            UpdateSpawnSelection(movement.SessionManager, ready);
             enterButton.gameObject.SetActive(ready);
             var match = movement.SessionManager.ClientDeathmatchState;
             roomPlayersText.text = match != null
@@ -127,6 +131,10 @@ namespace AFPS.Bootstrap
                     : phase == LobbyPhase.Countdown ? $"全部玩家已准备，{manager.LobbyCountdownSeconds} 秒后开局。"
                     : hasPlayer ? player.Ready ? "已准备，等待其他在线玩家。" : "地图验证通过，请点击准备。"
                     : "正在同步大厅状态…";
+                if (manager.SpawnSelectionDeclined && phase == LobbyPhase.Waiting)
+                {
+                    message = "该出生点已被占用，请重新选择。";
+                }
                 SetStatus(message, false);
             }
             else if (!string.IsNullOrEmpty(movement.ConnectionStatusMessage))
@@ -136,6 +144,48 @@ namespace AFPS.Bootstrap
                     && status != ConnectionAdmissionStatus.Admitted;
                 SetStatus(movement.ConnectionStatusMessage, failed);
             }
+        }
+
+        private void UpdateSpawnSelection(AFPS.NetCode.Sessions.NetworkMovementSessionManager manager, bool admitted)
+        {
+            bool visible = admitted && bootstrap.ActiveMode != NetworkLaunchMode.Practice;
+            previousSpawnButton.gameObject.SetActive(visible);
+            nextSpawnButton.gameObject.SetActive(visible);
+            spawnText.gameObject.SetActive(visible);
+            bool editable = visible && manager.TryGetLocalLobbyPlayer(out var player)
+                && !player.Ready && !player.Recovering && !manager.LobbyReadyPending
+                && !manager.ClientRecoveryPending && manager.ClientLobby.Phase == LobbyPhase.Waiting;
+            previousSpawnButton.interactable = editable;
+            nextSpawnButton.interactable = editable;
+            if (manager.TryGetLocalLobbyPlayer(out var local)
+                && manager.TryGetSpawnPosition(local.SpawnSlot, out var position))
+            {
+                spawnText.text = $"出生点 {local.SpawnSlot}（{position.X.ToFloat():0.#}, "
+                    + $"{position.Y.ToFloat():0.#}, {position.Z.ToFloat():0.#} 米）";
+            }
+            else
+            {
+                spawnText.text = "正在同步出生点…";
+            }
+        }
+
+        private void SelectAdjacentSpawn(int direction)
+        {
+            var manager = bootstrap.GetComponent<UnityNetworkMovementController>()?.SessionManager;
+            if (manager == null || !manager.TryGetLocalLobbyPlayer(out var player))
+            {
+                return;
+            }
+            for (int offset = 1; offset < AFPS.NetCode.Match.LobbyStartGate.MaximumPlayers; offset++)
+            {
+                byte slot = (byte)((player.SpawnSlot - 1 + direction * offset + 64) % 64 + 1);
+                if (manager.IsClientSpawnSlotAvailable(slot))
+                {
+                    manager.TrySelectSpawnSlot(slot);
+                    return;
+                }
+            }
+            SetStatus("没有空闲出生点。", false);
         }
 
         private void StartNetwork(NetworkLaunchMode mode)
@@ -248,7 +298,16 @@ namespace AFPS.Bootstrap
             copyRoomCodeButton.interactable = false;
             roomPlayersText = CreateText(panel, "房间人数：尚未连接", 20f, FontStyles.Normal,
                 TextAlignmentOptions.Center, new Vector2(0f, -183f), new Vector2(640f, 34f), Color.white);
-            statusText = CreateText(panel, $"本机地址：{localAddress}", 18f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, -250f), new Vector2(640f, 84f), new Color(0.66f, 0.75f, 0.84f));
+            previousSpawnButton = CreateButton(panel, "Previous Spawn Button", "上一个",
+                new Vector2(-205f, -230f), new Vector2(110f, 36f), () => SelectAdjacentSpawn(-1));
+            nextSpawnButton = CreateButton(panel, "Next Spawn Button", "下一个",
+                new Vector2(205f, -230f), new Vector2(110f, 36f), () => SelectAdjacentSpawn(1));
+            spawnText = CreateText(panel, "", 17f, FontStyles.Normal, TextAlignmentOptions.Center,
+                new Vector2(0f, -230f), new Vector2(300f, 36f), Color.white);
+            previousSpawnButton.gameObject.SetActive(false);
+            nextSpawnButton.gameObject.SetActive(false);
+            spawnText.gameObject.SetActive(false);
+            statusText = CreateText(panel, $"本机地址：{localAddress}", 18f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, -282f), new Vector2(640f, 54f), new Color(0.66f, 0.75f, 0.84f));
             statusText.enableWordWrapping = true;
             enterButton = CreateButton(panel, "Enter Button", "进入游戏", new Vector2(0f, -340f), new Vector2(520f, 58f), EnterGame);
             enterButton.gameObject.SetActive(false);

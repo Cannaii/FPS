@@ -6,6 +6,62 @@ namespace AFPS.Tests.EditMode
 {
     public sealed class LobbyStartGateTests
     {
+        [Test]
+        public void SpawnSelectionReservesSlotsAndAcknowledgesContentionWithoutMovingLoser()
+        {
+            var gate = new LobbyStartGate(150);
+            gate.Connect(1);
+            gate.Connect(2);
+            var first = new LobbyReadyCommand(1, Epoch(gate, 1), 1, false, 3);
+            Assert.That(gate.Apply(1, first), Is.EqualTo(LobbyCommandResult.Applied));
+            Assert.That(gate.Apply(1, first), Is.EqualTo(LobbyCommandResult.Duplicate));
+            Assert.That(gate.Apply(2, new LobbyReadyCommand(1, Epoch(gate, 2), 1, false, 3)),
+                Is.EqualTo(LobbyCommandResult.Declined));
+            var snapshot = gate.Snapshot();
+            Assert.That(snapshot.GetPlayer(0).SpawnSlot, Is.EqualTo(3));
+            Assert.That(snapshot.GetPlayer(1).SpawnSlot, Is.EqualTo(2));
+            Assert.That(snapshot.GetPlayer(1).ReadySequence, Is.EqualTo(1));
+            Assert.That(gate.Apply(2, new LobbyReadyCommand(1, Epoch(gate, 2), 2, false, 1)),
+                Is.EqualTo(LobbyCommandResult.Applied));
+        }
+
+        [Test]
+        public void ReadyPlayerMustCancelBeforeChangingSpawnAndOldIntentCannotOverrideNewSelection()
+        {
+            var gate = TwoReady();
+            gate.Advance(10);
+            Assert.That(gate.Apply(1, new LobbyReadyCommand(1, Epoch(gate, 1), 2, false, 3)),
+                Is.EqualTo(LobbyCommandResult.Declined));
+            Assert.That(gate.Snapshot().GetPlayer(0).Ready, Is.True);
+            Ready(gate, 1, 3, false);
+            Assert.That(gate.Phase, Is.EqualTo(LobbyPhase.Waiting));
+            Assert.That(gate.Apply(1, new LobbyReadyCommand(1, Epoch(gate, 1), 4, false, 3)),
+                Is.EqualTo(LobbyCommandResult.Applied));
+            Assert.That(gate.Apply(1, new LobbyReadyCommand(1, Epoch(gate, 1), 3, false, 4)),
+                Is.EqualTo(LobbyCommandResult.Rejected));
+            Ready(gate, 1, 5);
+            gate.Advance(20);
+            Assert.That(gate.Snapshot().RemainingTicks, Is.EqualTo(150));
+        }
+
+        [Test]
+        public void RetainedSpawnSurvivesRecoveryAndIsReleasedOnlyOnRemoval()
+        {
+            var gate = new LobbyStartGate(150);
+            gate.Connect(1);
+            gate.Apply(1, new LobbyReadyCommand(1, Epoch(gate, 1), 1, false, 2));
+            gate.Disconnect(1);
+            gate.Connect(2);
+            Assert.That(gate.Snapshot().GetPlayer(1).SpawnSlot, Is.EqualTo(3));
+            gate.Connect(1, true);
+            Assert.That(gate.Snapshot().GetPlayer(0).SpawnSlot, Is.EqualTo(2));
+            Assert.That(gate.Snapshot().GetPlayer(0).Ready, Is.False);
+            gate.ConfirmRecovery(1, Epoch(gate, 1));
+            gate.Remove(1);
+            Assert.That(gate.Apply(2, new LobbyReadyCommand(1, Epoch(gate, 2), 1, false, 2)),
+                Is.EqualTo(LobbyCommandResult.Applied));
+        }
+
         private static uint Epoch(LobbyStartGate gate, uint entity)
         {
             var snapshot = gate.Snapshot();

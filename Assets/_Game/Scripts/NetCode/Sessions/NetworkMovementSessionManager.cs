@@ -366,7 +366,8 @@ namespace AFPS.NetCode.Sessions
 
                 uint entityId = nextEntityId;
                 // 越域出生点在分配实体和建立会话前拒绝，不能留下半个玩家或消耗实体序号。
-                if (!sessionSpatial.TryGetSpawnPosition(entityId, out FixVec3 spawnPosition))
+                byte spawnSlot = IsLocalPractice ? (byte)1 : lobby.FindAvailableSpawnSlot(entityId);
+                if (spawnSlot == 0 || !sessionSpatial.TryGetSpawnPosition(spawnSlot, out FixVec3 spawnPosition))
                 {
                     return false;
                 }
@@ -917,7 +918,8 @@ namespace AFPS.NetCode.Sessions
                 if (allServerSessions.TryGetValue(entityId, out ServerAuthoritativeMovementSession session))
                 {
                     // 离线死亡也按世界期限重生，不以恢复连接刷新生命或重置计时起点。
-                    session.Respawn(sessionSpatial.GetSpawnPosition(entityId));
+                    uint spawnIndex = lobby.TryGetSpawnSlot(entityId, out byte slot) ? slot : entityId;
+                    session.Respawn(sessionSpatial.GetSpawnPosition(spawnIndex));
                 }
 
                 deathmatchStateDirty = true;

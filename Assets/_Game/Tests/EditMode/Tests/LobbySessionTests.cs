@@ -13,6 +13,95 @@ namespace AFPS.Tests.EditMode
     public sealed class LobbySessionTests
     {
         [Test]
+        public void SpawnSelectionCannotChooseUnsupportedMapEdge()
+        {
+            var test = new Harness(boundedFloor: true);
+            test.Step(0);
+            Assert.That(test.Clients[0].IsClientSpawnSlotAvailable(3), Is.True);
+            Assert.That(test.Clients[0].IsClientSpawnSlotAvailable(64), Is.False);
+            Assert.That(test.Clients[0].TrySelectSpawnSlot(64), Is.False);
+            test.Clients[0].TryGetLocalLobbyPlayer(out var player);
+            var packet = new byte[LobbyMessageCodec.ReadyPacketSize];
+            LobbyMessageCodec.TryWriteReady(new LobbyReadyCommand(
+                1, player.MembershipEpoch, 1, false, 64), new ArraySegment<byte>(packet));
+            Assert.That(test.Server.TryHandleData(NetworkTransportSide.Server,
+                test.ServerIds[0], new ArraySegment<byte>(packet), out _), Is.True);
+            test.Step(1);
+            test.Clients[0].TryGetLocalLobbyPlayer(out var unchanged);
+            Assert.That(unchanged.SpawnSlot, Is.EqualTo(player.SpawnSlot));
+            Assert.That(unchanged.ReadySequence, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void RespawnUsesReservedSpawnInsteadOfEntityNumberAfterAuthoritativeStart()
+        {
+            var test = new Harness();
+            test.Step(0);
+            test.Clients[0].TrySelectSpawnSlot(3);
+            test.Step(1);
+            test.Clients[0].TrySetLobbyReady(true);
+            test.Clients[1].TrySetLobbyReady(true);
+            test.Step(2);
+            test.Step(152);
+            Assert.That(test.Server.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.Playing));
+            test.Server.TryGetServerSession(test.ServerIds[0], out var session);
+            // 将既有死亡计时推进到到期边界；死亡/计分链路由原Combat用例独立覆盖。
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic
+                | System.Reflection.BindingFlags.Instance;
+            var respawns = (System.Collections.Generic.Dictionary<uint, uint>)typeof(NetworkMovementSessionManager)
+                .GetField("serverRespawnTicks", flags).GetValue(test.Server);
+            test.Server.TryGetServerEntityId(test.ServerIds[0], out uint entity);
+            respawns[entity] = 153;
+            session.Teleport(AFPS.Math.FixVec3.Zero);
+            test.Step(153);
+            test.Clients[0].TryGetSpawnPosition(3, out var expected);
+            Assert.That(session.CurrentState.PositionFixed.X, Is.EqualTo(expected.X));
+            Assert.That(test.Clients[0].CanEnterMatch, Is.True);
+        }
+
+        [Test]
+        public void SpawnSelectionMovesAuthorityAndContendingClientReceivesDefinitiveRejection()
+        {
+            var test = new Harness();
+            test.Step(0);
+            Assert.That(test.Clients[0].TrySelectSpawnSlot(3), Is.True);
+            Assert.That(test.Clients[1].TrySelectSpawnSlot(3), Is.True);
+            test.Step(1);
+            Assert.That(test.Clients[0].LobbyReadyPending, Is.False);
+            Assert.That(test.Clients[1].LobbyReadyPending, Is.False);
+            Assert.That(test.Clients[1].SpawnSelectionDeclined, Is.True);
+            test.Clients[0].TryGetLocalLobbyPlayer(out var first);
+            test.Clients[1].TryGetLocalLobbyPlayer(out var second);
+            Assert.That(first.SpawnSlot, Is.EqualTo(3));
+            Assert.That(second.SpawnSlot, Is.EqualTo(2));
+            test.Server.TryGetServerSession(test.ServerIds[0], out var authority);
+            test.Clients[0].TryGetSpawnPosition(3, out var expected);
+            Assert.That(authority.CurrentState.PositionFixed.X, Is.EqualTo(expected.X));
+            Assert.That(test.Clients[0].TrySetLobbyReady(true), Is.True);
+            test.Step(2);
+            Assert.That(test.Clients[0].TrySelectSpawnSlot(4), Is.False);
+            Assert.That(test.Clients[1].TrySelectSpawnSlot(4), Is.True);
+            test.Step(3);
+            Assert.That(test.Clients[1].SpawnSelectionDeclined, Is.False);
+        }
+
+        [Test]
+        public void FailedSpawnIntentRetriesAndStaleSameReadySnapshotCannotAcknowledgeSelection()
+        {
+            var test = new Harness();
+            test.Step(0);
+            test.ClientTransports[0].FailNext = true;
+            Assert.That(test.Clients[0].TrySelectSpawnSlot(4), Is.True);
+            test.ClientTransports[0].FailNext = true;
+            test.Step(13);
+            Assert.That(test.Clients[0].LobbyReadyPending, Is.True);
+            test.Step(14);
+            Assert.That(test.Clients[0].LobbyReadyPending, Is.False);
+            test.Clients[0].TryGetLocalLobbyPlayer(out var player);
+            Assert.That(player.SpawnSlot, Is.EqualTo(4));
+        }
+
+        [Test]
         public void AdmittedClientsCannotMoveOrStartBeforeBothReadyAndFullCountdown()
         {
             var test = new Harness();
@@ -117,9 +206,24 @@ namespace AFPS.Tests.EditMode
             internal readonly TransportConnectionId[] ServerIds = { new TransportConnectionId(10), new TransportConnectionId(11) };
             private readonly TransportConnectionId[] clientIds = { new TransportConnectionId(20), new TransportConnectionId(21) };
 
-            internal Harness()
+            internal Harness(bool boundedFloor = false)
             {
                 var context = Context();
+                if (boundedFloor)
+                {
+                    var world = new AFPS.Simulation.World.FixedWorld(new[]
+                    {
+                        new AFPS.Simulation.World.FixedWorldBox(1, 0,
+                            AFPS.Simulation.World.FixedSurface.Solid | AFPS.Simulation.World.FixedSurface.Ground,
+                            new AFPS.Simulation.World.FixedAabb(
+                                new AFPS.Math.FixVec3(AFPS.Math.Fix.FromInt(-10),
+                                    AFPS.Math.Fix.FromInt(1), AFPS.Math.Fix.FromInt(-10)),
+                                new AFPS.Math.FixVec3(AFPS.Math.Fix.FromInt(10),
+                                    AFPS.Math.Fix.FromInt(2), AFPS.Math.Fix.FromInt(10))))
+                    });
+                    context = new AFPS.Simulation.Characters.SimulationWorldContext(
+                        world, context.Configuration, context.TickDeltaTime, sessionSpatial: context.SessionSpatial);
+                }
                 var state = new AFPS.Simulation.Characters.PlayerState
                 {
                     PositionFixed = context.SessionSpatial.SpawnOrigin,
