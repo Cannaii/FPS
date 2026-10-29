@@ -1,5 +1,5 @@
 ﻿param(
-    [Parameter(Mandatory = $true)][ValidateSet('BuildWindows', 'BuildAndroid', 'RunWindows', 'RunAndroid')][string]$Action,
+    [Parameter(Mandatory = $true)][ValidateSet('BuildWindows', 'BuildAndroid', 'BuildLoadWindows', 'RunWindows', 'RunAndroid')][string]$Action,
     [string]$UnityEditorPath,
     [string]$ProjectPath,
     [string]$PlayerPath,
@@ -45,7 +45,7 @@ function Wait-OwnedProcess($taskProcess)
     }
 }
 
-if ($Action -in @('BuildWindows', 'BuildAndroid'))
+if ($Action -in @('BuildWindows', 'BuildAndroid', 'BuildLoadWindows'))
 {
     if (!$ProjectPath -or !$UnityEditorPath)
     {
@@ -81,8 +81,9 @@ if ($Action -in @('BuildWindows', 'BuildAndroid'))
     $taskBuildDirectory = Join-Path $taskOutput ($taskRun + '-' + $taskTarget)
     New-Item -ItemType Directory -Force -Path $taskBuildDirectory | Out-Null
     $taskPlayer = Join-Path $taskBuildDirectory $(if ($taskAndroid) { 'AFPSDeterminism.apk' } else { 'AFPSDeterminism.exe' })
+    $taskMethod = if ($Action -eq 'BuildLoadWindows') { 'AFPS.Verification.Editor.ServerLoadVerificationBuild.Build' } else { 'AFPS.Verification.Editor.DeterminismVerificationBuild.Build' }
     $taskArguments = @('-batchmode', '-nographics', '-job-worker-count', '2', '-buildTarget', $taskTarget,
-        '-projectPath', ('"' + $taskProject + '"'), '-executeMethod', 'AFPS.Verification.Editor.DeterminismVerificationBuild.Build',
+        '-projectPath', ('"' + $taskProject + '"'), '-executeMethod', $taskMethod,
         '-afpsVerificationBuildOutput', ('"' + $taskPlayer + '"'), '-logFile', ('"' + $taskLog + '"'))
     Wait-OwnedProcess (Start-Process -FilePath $UnityEditorPath -ArgumentList $taskArguments -WindowStyle Hidden -PassThru)
     if (!(Test-Path -LiteralPath ($taskPlayer + '.build.json')) -or !(Test-Path -LiteralPath $taskPlayer))

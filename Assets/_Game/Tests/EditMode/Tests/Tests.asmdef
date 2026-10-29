@@ -15,7 +15,8 @@
         "Unity.TextMeshPro",
         "UnityEngine.UI",
         "AFPS.World.Editor",
-        "AFPS.Verification.Editor"
+        "AFPS.Verification.Editor",
+        "AFPS.Verification"
     ],
     "includePlatforms": [
         "Editor"
