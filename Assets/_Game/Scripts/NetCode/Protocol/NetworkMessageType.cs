@@ -7,11 +7,11 @@ namespace AFPS.NetCode.Protocol
     {
         Unknown = 0,
         InputCommandBatch = 1,
-        AuthoritativePlayerState = 2,
+        AuthoritativeMovementState = 2,
         TimeSyncRequest = 3,
         TimeSyncResponse = 4,
         PlayerSessionAssignment = 5,
-        RemotePlayerSnapshot = 6,
+        RemotePlayerMovementSnapshot = 6,
         PlayerDespawn = 7,
         AuthoritativeShotResult = 8,
         RemotePlayerSnapshotDelta = 9,
@@ -26,7 +26,7 @@ namespace AFPS.NetCode.Protocol
         SessionRecoverySeed = 18,
         SessionRecoveryAck = 19,
         SessionRecoveryConfirmed = 20,
-        ClientStateHashReport = 21,
+        ClientMovementHashReport = 21,
         TimeSyncAcknowledgement = 22,
         LobbyReady = 23,
         LobbySnapshot = 24

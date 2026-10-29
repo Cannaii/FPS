@@ -5,12 +5,12 @@ namespace AFPS.Simulation.Characters
     /// <summary>纯墙能力；只读取上一Tick已确认的墙法线与碰撞前速度，不自行查询几何。</summary>
     public static class PlayerWallSimulation
     {
-        public static void AdvanceTimers(ref PlayerState next, Fix deltaTime)
+        public static void AdvanceTimers(ref PlayerMovementState next, Fix deltaTime)
         {
             next.WallCooldownRemainingFixed = FixMath.Max(Fix.Zero, next.WallCooldownRemainingFixed - deltaTime);
         }
 
-        public static bool TryBounce(ref PlayerState next, in PlayerState previous,
+        public static bool TryBounce(ref PlayerMovementState next, in PlayerMovementState previous,
             in PlayerInputCommand input, in PlayerWallConfig config)
         {
             if (!input.WallBouncePressed || !CanAct(next, previous, config))
@@ -33,7 +33,7 @@ namespace AFPS.Simulation.Characters
             return true;
         }
 
-        public static bool TryJump(ref PlayerState next, in PlayerState previous,
+        public static bool TryJump(ref PlayerMovementState next, in PlayerMovementState previous,
             in PlayerInputCommand input, in PlayerWallConfig config)
         {
             if (!input.JumpPressed || !CanAct(next, previous, config))
@@ -50,12 +50,12 @@ namespace AFPS.Simulation.Characters
             return true;
         }
 
-        private static bool CanAct(in PlayerState next, in PlayerState previous, in PlayerWallConfig config) =>
+        private static bool CanAct(in PlayerMovementState next, in PlayerMovementState previous, in PlayerWallConfig config) =>
             !previous.IsGrounded && previous.WallNormalFixed != FixVec3.Zero
             && next.WallCooldownRemainingFixed == Fix.Zero
             && Fix.One - next.StaminaSpentFixed >= config.StaminaCost;
 
-        private static void Spend(ref PlayerState next, in PlayerWallConfig config)
+        private static void Spend(ref PlayerMovementState next, in PlayerWallConfig config)
         {
             next.StaminaSpentFixed += config.StaminaCost;
             next.SprintExhausted |= next.StaminaSpentFixed == Fix.One;
@@ -67,7 +67,7 @@ namespace AFPS.Simulation.Characters
             // 墙能力不刷新额外空中跳；落地重置仍只由原跳跃状态机执行。
         }
 
-        public static void ClearContact(ref PlayerState state)
+        public static void ClearContact(ref PlayerMovementState state)
         {
             state.WallNormalFixed = FixVec3.Zero;
             state.WallIncomingVelocityFixed = FixVec3.Zero;

@@ -73,7 +73,7 @@ namespace AFPS.Tests.EditMode
             {
                 var view = root.AddComponent<FirstPersonWeaponView>();
                 InvokeLifecycle(view, "Awake");
-                var state = new PlayerState { PositionFixed = FixVec3.Forward, YawFixedDegrees = Fix.FromInt(45) };
+                var state = new PlayerMovementState { PositionFixed = FixVec3.Forward, YawFixedDegrees = Fix.FromInt(45) };
                 var original = state;
                 view.PlayPredictedShot();
                 view.Render(state, 0.025f);
@@ -138,7 +138,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Effects test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var shot = new AuthoritativeShot(1, 1, 100, 2, WeaponFireMode.Projectile,
                     FixVec3.Zero, FixVec3.Forward, Fix.FromInt(100), Fix.FromInt(120), Fix.FromInt(30));
                 var launch = new AuthoritativeShotResult(shot, 4, false, 0, Fix.Zero, FixVec3.Forward);
@@ -167,7 +167,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Terminal view test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var shot = new AuthoritativeShot(1, 1, 100, 2, WeaponFireMode.Projectile,
                     FixVec3.Zero, FixVec3.Forward, Fix.One, Fix.FromInt(120), Fix.FromInt(30));
                 Assert.That(view.PredictProjectile(shot), Is.True);

@@ -1,0 +1,36 @@
+{
+    "name": "AFPS.Tests.EditMode",
+    "rootNamespace": "",
+    "references": [
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "AFPS.Simulation",
+        "AFPS.Core",
+        "AFPS.NetCode",
+        "AFPS.Input",
+        "AFPS.Presentation",
+        "AFPS.Transport.Unity",
+        "AFPS.Math",
+        "_Game.Bootstrap",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI",
+        "AFPS.Game.Editor",
+        "AFPS.Verification.Editor",
+        "AFPS.Verification"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

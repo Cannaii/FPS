@@ -13,7 +13,7 @@ namespace AFPS.Bootstrap
     {
         public static bool IsRequested => Array.Exists(Environment.GetCommandLineArgs(),
             value => value.Equals("-afpsCombatSmoke", StringComparison.OrdinalIgnoreCase));
-        private UnityNetworkMovementController movement;
+        private UnityNetworkGameplayController movement;
         private LocalPlayerInputCollector input;
         private readonly List<uint> entities = new List<uint>();
         private double configuredAt;
@@ -47,7 +47,7 @@ namespace AFPS.Bootstrap
         private bool remoteMuzzle;
         private bool damageCaptured;
 
-        public void Configure(UnityNetworkMovementController controller, LocalPlayerInputCollector collector)
+        public void Configure(UnityNetworkGameplayController controller, LocalPlayerInputCollector collector)
         {
             movement = controller;
             input = collector;
@@ -68,7 +68,7 @@ namespace AFPS.Bootstrap
         private void Update()
         {
             double now = Time.realtimeSinceStartupAsDouble;
-            var manager = movement.SessionManager;
+            var manager = movement.SessionCoordinator;
             if (manager?.ClientSession != null && !SmokeTestLobby.EnsurePlaying(movement))
             {
                 return;
@@ -112,7 +112,7 @@ namespace AFPS.Bootstrap
             if (!damageCaptured && SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null
                 && Array.Exists(Environment.GetCommandLineArgs(), value => value.Equals("-afpsUiCapture", StringComparison.OrdinalIgnoreCase)))
             {
-                var results = movement.GetComponent<AFPS.Presentation.Weapons.ShotResultView>();
+                var results = movement.GetComponent<AFPS.Presentation.Weapons.ShotPresentationController>();
                 if (results != null && results.DamageFeedbackVisible)
                 {
                     string directory = System.IO.Path.Combine(Environment.CurrentDirectory,

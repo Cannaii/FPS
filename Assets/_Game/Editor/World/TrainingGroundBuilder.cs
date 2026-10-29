@@ -106,7 +106,7 @@ namespace AFPS.Editor.World
                     Box(geometry, "Spawn Mark", new Vector3(x, 0.012f, -26f), new Vector3(1.2f, 0.02f, 1.2f), orange);
                 }
 
-                var controller = Find<UnityNetworkMovementController>(scene);
+                var controller = Find<UnityNetworkGameplayController>(scene);
                 var serialized = new SerializedObject(controller);
                 serialized.FindProperty("serverSpawnPosition").vector3Value = Spawn;
                 serialized.FindProperty("serverSpawnSpacing").floatValue = 2.5f;

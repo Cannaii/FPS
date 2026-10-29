@@ -20,16 +20,16 @@ namespace AFPS.Simulation.Characters.Collision
             }
 
             Move(
-                PlayerState.ToFixed(startPosition),
-                PlayerState.ToFixed(startVelocity),
+                PlayerMovementState.ToFixed(startPosition),
+                PlayerMovementState.ToFixed(startVelocity),
                 SimulationStep.FromSeconds(seconds),
                 config,
                 LegacyCharacterCollisionWorldAdapter.Adapt(world),
                 out var fixedPosition,
                 out var fixedVelocity,
                 out grounded);
-            position = PlayerState.ToVector(fixedPosition);
-            velocity = PlayerState.ToVector(fixedVelocity);
+            position = PlayerMovementState.ToVector(fixedPosition);
+            velocity = PlayerMovementState.ToVector(fixedVelocity);
         }
     }
 }

@@ -16,7 +16,7 @@ namespace AFPS.Bootstrap
         public static bool IsRequested => Array.Exists(Environment.GetCommandLineArgs(),
             value => value.Equals("-afpsGrappleSmoke", StringComparison.OrdinalIgnoreCase));
 
-        public static SimulationWorldContext CreateFixture(in PlayerSimulationConfig config, Fix deltaTime, int layerMask)
+        public static SimulationWorldContext CreateFixture(in PlayerMovementConfig config, Fix deltaTime, int layerMask)
         {
             var anchor = new FixedWorldPlane(1, 8, FixedSurface.Solid | FixedSurface.Grapple,
                 FixedAxis.Z, Fix.FromInt(20), positiveNormal: false);
@@ -25,7 +25,7 @@ namespace AFPS.Bootstrap
             return new SimulationWorldContext(new FixedWorld(null, new[] { anchor, floor }), config, deltaTime, layerMask, spatial);
         }
 
-        private UnityNetworkMovementController movement;
+        private UnityNetworkGameplayController movement;
         private LocalPlayerInputCollector input;
         private double configuredAt;
         private double startedAt = -1d;
@@ -50,7 +50,7 @@ namespace AFPS.Bootstrap
         private bool remoteReleased;
         private bool remoteRopeHidden;
 
-        public void Configure(UnityNetworkMovementController controller, LocalPlayerInputCollector collector)
+        public void Configure(UnityNetworkGameplayController controller, LocalPlayerInputCollector collector)
         {
             movement = controller;
             input = collector;
@@ -61,7 +61,7 @@ namespace AFPS.Bootstrap
         private void Update()
         {
             double now = Time.realtimeSinceStartupAsDouble;
-            var manager = movement.SessionManager;
+            var manager = movement.SessionCoordinator;
             if (manager?.ClientSession != null && !SmokeTestLobby.EnsurePlaying(movement))
             {
                 return;

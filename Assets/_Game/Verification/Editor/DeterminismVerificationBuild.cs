@@ -33,12 +33,12 @@ namespace AFPS.Verification.Editor
             {
                 new FixedWorldPlane(1, 0, FixedSurface.Solid | FixedSurface.Ground, FixedAxis.Y, Fix.Zero, true)
             });
-            var configuration = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
+            var configuration = new PlayerMovementConfig(6f, 20f, 20f, 8f);
             var context = new SimulationWorldContext(world, configuration, SimulationStep.Step50Hz);
-            var state = new PlayerState { Tick = uint.MaxValue - 1024, IsGrounded = true };
+            var state = new PlayerMovementState { Tick = uint.MaxValue - 1024, IsGrounded = true };
             using (var stream = new MemoryStream())
             {
-                using (var writer = new AuthoritativeTraceWriter(stream, context, 1, true))
+                using (var writer = new AuthoritativeMovementTraceWriter(stream, context, 1, true))
                 {
                     for (int index = 0; index < Frames; index++)
                     {
@@ -54,9 +54,9 @@ namespace AFPS.Verification.Editor
                         };
                         input.TrySetEncodedControls((sbyte)(index % 400 < 200 ? 127 : -127),
                             127, (ushort)((index / 200 * 3700) % 36000), 0);
-                        var next = PlayerSimulation.Simulate(state, input, configuration,
+                        var next = PlayerMovementSimulation.Simulate(state, input, configuration,
                             context.TickDeltaTime, context.CollisionWorld);
-                        writer.Append(new AuthoritativeSimulationStep(1, unchecked((uint.MaxValue - 1024) + (uint)index),
+                        writer.Append(new AuthoritativeMovementStep(1, unchecked((uint.MaxValue - 1024) + (uint)index),
                             state, input, next));
                         state = next;
                     }

@@ -14,7 +14,7 @@ namespace AFPS.Bootstrap
         public static bool IsRequested => Array.Exists(Environment.GetCommandLineArgs(),
             value => value.Equals("-afpsPracticeSmoke", StringComparison.OrdinalIgnoreCase));
         private UnityNetworkBootstrap bootstrap;
-        private UnityNetworkMovementController movement;
+        private UnityNetworkGameplayController movement;
         private LocalPlayerInputCollector input;
         private double configuredAt;
         private double startedAt = -1d;
@@ -42,7 +42,7 @@ namespace AFPS.Bootstrap
         public void Configure(UnityNetworkBootstrap owner)
         {
             bootstrap = owner;
-            movement = owner.GetComponent<UnityNetworkMovementController>();
+            movement = owner.GetComponent<UnityNetworkGameplayController>();
             input = FindObjectOfType<LocalPlayerInputCollector>(true);
             configuredAt = Time.realtimeSinceStartupAsDouble;
             Application.runInBackground = true;
@@ -75,7 +75,7 @@ namespace AFPS.Bootstrap
                     }
                 }
             }
-            var manager = movement.SessionManager;
+            var manager = movement.SessionCoordinator;
             bool ready = movement.CanEnterGame && input.enabled && manager?.ClientDeathmatchState != null
                 && manager.ClientDeathmatchState.Phase == DeathmatchPhase.Playing;
             if (!ready)
@@ -144,7 +144,7 @@ namespace AFPS.Bootstrap
                     && diagnostics.DisplayedText.Contains("单人练习") && diagnostics.DisplayedText.Contains("无公网RTT"));
                 bool passed = menuClicked && bootstrap.ActiveMode == NetworkLaunchMode.Practice
                     && manager.IsLocalPractice && manager.ServerSessionCount == 1
-                    && FindObjectOfType<NetworkConnectionMenu>() == null
+                    && FindObjectOfType<NetworkLobbyMenu>() == null
                     && moved && jumped && rifle && automatic && reload && refilled && launcher
                     && rifleView && launcherView && reloadView && movement.PresentedShotResultCount > 0
                     && checkedArms && singleArms && diagnosticsVerified;

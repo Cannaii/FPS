@@ -48,7 +48,7 @@ namespace AFPS.Tests.EditMode
             // 将既有死亡计时推进到到期边界；死亡/计分链路由原Combat用例独立覆盖。
             const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic
                 | System.Reflection.BindingFlags.Instance;
-            var respawns = (System.Collections.Generic.Dictionary<uint, uint>)typeof(NetworkMovementSessionManager)
+            var respawns = (System.Collections.Generic.Dictionary<uint, uint>)typeof(NetworkSessionCoordinator)
                 .GetField("serverRespawnTicks", flags).GetValue(test.Server);
             test.Server.TryGetServerEntityId(test.ServerIds[0], out uint entity);
             respawns[entity] = 153;
@@ -201,8 +201,8 @@ namespace AFPS.Tests.EditMode
         {
             internal readonly FakeTransport ServerTransport = new FakeTransport(TransportRole.Server);
             internal readonly FakeTransport[] ClientTransports = { new FakeTransport(TransportRole.Client), new FakeTransport(TransportRole.Client) };
-            internal readonly NetworkMovementSessionManager Server;
-            internal readonly NetworkMovementSessionManager[] Clients = new NetworkMovementSessionManager[2];
+            internal readonly NetworkSessionCoordinator Server;
+            internal readonly NetworkSessionCoordinator[] Clients = new NetworkSessionCoordinator[2];
             internal readonly TransportConnectionId[] ServerIds = { new TransportConnectionId(10), new TransportConnectionId(11) };
             private readonly TransportConnectionId[] clientIds = { new TransportConnectionId(20), new TransportConnectionId(21) };
 
@@ -222,19 +222,19 @@ namespace AFPS.Tests.EditMode
                                     AFPS.Math.Fix.FromInt(2), AFPS.Math.Fix.FromInt(10))))
                     });
                     context = new AFPS.Simulation.Characters.SimulationWorldContext(
-                        world, context.Configuration, context.TickDeltaTime, sessionSpatial: context.SessionSpatial);
+                        world, context.MovementConfiguration, context.TickDeltaTime, sessionSpatial: context.SessionSpatial);
                 }
-                var state = new AFPS.Simulation.Characters.PlayerState
+                var state = new AFPS.Simulation.Characters.PlayerMovementState
                 {
                     PositionFixed = context.SessionSpatial.SpawnOrigin,
                     IsGrounded = true
                 };
-                Server = new NetworkMovementSessionManager(ServerTransport, null, state, state,
-                    context.Configuration, 0.02f, 64, 3, 16, 2, 2, 0, 0, simulationWorld: context);
+                Server = new NetworkSessionCoordinator(ServerTransport, null, state, state,
+                    context.MovementConfiguration, 0.02f, 64, 3, 16, 2, 2, 0, 0, simulationWorld: context);
                 for (int index = 0; index < 2; index++)
                 {
-                    Clients[index] = new NetworkMovementSessionManager(null, ClientTransports[index], state, state,
-                        context.Configuration, 0.02f, 64, 3, 16, 2, 2, 0, 0, simulationWorld: context);
+                    Clients[index] = new NetworkSessionCoordinator(null, ClientTransports[index], state, state,
+                        context.MovementConfiguration, 0.02f, 64, 3, 16, 2, 2, 0, 0, simulationWorld: context);
                     Server.HandleConnected(NetworkTransportSide.Server, ServerIds[index]);
                     Clients[index].HandleConnected(NetworkTransportSide.Client, clientIds[index]);
                 }

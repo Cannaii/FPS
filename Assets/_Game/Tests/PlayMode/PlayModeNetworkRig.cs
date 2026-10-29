@@ -27,8 +27,8 @@ namespace AFPS.Tests.PlayMode
         private bool configured;
         private bool stopped;
 
-        public NetworkMovementSessionManager Server { get; private set; }
-        public NetworkMovementSessionManager[] Clients { get; } = new NetworkMovementSessionManager[2];
+        public NetworkSessionCoordinator Server { get; private set; }
+        public NetworkSessionCoordinator[] Clients { get; } = new NetworkSessionCoordinator[2];
         public Func<int, uint, PlayerInputCommand> Input { get; set; }
         public uint WorldTick { get; private set; }
         public int PumpedFrames { get; private set; }
@@ -53,7 +53,7 @@ namespace AFPS.Tests.PlayMode
                 new FixedWorldPlane(1, 0, FixedSurface.Solid | FixedSurface.Ground,
                     FixedAxis.Y, Fix.Zero, true)
             });
-            var configuration = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
+            var configuration = new PlayerMovementConfig(6f, 20f, 20f, 8f);
             var context = new SimulationWorldContext(world, configuration, SimulationStep.Step50Hz);
             authority = StartRuntime(host ? NetworkLaunchMode.Host : NetworkLaunchMode.DedicatedServer);
             Server = CreateManager(authority.ServerTransport, null, context);
@@ -75,12 +75,12 @@ namespace AFPS.Tests.PlayMode
             return runtime;
         }
 
-        private static NetworkMovementSessionManager CreateManager(
+        private static NetworkSessionCoordinator CreateManager(
             IGameTransport server, IGameTransport client, SimulationWorldContext context)
         {
-            var initial = new PlayerState { PositionFixed = context.SessionSpatial.SpawnOrigin, IsGrounded = true };
+            var initial = new PlayerMovementState { PositionFixed = context.SessionSpatial.SpawnOrigin, IsGrounded = true };
             // 只缩短夹具已有的重生配置为0.5秒以减少等待；正式准备倒计时仍完整3秒。
-            return new NetworkMovementSessionManager(server, client, initial, initial, context.Configuration,
+            return new NetworkSessionCoordinator(server, client, initial, initial, context.MovementConfiguration,
                 0.02f, 128, 3, 32, 2, 2, 0f, 0f, simulationWorld: context,
                 deathmatchKillLimit: 99, deathmatchRespawnSeconds: 0.5f);
         }
@@ -141,7 +141,7 @@ namespace AFPS.Tests.PlayMode
             }
         }
 
-        private void Drain(IGameTransport transport, NetworkMovementSessionManager manager, NetworkTransportSide side)
+        private void Drain(IGameTransport transport, NetworkSessionCoordinator manager, NetworkTransportSide side)
         {
             if (transport == null)
             {

@@ -74,7 +74,7 @@ namespace AFPS.NetCode.Weapons
             uint serverTick,
             uint entityId,
             in PlayerInputCommand command,
-            in PlayerState authoritativeState)
+            in PlayerMovementState authoritativeState)
         {
             if (IsReloading && unchecked(serverTick - reloadStartedTick) >= ReloadDurationTicks)
             {

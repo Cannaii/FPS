@@ -12,13 +12,13 @@ namespace AFPS.Tests.EditMode
 
         public static ulong Run()
         {
-            var config = new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8));
+            var config = new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8));
             var wall = new FixedWorldBox(1, 0, FixedSurface.Solid | FixedSurface.Wall, new FixedAabb(
                 new FixVec3(Fix.FromInt(2), Fix.Zero, Fix.FromInt(-100)),
                 new FixVec3(Fix.FromInt(3), Fix.FromInt(40), Fix.FromInt(100))));
             var ground = new FixedWorldPlane(2, 0, FixedSurface.Solid | FixedSurface.Ground, FixedAxis.Y, Fix.Zero);
             var world = new FixedCharacterCollisionWorld(new FixedWorld(new[] { wall }, new[] { ground }));
-            PlayerState state = default;
+            PlayerMovementState state = default;
             ulong hash = 14695981039346656037UL;
             bool ran = false;
             bool budgetEnded = false;
@@ -27,7 +27,7 @@ namespace AFPS.Tests.EditMode
                 int phase = i % 256;
                 if (phase == 0)
                 {
-                    state = new PlayerState
+                    state = new PlayerMovementState
                     {
                         PositionFixed = new FixVec3(Fix.FromRatio(3, 2), Fix.FromInt(20), Fix.Zero),
                         WallNormalFixed = -FixVec3.Right,
@@ -43,10 +43,10 @@ namespace AFPS.Tests.EditMode
                     DashPressed = phase == 110,
                     CrouchHeld = phase >= 150 && phase < 180
                 };
-                state = PlayerSimulation.Simulate(state, input, config, SimulationStep.Step50Hz, world);
+                state = PlayerMovementSimulation.Simulate(state, input, config, SimulationStep.Step50Hz, world);
                 ran |= state.IsWallRunning && state.StaminaSpentFixed > Fix.Zero;
                 budgetEnded |= !state.IsWallRunning && state.WallRunUsedFixed == config.WallRun.Duration;
-                ulong raw = PlayerStateHash.Compute(state);
+                ulong raw = PlayerMovementStateHash.Compute(state);
                 for (int shift = 0; shift < 64; shift += 8)
                 {
                     hash = unchecked((hash ^ ((raw >> shift) & 255UL)) * 1099511628211UL);

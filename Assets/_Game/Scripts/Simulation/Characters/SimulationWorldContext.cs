@@ -11,7 +11,8 @@ namespace AFPS.Simulation.Characters
     {
         public FixedWorld World { get; }
         public FixedCharacterCollisionWorld CollisionWorld { get; }
-        public PlayerSimulationConfig Configuration { get; }
+        /// <summary>移动与移动能力配置；武器规则由WeaponConfiguration独立提供。</summary>
+        public PlayerMovementConfig MovementConfiguration { get; }
         public SimulationSessionSpatialConfig SessionSpatial { get; }
         public WeaponSimulationConfig WeaponConfiguration { get; }
         public WeaponSimulationConfig SecondaryWeaponConfiguration => WeaponCatalog.SecondaryFor(WeaponConfiguration);
@@ -26,7 +27,7 @@ namespace AFPS.Simulation.Characters
 
         public SimulationWorldContext(
             FixedWorld world,
-            in PlayerSimulationConfig configuration,
+            in PlayerMovementConfig configuration,
             Fix tickDeltaTime,
             int collisionLayerMask = ~0,
             SimulationSessionSpatialConfig? sessionSpatial = null,
@@ -49,7 +50,7 @@ namespace AFPS.Simulation.Characters
                 collision.MaxSlopeAngleFixedDegrees,
                 collision.MaxSlideIterations);
 
-            Configuration = configuration;
+            MovementConfiguration = configuration;
             SessionSpatial = sessionSpatial ?? SimulationSessionSpatialConfig.Default;
             if (!SessionSpatial.IsValid)
             {
@@ -73,7 +74,7 @@ namespace AFPS.Simulation.Characters
         /// <summary>只接受完整规范快照；加载失败必须阻止装配，不能悄悄退回平地或 PhysX。</summary>
         public static SimulationWorldContext Load(
             ArraySegment<byte> snapshot,
-            in PlayerSimulationConfig configuration,
+            in PlayerMovementConfig configuration,
             Fix tickDeltaTime,
             int collisionLayerMask = ~0,
             SimulationSessionSpatialConfig? sessionSpatial = null,
@@ -89,7 +90,7 @@ namespace AFPS.Simulation.Characters
         }
 
         private static ulong ComputeConfigurationHash(
-            in PlayerSimulationConfig configuration,
+            in PlayerMovementConfig configuration,
             Fix tickDeltaTime,
             int collisionLayerMask,
             in SimulationSessionSpatialConfig sessionSpatial,

@@ -5,7 +5,7 @@ namespace AFPS.Simulation.Characters
     /// <summary>只消费落地状态和输入边沿，不进行几何查询；碰撞结果由主运动器提供。</summary>
     public static class PlayerJumpSimulation
     {
-        public static bool TryJump(ref PlayerState next, in PlayerInputCommand input,
+        public static bool TryJump(ref PlayerMovementState next, in PlayerInputCommand input,
             in PlayerJumpConfig config, bool dashing)
         {
             if (next.IsGrounded)
@@ -35,7 +35,7 @@ namespace AFPS.Simulation.Characters
             return true;
         }
 
-        public static void Complete(ref PlayerState next, in PlayerJumpConfig config, Fix deltaTime)
+        public static void Complete(ref PlayerMovementState next, in PlayerJumpConfig config, Fix deltaTime)
         {
             if (next.IsGrounded)
             {
@@ -49,14 +49,14 @@ namespace AFPS.Simulation.Characters
             }
         }
 
-        public static void ResetGrounded(ref PlayerState state, in PlayerJumpConfig config)
+        public static void ResetGrounded(ref PlayerMovementState state, in PlayerJumpConfig config)
         {
             state.CoyoteRemainingFixed = config.CoyoteDuration;
             state.GroundJumpConsumed = false;
             state.AirJumpsUsed = 0;
         }
 
-        public static void CancelGroundOpportunity(ref PlayerState state)
+        public static void CancelGroundOpportunity(ref PlayerMovementState state)
         {
             // 普通传送保留已用空中跳，不授予新的宽限；真实落地后才会补充跳跃资源。
             state.CoyoteRemainingFixed = Fix.Zero;

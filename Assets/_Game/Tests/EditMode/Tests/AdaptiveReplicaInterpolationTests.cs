@@ -13,7 +13,7 @@ namespace AFPS.Tests.EditMode
             var clock = new AdaptiveInterpolationClock(50, 20, 2d);
             var adaptive = Create(clock);
             var fixedDelay = Create(null);
-            var pending = new List<KeyValuePair<uint, RemotePlayerSnapshot>>();
+            var pending = new List<KeyValuePair<uint, RemotePlayerMovementSnapshot>>();
             int adaptiveLimits = 0;
             int fixedLimits = 0;
             int interpolated = 0;
@@ -24,7 +24,7 @@ namespace AFPS.Tests.EditMode
                 if (tick % 5 == 0 || tick % 5 == 2)
                 {
                     // 20Hz快照，下行延迟3~5 Tick（60~100ms）；同帧到达时逆序交付，覆盖过期包拒绝。
-                    pending.Add(new KeyValuePair<uint, RemotePlayerSnapshot>(tick + 3 + sent % 3, Snapshot(tick)));
+                    pending.Add(new KeyValuePair<uint, RemotePlayerMovementSnapshot>(tick + 3 + sent % 3, Snapshot(tick)));
                     sent++;
                 }
                 for (int index = pending.Count - 1; index >= 0; index--)
@@ -66,10 +66,10 @@ namespace AFPS.Tests.EditMode
         {
             var set = Create(new AdaptiveInterpolationClock(50, 20, 2d));
             set.TryInsertSnapshot(Snapshot(100), 1, out _);
-            var teleport = new RemotePlayerSnapshot(7, 105, FixVec3.Right * Fix.FromInt(10),
+            var teleport = new RemotePlayerMovementSnapshot(7, 105, FixVec3.Right * Fix.FromInt(10),
                 Fix.Zero, Fix.Zero, FixVec3.Zero, isTeleport: true);
             set.TryInsertSnapshot(teleport, 2, out _);
-            var peer = new RemotePlayerSnapshot(8, 105, FixVec3.Zero, Fix.Zero, Fix.Zero, FixVec3.Zero);
+            var peer = new RemotePlayerMovementSnapshot(8, 105, FixVec3.Zero, Fix.Zero, Fix.Zero, FixVec3.Zero);
             set.TryInsertSnapshot(peer, 2, out _);
             Assert.That(set.TrySample(7, 107d, out var before), Is.True);
             Assert.That(before.Status, Is.EqualTo(RemotePlayerSamplingStatus.HeldBeforeTeleport));
@@ -87,11 +87,11 @@ namespace AFPS.Tests.EditMode
             Assert.That(restarted.ServerTickTime, Is.EqualTo(10d));
         }
 
-        private static RemotePlayerReplicaSet Create(AdaptiveInterpolationClock clock) =>
-            new RemotePlayerReplicaSet(32, 0.02f, 2d, 2d, 5f, clock);
+        private static RemotePlayerMovementReplicas Create(AdaptiveInterpolationClock clock) =>
+            new RemotePlayerMovementReplicas(32, 0.02f, 2d, 2d, 5f, clock);
 
-        private static RemotePlayerSnapshot Snapshot(uint tick) =>
-            new RemotePlayerSnapshot(7, tick, FixVec3.Right * Fix.FromRatio((int)tick, 100),
+        private static RemotePlayerMovementSnapshot Snapshot(uint tick) =>
+            new RemotePlayerMovementSnapshot(7, tick, FixVec3.Right * Fix.FromRatio((int)tick, 100),
                 Fix.Zero, Fix.Zero, FixVec3.Right * Fix.Half);
     }
 }

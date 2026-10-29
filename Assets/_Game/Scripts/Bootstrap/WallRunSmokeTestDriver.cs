@@ -15,7 +15,7 @@ namespace AFPS.Bootstrap
         public static bool IsRequested => Array.Exists(Environment.GetCommandLineArgs(),
             value => value.Equals("-afpsWallRunSmoke", StringComparison.OrdinalIgnoreCase));
 
-        public static SimulationWorldContext CreateFixture(in PlayerSimulationConfig config, Fix deltaTime, int layerMask)
+        public static SimulationWorldContext CreateFixture(in PlayerMovementConfig config, Fix deltaTime, int layerMask)
         {
             var wall = new FixedWorldBox(1, 8, FixedSurface.Solid | FixedSurface.Wall, new FixedAabb(
                 new FixVec3(Fix.FromInt(2), Fix.Zero, Fix.FromInt(-100)),
@@ -27,7 +27,7 @@ namespace AFPS.Bootstrap
                 config, deltaTime, layerMask, spatial);
         }
 
-        private UnityNetworkMovementController movement;
+        private UnityNetworkGameplayController movement;
         private LocalPlayerInputCollector input;
         private double configuredAt;
         private double startedAt = -1d;
@@ -42,7 +42,7 @@ namespace AFPS.Bootstrap
         private bool landingReset;
         private bool restarted;
 
-        public void Configure(UnityNetworkMovementController controller, LocalPlayerInputCollector collector)
+        public void Configure(UnityNetworkGameplayController controller, LocalPlayerInputCollector collector)
         {
             movement = controller;
             input = collector;
@@ -53,7 +53,7 @@ namespace AFPS.Bootstrap
         private void Update()
         {
             double now = Time.realtimeSinceStartupAsDouble;
-            var manager = movement.SessionManager;
+            var manager = movement.SessionCoordinator;
             if (manager?.ClientSession != null && !SmokeTestLobby.EnsurePlaying(movement))
             {
                 return;
@@ -78,7 +78,7 @@ namespace AFPS.Bootstrap
             }
             var predicted = manager.ClientSession.CurrentState;
             var authority = manager.ClientSession.LastAuthoritativeState;
-            Fix duration = manager.WorldContext.Configuration.WallRun.Duration;
+            Fix duration = manager.WorldContext.MovementConfiguration.WallRun.Duration;
             bool jump = false;
             predictedRun |= predicted.IsWallRunning && predicted.VelocityFixed.Z > Fix.FromInt(8);
             authorityRun |= authority.IsWallRunning && authority.VelocityFixed.Z > Fix.FromInt(8);

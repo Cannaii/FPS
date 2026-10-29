@@ -171,10 +171,10 @@ namespace AFPS.Bootstrap
             }
             if (showConnectionMenu && !HasExplicitLaunchMode(Environment.GetCommandLineArgs()))
             {
-                NetworkConnectionMenu menu = GetComponent<NetworkConnectionMenu>();
+                NetworkLobbyMenu menu = GetComponent<NetworkLobbyMenu>();
                 if (menu == null)
                 {
-                    menu = gameObject.AddComponent<NetworkConnectionMenu>();
+                    menu = gameObject.AddComponent<NetworkLobbyMenu>();
                 }
 
                 menu.Initialize(this);
@@ -307,7 +307,7 @@ namespace AFPS.Bootstrap
                 return false;
             }
 
-            UnityNetworkMovementController movement = GetComponent<UnityNetworkMovementController>();
+            UnityNetworkGameplayController movement = GetComponent<UnityNetworkGameplayController>();
             if (movement != null && !movement.TryPrepareSimulation(out error))
             {
                 return false;
@@ -361,7 +361,7 @@ namespace AFPS.Bootstrap
             {
                 return;
             }
-            var manager = GetComponent<UnityNetworkMovementController>()?.SessionManager;
+            var manager = GetComponent<UnityNetworkGameplayController>()?.SessionCoordinator;
             if (manager?.WorldContext == null)
             {
                 return;
@@ -442,12 +442,12 @@ namespace AFPS.Bootstrap
             {
                 return;
             }
-            var movement = GetComponent<UnityNetworkMovementController>();
-            if (movement == null || movement.SessionManager == null)
+            var movement = GetComponent<UnityNetworkGameplayController>();
+            if (movement == null || movement.SessionCoordinator == null)
             {
                 return;
             }
-            Reconnect = new ClientReconnectController(Runtime, movement.SessionManager);
+            Reconnect = new ClientReconnectController(Runtime, movement.SessionCoordinator);
             if (GetComponent<NetworkRecoveryOverlay>() == null)
             {
                 gameObject.AddComponent<NetworkRecoveryOverlay>().Configure(this);

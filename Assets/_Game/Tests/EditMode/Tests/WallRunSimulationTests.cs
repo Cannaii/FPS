@@ -12,8 +12,8 @@ namespace AFPS.Tests.EditMode
 {
     public sealed class WallRunSimulationTests
     {
-        private static readonly PlayerSimulationConfig Config =
-            new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8));
+        private static readonly PlayerMovementConfig Config =
+            new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8));
 
         private static FixedCharacterCollisionWorld World(bool tagged = true, int mask = ~0)
         {
@@ -24,7 +24,7 @@ namespace AFPS.Tests.EditMode
             return new FixedCharacterCollisionWorld(new FixedWorld(new[] { wall }, new[] { ground }), mask);
         }
 
-        private static PlayerState Initial => new PlayerState
+        private static PlayerMovementState Initial => new PlayerMovementState
         {
             PositionFixed = new FixVec3(Fix.FromRatio(3, 2), Fix.FromInt(20), Fix.Zero),
             WallNormalFixed = -FixVec3.Right,
@@ -36,8 +36,8 @@ namespace AFPS.Tests.EditMode
             Tick = tick, MoveY = 1f, SprintHeld = true
         };
 
-        private static PlayerState Step(in PlayerState previous, PlayerInputCommand? input = null,
-            IFixedCharacterCollisionWorld world = null) => PlayerSimulation.Simulate(previous,
+        private static PlayerMovementState Step(in PlayerMovementState previous, PlayerInputCommand? input = null,
+            IFixedCharacterCollisionWorld world = null) => PlayerMovementSimulation.Simulate(previous,
                 input ?? Forward(unchecked(previous.Tick + 1)), Config, SimulationStep.Step50Hz, world ?? World());
 
         [TestCase(0)]
@@ -201,16 +201,16 @@ namespace AFPS.Tests.EditMode
         public void Authority_TransportsRunAndBudgetAndRejectsInvalidCombinations()
         {
             var state = Step(Initial);
-            var bytes = new byte[AuthoritativePlayerStateCodec.PacketSize];
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, state.Tick, state),
+            var bytes = new byte[AuthoritativeMovementStateCodec.PacketSize];
+            Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(10, state.Tick, state),
                 1, new ArraySegment<byte>(bytes), out int count), Is.True);
             Assert.That(count, Is.EqualTo(152));
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out var decoded), Is.True);
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out var decoded), Is.True);
             Assert.That(decoded.State.RawEquals(state), Is.True);
             bytes[114] = 128;
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
             state.IsCrouched = true;
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, state.Tick, state),
+            Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(10, state.Tick, state),
                 1, new ArraySegment<byte>(bytes), out _), Is.False);
         }
 
@@ -229,14 +229,14 @@ namespace AFPS.Tests.EditMode
             {
                 predicted.WallRunUsedFixed = Fix.Epsilon;
             }
-            Assert.That(PlayerStateHash.Compute(predicted), Is.Not.EqualTo(PlayerStateHash.Compute(authority)));
+            Assert.That(PlayerMovementStateHash.Compute(predicted), Is.Not.EqualTo(PlayerMovementStateHash.Compute(authority)));
             var inputs = new TickBuffer<PlayerInputCommand>(8);
-            var states = new TickBuffer<PlayerState>(8);
+            var states = new TickBuffer<PlayerMovementState>(8);
             states.Store(authority.Tick, predicted);
             inputs.Store(0, Forward(0));
-            var result = ClientPredictionReconciler.Reconcile(new AuthoritativePlayerState(10, authority.Tick, authority),
+            var result = MovementPredictionReconciler.Reconcile(new AuthoritativeMovementState(10, authority.Tick, authority),
                 0, Step(predicted), inputs, states, Config, SimulationStep.Step50Hz, World());
-            Assert.That(result.Status, Is.EqualTo(ReconciliationStatus.Corrected));
+            Assert.That(result.Status, Is.EqualTo(MovementReconciliationStatus.Corrected));
             Assert.That(result.State.RawEquals(Step(authority)), Is.True);
         }
 
@@ -263,7 +263,7 @@ namespace AFPS.Tests.EditMode
         {
             var values = Values();
             values[field] += Fix.Epsilon;
-            var changed = new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20),
+            var changed = new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20),
                 Fix.FromInt(8), wallRun: Rules(values));
             var world = new FixedWorld(null);
             Assert.That(new SimulationWorldContext(world, changed, SimulationStep.Step50Hz).Identity.ConfigurationHash,
@@ -275,7 +275,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void DefaultZeroRules_AreRejected()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => new PlayerSimulationConfig(
+            Assert.Throws<ArgumentOutOfRangeException>(() => new PlayerMovementConfig(
                 Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8), wallRun: default(PlayerWallRunConfig)));
         }
 

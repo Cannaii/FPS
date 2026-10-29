@@ -5,14 +5,14 @@ namespace AFPS.Simulation.Characters
 {
     public static class PlayerStanceSimulation
     {
-        public static CharacterCollisionConfig Collision(in PlayerState state, in PlayerSimulationConfig config) =>
+        public static CharacterCollisionConfig Collision(in PlayerMovementState state, in PlayerMovementConfig config) =>
             state.IsCrouched ? config.Collision.WithHeight(config.Stance.Height) : config.Collision;
 
-        public static Fix EyeHeight(in PlayerState state, Fix standingEyeHeight, in PlayerSimulationConfig config) =>
+        public static Fix EyeHeight(in PlayerMovementState state, Fix standingEyeHeight, in PlayerMovementConfig config) =>
             state.IsCrouched ? standingEyeHeight * (config.Stance.Height / config.Collision.HeightFixed) : standingEyeHeight;
 
-        public static void Begin(ref PlayerState next, in PlayerState previous, in PlayerInputCommand input,
-            in PlayerSimulationConfig config, IFixedCharacterCollisionWorld world)
+        public static void Begin(ref PlayerMovementState next, in PlayerMovementState previous, in PlayerInputCommand input,
+            in PlayerMovementConfig config, IFixedCharacterCollisionWorld world)
         {
             next.IsCrouched = input.CrouchHeld;
             if (!input.CrouchHeld && previous.IsCrouched)
@@ -38,7 +38,7 @@ namespace AFPS.Simulation.Characters
             }
         }
 
-        public static FixVec3 Steer(in PlayerState next, FixVec3 direction, in PlayerStanceConfig config, Fix deltaTime)
+        public static FixVec3 Steer(in PlayerMovementState next, FixVec3 direction, in PlayerStanceConfig config, Fix deltaTime)
         {
             Fix speed = FixMath.Max(Fix.Zero, next.SlideVelocityFixed.Magnitude - config.SlideDeceleration * deltaTime);
             FixVec3 target = direction == FixVec3.Zero ? next.SlideVelocityFixed : direction.Normalized() * speed;
@@ -46,7 +46,7 @@ namespace AFPS.Simulation.Characters
                 next.SlideVelocityFixed, target, config.SlideSteer * deltaTime), speed);
         }
 
-        public static void Complete(ref PlayerState next, Fix deltaTime)
+        public static void Complete(ref PlayerMovementState next, Fix deltaTime)
         {
             if (next.SlideRemainingFixed <= Fix.Zero)
             {
@@ -60,7 +60,7 @@ namespace AFPS.Simulation.Characters
             }
         }
 
-        public static void CancelSlide(ref PlayerState state)
+        public static void CancelSlide(ref PlayerMovementState state)
         {
             state.SlideRemainingFixed = Fix.Zero;
             state.SlideVelocityFixed = FixVec3.Zero;

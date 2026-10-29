@@ -14,7 +14,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Remote rope clear test");
             try
             {
-                var world = root.AddComponent<RemotePlayerWorldView>();
+                var world = root.AddComponent<RemotePlayerViewRegistry>();
                 var target = new GameObject("Remote actor");
                 target.transform.SetParent(root.transform);
                 var view = target.AddComponent<RemotePlayerView>();
@@ -22,7 +22,7 @@ namespace AFPS.Tests.EditMode
                     | System.Reflection.BindingFlags.NonPublic).Invoke(view, null);
                 view.ApplyRenderState(new RemotePlayerRenderState(10d, Vector3.zero, Quaternion.identity,
                     Vector3.zero, RemotePlayerSamplingStatus.Held, isGrappling: true, grapplePoint: Vector3.up * 10f));
-                var views = (System.Collections.Generic.Dictionary<uint, RemotePlayerView>)typeof(RemotePlayerWorldView)
+                var views = (System.Collections.Generic.Dictionary<uint, RemotePlayerView>)typeof(RemotePlayerViewRegistry)
                     .GetField("views", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(world);
                 views.Add(1, view);
                 Assert.That(world.VisibleGrappleRopeCount, Is.EqualTo(1));
@@ -36,15 +36,15 @@ namespace AFPS.Tests.EditMode
             }
         }
 
-        private static RemotePlayerSnapshot Snapshot(uint tick, bool active, int anchorX = 0, bool teleport = false) =>
-            new RemotePlayerSnapshot(1, tick, FixVec3.Right * Fix.FromInt((int)(tick - 10)), Fix.Zero, Fix.Zero,
+        private static RemotePlayerMovementSnapshot Snapshot(uint tick, bool active, int anchorX = 0, bool teleport = false) =>
+            new RemotePlayerMovementSnapshot(1, tick, FixVec3.Right * Fix.FromInt((int)(tick - 10)), Fix.Zero, Fix.Zero,
                 FixVec3.Zero, isTeleport: teleport, isGrappling: active,
                 grapplePoint: active ? new FixVec3(Fix.FromInt(anchorX), Fix.FromInt(5), Fix.FromInt(10)) : FixVec3.Zero);
 
         [Test]
         public void Timeline_HoldsAnchorUntilSnapshotTickThenDetachesOnTeleport()
         {
-            var timeline = new RemotePlayerSnapshotTimeline(1, 8, 0.02f, 0d, 2d, 20f);
+            var timeline = new RemotePlayerMovementTimeline(1, 8, 0.02f, 0d, 2d, 20f);
             timeline.Insert(Snapshot(10, true));
             timeline.Insert(Snapshot(12, true, 4));
             Assert.That(timeline.TrySample(11d, out var state), Is.True);

@@ -14,11 +14,11 @@ namespace AFPS.Tests.EditMode
 {
     public sealed class StanceSimulationTests
     {
-        private static readonly PlayerSimulationConfig Config =
-            new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8));
-        private static readonly PlayerState Grounded = new PlayerState { IsGrounded = true };
+        private static readonly PlayerMovementConfig Config =
+            new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8));
+        private static readonly PlayerMovementState Grounded = new PlayerMovementState { IsGrounded = true };
 
-        private static PlayerState Step(in PlayerState state, bool crouch = true, bool jump = false,
+        private static PlayerMovementState Step(in PlayerMovementState state, bool crouch = true, bool jump = false,
             bool dash = false, IFixedCharacterCollisionWorld world = null)
         {
             var input = new PlayerInputCommand
@@ -26,14 +26,14 @@ namespace AFPS.Tests.EditMode
                 Tick = unchecked(state.Tick + 1), CrouchHeld = crouch, JumpPressed = jump, DashPressed = dash
             };
             input.SetFixedControls(Fix.One, Fix.Zero, Fix.Zero, Fix.Zero);
-            return PlayerSimulation.Simulate(state, input, Config, SimulationStep.Step50Hz,
+            return PlayerMovementSimulation.Simulate(state, input, Config, SimulationStep.Step50Hz,
                 world ?? FixedFlatGroundCollisionWorld.Instance);
         }
 
         [Test]
         public void Crouch_UsesShortCapsuleAndHalfWalkSpeed()
         {
-            PlayerState state = Grounded;
+            PlayerMovementState state = Grounded;
             for (int i = 0; i < 100; i++)
             {
                 state = Step(state);
@@ -54,7 +54,7 @@ namespace AFPS.Tests.EditMode
                 new FixVec3(Fix.FromInt(2), Fix.FromInt(4), Fix.FromInt(3))));
             var ground = new FixedWorldPlane(2, 0, FixedSurface.Solid | FixedSurface.Ground, FixedAxis.Y, Fix.Zero);
             var world = new FixedCharacterCollisionWorld(new FixedWorld(new[] { roof }, new[] { ground }));
-            PlayerState state = Grounded;
+            PlayerMovementState state = Grounded;
             state.IsCrouched = true;
             state = Step(state, crouch: false, world: world);
             Assert.That(state.IsCrouched, Is.True);
@@ -71,7 +71,7 @@ namespace AFPS.Tests.EditMode
         [TestCase(1, true)]
         public void Slide_RequiresExactSpeedThreshold(int offsetRaw, bool starts)
         {
-            PlayerState state = Grounded;
+            PlayerMovementState state = Grounded;
             state.VelocityFixed = FixVec3.Right * (Config.Stance.SlideMinimumSpeed + Fix.FromRaw(offsetRaw));
             state = Step(state);
             Assert.That(state.SlideRemainingFixed > Fix.Zero, Is.EqualTo(starts));
@@ -85,9 +85,9 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void HeldSlide_ExpiresWithoutRetriggeringAndReleaseCancels()
         {
-            PlayerState initial = Grounded;
+            PlayerMovementState initial = Grounded;
             initial.VelocityFixed = FixVec3.Right * Fix.FromInt(8);
-            PlayerState state = Step(initial);
+            PlayerMovementState state = Step(initial);
             Fix first = state.SlideRemainingFixed;
             for (int i = 0; i < 60; i++)
             {
@@ -105,7 +105,7 @@ namespace AFPS.Tests.EditMode
         [TestCase(false, true)]
         public void JumpOrDash_CancelsSlide(bool jump, bool dash)
         {
-            PlayerState state = Grounded;
+            PlayerMovementState state = Grounded;
             state.VelocityFixed = FixVec3.Right * Fix.FromInt(8);
             state = Step(state);
             state = Step(state, jump: jump, dash: dash);
@@ -132,7 +132,7 @@ namespace AFPS.Tests.EditMode
             state = Step(state);
             Fix previousSpeed = state.VelocityFixed.Magnitude;
             var input = new PlayerInputCommand { Tick = 2, MoveY = 1f, CrouchHeld = true };
-            state = PlayerSimulation.Simulate(state, input, Config,
+            state = PlayerMovementSimulation.Simulate(state, input, Config,
                 SimulationStep.Step50Hz, FixedFlatGroundCollisionWorld.Instance);
             Assert.That(state.VelocityFixed.X, Is.GreaterThan(Fix.FromInt(9)));
             Assert.That(state.VelocityFixed.Z, Is.GreaterThan(Fix.Zero));
@@ -174,23 +174,23 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void Authority_RoundtripsSlideAndRejectsContradictions()
         {
-            PlayerState state = Grounded;
+            PlayerMovementState state = Grounded;
             state.VelocityFixed = FixVec3.Right * Fix.FromInt(8);
             state = Step(state);
-            var bytes = new byte[AuthoritativePlayerStateCodec.PacketSize];
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, state.Tick, state),
+            var bytes = new byte[AuthoritativeMovementStateCodec.PacketSize];
+            Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(10, state.Tick, state),
                 1, new ArraySegment<byte>(bytes), out _), Is.True);
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out var decoded), Is.True);
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out var decoded), Is.True);
             Assert.That(decoded.State.RawEquals(state), Is.True);
             state.IsCrouched = false;
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, state.Tick, state),
+            Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(10, state.Tick, state),
                 1, new ArraySegment<byte>(bytes), out _), Is.False);
             state.IsCrouched = true;
             state.SlideVelocityFixed += FixVec3.Up;
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, state.Tick, state),
+            Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(10, state.Tick, state),
                 1, new ArraySegment<byte>(bytes), out _), Is.False);
             bytes[110] = 128;
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
         }
 
         [TestCase(0)]
@@ -213,19 +213,19 @@ namespace AFPS.Tests.EditMode
             {
                 predicted.SlideVelocityFixed = FixVec3.Right;
             }
-            Assert.That(PlayerStateHash.Compute(predicted), Is.Not.EqualTo(PlayerStateHash.Compute(authority)));
-            var states = new TickBuffer<PlayerState>(8);
+            Assert.That(PlayerMovementStateHash.Compute(predicted), Is.Not.EqualTo(PlayerMovementStateHash.Compute(authority)));
+            var states = new TickBuffer<PlayerMovementState>(8);
             var inputs = new TickBuffer<PlayerInputCommand>(8);
             states.Store(authority.Tick, predicted);
             var input = new PlayerInputCommand { Tick = 0, CrouchHeld = true };
             inputs.Store(0, input);
-            var current = PlayerSimulation.Simulate(predicted, input, Config,
+            var current = PlayerMovementSimulation.Simulate(predicted, input, Config,
                 SimulationStep.Step50Hz, FixedFlatGroundCollisionWorld.Instance);
-            var expected = PlayerSimulation.Simulate(authority, input, Config,
+            var expected = PlayerMovementSimulation.Simulate(authority, input, Config,
                 SimulationStep.Step50Hz, FixedFlatGroundCollisionWorld.Instance);
-            var result = ClientPredictionReconciler.Reconcile(new AuthoritativePlayerState(10, authority.Tick, authority),
+            var result = MovementPredictionReconciler.Reconcile(new AuthoritativeMovementState(10, authority.Tick, authority),
                 0, current, inputs, states, Config, SimulationStep.Step50Hz, FixedFlatGroundCollisionWorld.Instance);
-            Assert.That(result.Status, Is.EqualTo(ReconciliationStatus.Corrected));
+            Assert.That(result.Status, Is.EqualTo(MovementReconciliationStatus.Corrected));
             Assert.That(result.State.RawEquals(expected), Is.True);
         }
 
@@ -260,7 +260,7 @@ namespace AFPS.Tests.EditMode
                 stance.SlideDuration + (field == 4 ? Fix.Epsilon : Fix.Zero),
                 stance.SlideDeceleration + (field == 5 ? Fix.Epsilon : Fix.Zero),
                 stance.SlideSteer + (field == 6 ? Fix.Epsilon : Fix.Zero));
-            var config = new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8), stance: changed);
+            var config = new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8), stance: changed);
             var world = new FixedWorld(null);
             Assert.That(new SimulationWorldContext(world, config, SimulationStep.Step50Hz).Identity.ConfigurationHash,
                 Is.Not.EqualTo(new SimulationWorldContext(world, Config, SimulationStep.Step50Hz).Identity.ConfigurationHash));
@@ -269,16 +269,16 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void InvalidOrDefaultStance_AndOutOfCapsuleHeightAreRejected()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => new PlayerSimulationConfig(
+            Assert.Throws<ArgumentOutOfRangeException>(() => new PlayerMovementConfig(
                 Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8), stance: default(PlayerStanceConfig)));
             var stance = PlayerStanceConfig.Default;
             var tooLow = new PlayerStanceConfig(Fix.Half, stance.SpeedMultiplier, stance.SlideSpeed,
                 stance.SlideMinimumSpeed, stance.SlideDuration, stance.SlideDeceleration, stance.SlideSteer);
-            Assert.Throws<ArgumentOutOfRangeException>(() => new PlayerSimulationConfig(
+            Assert.Throws<ArgumentOutOfRangeException>(() => new PlayerMovementConfig(
                 Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8), stance: tooLow));
             var tooTall = new PlayerStanceConfig(Fix.FromInt(3), stance.SpeedMultiplier, stance.SlideSpeed,
                 stance.SlideMinimumSpeed, stance.SlideDuration, stance.SlideDeceleration, stance.SlideSteer);
-            Assert.Throws<ArgumentOutOfRangeException>(() => new PlayerSimulationConfig(
+            Assert.Throws<ArgumentOutOfRangeException>(() => new PlayerMovementConfig(
                 Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8), stance: tooTall));
         }
 

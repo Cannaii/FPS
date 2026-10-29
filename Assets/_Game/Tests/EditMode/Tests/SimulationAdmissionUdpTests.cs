@@ -91,7 +91,7 @@ namespace AFPS.Tests.EditMode
                     serverTransport.Pump();
                     clientTransport.Pump();
                     authorityReceived |= Drain(clientTransport, client, NetworkTransportSide.Client, buffer, ref clientId);
-                    server.TryGetServerSession(serverId, out ServerAuthoritativeMovementSession session);
+                    server.TryGetServerSession(serverId, out ServerAuthoritativePlayerSession session);
                     if (authorityReceived && session.CurrentState.RawEquals(client.ClientSession.CurrentState))
                     {
                         Assert.That(session.CurrentState.IsGrounded, Is.True);
@@ -107,7 +107,7 @@ namespace AFPS.Tests.EditMode
 
         private static bool Drain(
             UnityGameTransport transport,
-            NetworkMovementSessionManager manager,
+            NetworkSessionCoordinator manager,
             NetworkTransportSide side,
             byte[] buffer,
             ref TransportConnectionId id)
@@ -125,7 +125,7 @@ namespace AFPS.Tests.EditMode
                         var packet = new ArraySegment<byte>(buffer, 0, transportEvent.PayloadLength);
                         bool handled = manager.TryHandleData(side, transportEvent.ConnectionId, packet, out _);
                         authorityReceived |= handled && PacketHeaderCodec.TryRead(packet, out PacketHeader header)
-                            && header.MessageType == NetworkMessageType.AuthoritativePlayerState;
+                            && header.MessageType == NetworkMessageType.AuthoritativeMovementState;
                         break;
                     case TransportEventType.Disconnected:
                         manager.HandleDisconnected(side, transportEvent.ConnectionId);

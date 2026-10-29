@@ -12,7 +12,7 @@ namespace AFPS.Bootstrap
     {
         public static bool IsRequested => Array.Exists(Environment.GetCommandLineArgs(),
             value => value.Equals("-afpsJumpSmoke", StringComparison.OrdinalIgnoreCase));
-        private UnityNetworkMovementController movement;
+        private UnityNetworkGameplayController movement;
         private LocalPlayerInputCollector input;
         private double configuredAt;
         private double startedAt = -1d;
@@ -25,7 +25,7 @@ namespace AFPS.Bootstrap
         private int authoritativeAirJumpFlights;
         private uint entity;
 
-        public void Configure(UnityNetworkMovementController controller, LocalPlayerInputCollector collector)
+        public void Configure(UnityNetworkGameplayController controller, LocalPlayerInputCollector collector)
         {
             movement = controller;
             input = collector;
@@ -39,7 +39,7 @@ namespace AFPS.Bootstrap
         private void Update()
         {
             double now = Time.realtimeSinceStartupAsDouble;
-            var manager = movement.SessionManager;
+            var manager = movement.SessionCoordinator;
             if (manager?.ClientSession != null && !SmokeTestLobby.EnsurePlaying(movement))
             {
                 return;

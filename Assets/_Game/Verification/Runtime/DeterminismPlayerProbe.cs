@@ -82,7 +82,7 @@ namespace AFPS.Verification
                 }
                 using (var stream = new MemoryStream(trace.bytes, false))
                 {
-                    var replay = AuthoritativeTraceReplay.Run(stream);
+                    var replay = AuthoritativeMovementTraceReplay.Run(stream);
                     result.frames = replay.Frames;
                     result.resets = replay.Resets;
                     result.algorithm = replay.Identity.AlgorithmVersion;

@@ -35,7 +35,7 @@ namespace AFPS.Bootstrap
         /// 负责将玩家模拟状态显示到场景中的组件。
         /// </summary>
         [SerializeField]
-        private PlayerView playerView;
+        private LocalPlayerView playerView;
 
         /// <summary>
         /// 玩家在地面上的最大水平移动速度，单位为米每秒。
@@ -106,18 +106,18 @@ namespace AFPS.Bootstrap
         /// 当前客户端持有的最新玩家模拟状态。
         /// 每次执行 Tick 后都会替换为新的状态。
         /// </summary>
-        private PlayerState currentState;
+        private PlayerMovementState currentState;
 
         /// <summary>
         /// 当前移动模拟使用的固定配置。
         /// 客户端和服务器以后必须使用一致的配置。
         /// </summary>
-        private PlayerSimulationConfig simulationConfig;
+        private PlayerMovementConfig simulationConfig;
 
         /// <summary>
         /// 在当前进程内维护独立权威状态和固定网络延迟的模拟服务器。
         /// </summary>
-        private SimulatedAuthoritativeServer simulatedServer;
+        private SimulatedMovementServer simulatedServer;
 
         /// <summary>
         /// 表示移动实验是否已经完成初始化。
@@ -140,7 +140,7 @@ namespace AFPS.Bootstrap
         /// 按 Tick 保存客户端完成每个 Tick 后得到的预测状态。
         /// 用于和服务器返回的同 Tick 权威状态进行比较。
         /// </summary>
-        private TickBuffer<PlayerState> stateHistory;
+        private TickBuffer<PlayerMovementState> stateHistory;
 
         /// <summary>
         /// 最近一次收到服务器确认的客户端输入 Tick，仅用于运行时观察。
@@ -192,7 +192,7 @@ namespace AFPS.Bootstrap
 
         /// <summary>
         /// 组件启动时创建初始状态和运行时模拟配置。
-        /// 使用 Start 可以确保 PlayerView 已经完成 Awake 初始化。
+        /// 使用 Start 可以确保 LocalPlayerView 已经完成 Awake 初始化。
         /// </summary>
         private void Start()
         {
@@ -209,15 +209,15 @@ namespace AFPS.Bootstrap
             }
 
             inputHistory = new TickBuffer<PlayerInputCommand>(PredictionBufferCapacity);
-            stateHistory = new TickBuffer<PlayerState>(PredictionBufferCapacity);
+            stateHistory = new TickBuffer<PlayerMovementState>(PredictionBufferCapacity);
 
-            simulationConfig = new PlayerSimulationConfig(
+            simulationConfig = new PlayerMovementConfig(
                 maxGroundSpeed,
                 groundAcceleration,
                 gravity,
                 jumpSpeed);
 
-            currentState = new PlayerState
+            currentState = new PlayerMovementState
             {
                 Tick = tickRunner.CurrentTick,
                 Position = playerView.InitialPosition,
@@ -225,13 +225,13 @@ namespace AFPS.Bootstrap
                 IsGrounded = true
             };
 
-            PlayerSimulationConfig serverSimulationConfig = new PlayerSimulationConfig(
+            PlayerMovementConfig serverSimulationConfig = new PlayerMovementConfig(
                 maxGroundSpeed * simulatedServerSpeedScale,
                 groundAcceleration,
                 gravity,
                 jumpSpeed);
 
-            simulatedServer = new SimulatedAuthoritativeServer(
+            simulatedServer = new SimulatedMovementServer(
                 currentState,
                 serverSimulationConfig,
                 tickRunner.TickDeltaTime,
@@ -307,7 +307,7 @@ namespace AFPS.Bootstrap
             inputHistory.Store(tick, command);
             simulatedServer.SendInput(tick, command);
 
-            currentState = PlayerSimulation.Simulate(
+            currentState = PlayerMovementSimulation.Simulate(
                 currentState,
                 command,
                 simulationConfig,
@@ -322,7 +322,7 @@ namespace AFPS.Bootstrap
 
             simulatedServer.Advance(tick);
 
-            while (simulatedServer.TryReceiveState(tick, out AuthoritativePlayerState authoritativeState))
+            while (simulatedServer.TryReceiveState(tick, out AuthoritativeMovementState authoritativeState))
             {
                 if (!ReconcileAuthoritativeState(authoritativeState))
                 {
@@ -336,11 +336,11 @@ namespace AFPS.Bootstrap
         /// 历史完整时回滚并重放；历史缺失时执行硬校正。
         /// </summary>
         /// <returns>是否可以继续处理同一 Tick 内到达的其他服务器状态。</returns>
-        private bool ReconcileAuthoritativeState(in AuthoritativePlayerState authoritativeState)
+        private bool ReconcileAuthoritativeState(in AuthoritativeMovementState authoritativeState)
         {
             lastAcknowledgedInputTick = authoritativeState.LastProcessedInputTick;
 
-            ReconciliationResult result = ClientPredictionReconciler.Reconcile(
+            MovementReconciliationResult result = MovementPredictionReconciler.Reconcile(
                 authoritativeState,
                 currentState.Tick,
                 currentState,
@@ -358,12 +358,12 @@ namespace AFPS.Bootstrap
             latestGroundedMismatch = result.Error.GroundedMismatch;
             lastReplayedTickCount = result.ReplayedTickCount;
 
-            if (result.Status == ReconciliationStatus.NoCorrection)
+            if (result.Status == MovementReconciliationStatus.NoCorrection)
             {
                 return true;
             }
 
-            if (result.Status == ReconciliationStatus.Corrected)
+            if (result.Status == MovementReconciliationStatus.Corrected)
             {
                 currentState = result.State;
                 correctionCount++;

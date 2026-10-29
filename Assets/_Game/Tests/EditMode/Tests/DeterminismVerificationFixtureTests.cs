@@ -21,7 +21,7 @@ namespace AFPS.Tests.EditMode
             }
             using (var stream = new MemoryStream(bytes, false))
             {
-                var result = AuthoritativeTraceReplay.Run(stream);
+                var result = AuthoritativeMovementTraceReplay.Run(stream);
                 Assert.That(result.Frames, Is.EqualTo(2048));
                 Assert.That(result.Resets, Is.EqualTo(1));
                 Assert.That(result.EntityId, Is.EqualTo(1));

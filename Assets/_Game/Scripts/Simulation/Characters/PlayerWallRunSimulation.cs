@@ -6,8 +6,8 @@ namespace AFPS.Simulation.Characters
 {
     public static class PlayerWallRunSimulation
     {
-        public static void Begin(ref PlayerState next, in PlayerState previous, in PlayerInputCommand input,
-            in PlayerSimulationConfig config, IFixedCharacterCollisionWorld collisionWorld,
+        public static void Begin(ref PlayerMovementState next, in PlayerMovementState previous, in PlayerInputCommand input,
+            in PlayerMovementConfig config, IFixedCharacterCollisionWorld collisionWorld,
             FixVec3 worldMovement, Fix deltaTime, bool interrupted, out FixVec3 horizontalTarget)
         {
             next.IsWallRunning = false;
@@ -63,7 +63,7 @@ namespace AFPS.Simulation.Characters
             horizontalTarget = tangent * config.WallRun.Speed - normal * config.WallRun.AdhesionSpeed;
         }
 
-        public static void Complete(ref PlayerState next, in PlayerWallRunConfig config)
+        public static void Complete(ref PlayerMovementState next, in PlayerWallRunConfig config)
         {
             if (next.IsGrounded)
             {

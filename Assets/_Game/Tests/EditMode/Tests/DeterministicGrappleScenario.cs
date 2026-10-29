@@ -12,12 +12,12 @@ namespace AFPS.Tests.EditMode
 
         public static ulong Run()
         {
-            var config = new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8));
+            var config = new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8));
             var plane = new FixedWorldPlane(1, 0, FixedSurface.Solid | FixedSurface.Grapple,
                 FixedAxis.Z, Fix.FromInt(12), positiveNormal: false);
             var floor = new FixedWorldPlane(2, 0, FixedSurface.Solid | FixedSurface.Ground, FixedAxis.Y, Fix.Zero);
             var world = new FixedCharacterCollisionWorld(new FixedWorld(null, new[] { plane, floor }));
-            PlayerState state = default;
+            PlayerMovementState state = default;
             ulong hash = 14695981039346656037UL;
             bool attached = false;
             bool reeled = false;
@@ -28,7 +28,7 @@ namespace AFPS.Tests.EditMode
                 int phase = i % 128;
                 if (phase == 0)
                 {
-                    state = new PlayerState
+                    state = new PlayerMovementState
                     {
                         PositionFixed = FixVec3.Up * Fix.FromInt(5),
                         VelocityFixed = FixVec3.Right * Fix.FromInt(2), GroundJumpConsumed = true
@@ -43,12 +43,12 @@ namespace AFPS.Tests.EditMode
                     DashPressed = phase == 85
                 };
                 var previous = state;
-                state = PlayerSimulation.Simulate(state, input, config, SimulationStep.Step50Hz, world);
+                state = PlayerMovementSimulation.Simulate(state, input, config, SimulationStep.Step50Hz, world);
                 attached |= state.IsGrappling;
                 reeled |= previous.IsGrappling && state.IsGrappling && state.GrappleLengthFixed < previous.GrappleLengthFixed;
                 swung |= state.IsGrappling && state.PositionFixed.X > Fix.One;
                 released |= phase == 70 && !state.IsGrappling && !state.GrappleConsumed;
-                ulong raw = PlayerStateHash.Compute(state);
+                ulong raw = PlayerMovementStateHash.Compute(state);
                 for (int shift = 0; shift < 64; shift += 8)
                 {
                     hash = unchecked((hash ^ ((raw >> shift) & 255UL)) * 1099511628211UL);

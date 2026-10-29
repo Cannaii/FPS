@@ -16,7 +16,7 @@ namespace AFPS.NetCode.Match
         public readonly uint EntityId;
         /// <summary>完整 Q16.16 生命值；整数 Health 仅供旧 HUD 显示。</summary>
         public readonly Fix HealthFixed;
-        public ushort Health => ServerCombatHealth.ToDisplayHealth(HealthFixed);
+        public ushort Health => CombatHealthMath.ToDisplayHealth(HealthFixed);
         public readonly ushort Kills;
         public readonly ushort Deaths;
         public readonly ushort RespawnTicksRemaining;

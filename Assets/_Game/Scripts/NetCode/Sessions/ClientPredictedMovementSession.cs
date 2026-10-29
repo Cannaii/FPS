@@ -20,18 +20,18 @@ namespace AFPS.NetCode.Sessions
     public sealed class ClientPredictedMovementSession
     {
         private readonly TickBuffer<PlayerInputCommand> inputHistory;
-        private readonly TickBuffer<PlayerState> stateHistory;
+        private readonly TickBuffer<PlayerMovementState> stateHistory;
         private readonly ClientInputBatchSender inputSender;
-        private readonly ClientAuthoritativeStateReceiver stateReceiver = new ClientAuthoritativeStateReceiver();
-        private readonly PlayerSimulationConfig simulationConfig;
+        private readonly ClientMovementStateReceiver stateReceiver = new ClientMovementStateReceiver();
+        private readonly PlayerMovementConfig simulationConfig;
         private readonly Fix tickDeltaTime;
         private readonly IFixedCharacterCollisionWorld collisionWorld;
         /// <summary>
         /// 客户端执行完最新本地输入后持有的预测状态。
         /// </summary>
-        public PlayerState CurrentState { get; private set; }
+        public PlayerMovementState CurrentState { get; private set; }
         /// <summary>最近通过包序号校验的权威完整状态，用于诊断；不含客户端重放产生的后续状态。</summary>
-        public PlayerState LastAuthoritativeState { get; private set; }
+        public PlayerMovementState LastAuthoritativeState { get; private set; }
         public PlayerInputCommand LastPredictedInput { get; private set; }
 
         /// <summary>只在断线边界复制最多32条连续输入；缺失历史时停止，不能跨缺口补造命令。</summary>
@@ -51,8 +51,8 @@ namespace AFPS.NetCode.Sessions
         public ClientPredictedMovementSession(
             IGameTransport transport,
             TransportConnectionId serverConnectionId,
-            in PlayerState initialState,
-            in PlayerSimulationConfig simulationConfig,
+            in PlayerMovementState initialState,
+            in PlayerMovementConfig simulationConfig,
             float tickDeltaTime,
             int historyCapacity,
             int inputRedundancyCount,
@@ -91,7 +91,7 @@ namespace AFPS.NetCode.Sessions
             this.collisionWorld = fixedCollisionWorld ?? LegacyCharacterCollisionWorldAdapter.Adapt(collisionWorld);
             CurrentState = initialState;
             inputHistory = new TickBuffer<PlayerInputCommand>(historyCapacity);
-            stateHistory = new TickBuffer<PlayerState>(historyCapacity);
+            stateHistory = new TickBuffer<PlayerMovementState>(historyCapacity);
             stateHistory.Store(initialState.Tick, initialState);
             inputSender = new ClientInputBatchSender(transport, serverConnectionId, inputHistory, inputRedundancyCount);
         }
@@ -100,7 +100,7 @@ namespace AFPS.NetCode.Sessions
         /// 规范化并立即模拟一条本地输入，同时把最近连续输入批次交给传输层。
         /// 网络发送失败不会撤销本地预测，后续冗余包仍有机会补发该输入。
         /// </summary>
-        public PlayerState PredictAndSend(PlayerInputCommand command, out InputBatchSendResult sendResult)
+        public PlayerMovementState PredictAndSend(PlayerInputCommand command, out InputBatchSendResult sendResult)
         {
             uint expectedTick = unchecked(CurrentState.Tick + 1);
             if (command.Tick != expectedTick)
@@ -111,7 +111,7 @@ namespace AFPS.NetCode.Sessions
             command = InputCommandBatchCodec.Canonicalize(command);
             LastPredictedInput = command;
             inputHistory.Store(command.Tick, command);
-            CurrentState = PlayerSimulation.Simulate(CurrentState, command, simulationConfig, tickDeltaTime, collisionWorld);
+            CurrentState = PlayerMovementSimulation.Simulate(CurrentState, command, simulationConfig, tickDeltaTime, collisionWorld);
             stateHistory.Store(command.Tick, CurrentState);
             inputSender.TrySendLatest(command.Tick, out sendResult);
             return CurrentState;
@@ -122,11 +122,11 @@ namespace AFPS.NetCode.Sessions
         /// </summary>
         public bool TryReceiveAuthoritativePacket(
             ArraySegment<byte> packet,
-            out AuthoritativeStateReceiveResult receiveResult,
-            out ReconciliationResult reconciliationResult)
+            out MovementStateReceiveResult receiveResult,
+            out MovementReconciliationResult reconciliationResult)
         {
             reconciliationResult = default;
-            if (!stateReceiver.TryReceivePacket(packet, out AuthoritativePlayerState authoritativeState, out receiveResult))
+            if (!stateReceiver.TryReceivePacket(packet, out AuthoritativeMovementState authoritativeState, out receiveResult))
             {
                 return false;
             }
@@ -137,11 +137,11 @@ namespace AFPS.NetCode.Sessions
                 // A client can fall behind while the server keeps advancing neutral fallback
                 // input (for example while joining a host that was already running). There is
                 // no local history to replay in that case, so rebase on the trusted server state.
-                reconciliationResult = new ReconciliationResult(ReconciliationStatus.MissingPredictionHistory, authoritativeState.State, default, 0);
+                reconciliationResult = new MovementReconciliationResult(MovementReconciliationStatus.MissingPredictionHistory, authoritativeState.State, default, 0);
             }
             else
             {
-                reconciliationResult = ClientPredictionReconciler.Reconcile(authoritativeState, CurrentState.Tick, CurrentState, inputHistory, stateHistory, simulationConfig, tickDeltaTime, collisionWorld);
+                reconciliationResult = MovementPredictionReconciler.Reconcile(authoritativeState, CurrentState.Tick, CurrentState, inputHistory, stateHistory, simulationConfig, tickDeltaTime, collisionWorld);
             }
 
             if (reconciliationResult.RequiresHardCorrection)

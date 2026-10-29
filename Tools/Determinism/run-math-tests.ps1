@@ -38,7 +38,7 @@ if ($null -eq $taskNUnitPackage) {
 }
 $taskNUnit = Join-Path $taskNUnitPackage.FullName 'net35/unity-custom/nunit.framework.dll'
 $taskSources = @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Math') -Filter '*.cs').FullName)
-$taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests') -Filter 'Fix*Tests.cs' | Where-Object { $_.Name -notin @('FixedWorldTests.cs', 'FixedPlayerSimulationTests.cs', 'FixedRemoteSnapshotTests.cs', 'FixedCharacterContactTests.cs') }).FullName)
+$taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests') -Filter 'Fix*Tests.cs' | Where-Object { $_.Name -notin @('FixedWorldTests.cs', 'FixedPlayerMovementSimulationTests.cs', 'FixedRemoteMovementSnapshotTests.cs', 'FixedCharacterContactTests.cs') }).FullName)
 if ($IncludeWorld) {
     $taskSources += @((Get-ChildItem -LiteralPath (Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Simulation/World') -Filter '*.cs').FullName)
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/FixedWorldTests.cs'
@@ -51,20 +51,20 @@ if ($IncludeInput) {
     $taskSources += @('InputGridTests.cs', 'InputCommandBatchCodecTests.cs', 'MovementInputHashTests.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Tests/EditMode/Tests/' + $_) }
 }
 if ($IncludeMovement) {
-    $taskSources += @('PlayerState.cs','PlayerStateHash.cs','PlayerSimulation.cs','PlayerSimulationConfig.cs','PlayerSprintConfig.cs','PlayerSprintSimulation.cs','PlayerDashConfig.cs','PlayerDashSimulation.cs','PlayerJumpConfig.cs','PlayerJumpSimulation.cs','PlayerWallConfig.cs','PlayerWallSimulation.cs','PlayerStanceConfig.cs','PlayerStanceSimulation.cs','PlayerWallRunConfig.cs','PlayerWallRunSimulation.cs','PlayerClimbConfig.cs','PlayerClimbSimulation.cs','PlayerGrappleConfig.cs','PlayerGrappleSimulation.cs','SimulationStep.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/Simulation/Characters/' + $_) }
+    $taskSources += @('PlayerMovementState.cs','PlayerMovementStateHash.cs','PlayerMovementSimulation.cs','PlayerMovementConfig.cs','PlayerSprintConfig.cs','PlayerSprintSimulation.cs','PlayerDashConfig.cs','PlayerDashSimulation.cs','PlayerJumpConfig.cs','PlayerJumpSimulation.cs','PlayerWallConfig.cs','PlayerWallSimulation.cs','PlayerStanceConfig.cs','PlayerStanceSimulation.cs','PlayerWallRunConfig.cs','PlayerWallRunSimulation.cs','PlayerClimbConfig.cs','PlayerClimbSimulation.cs','PlayerGrappleConfig.cs','PlayerGrappleSimulation.cs','SimulationStep.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/Simulation/Characters/' + $_) }
     $taskSources += @('CharacterCollisionConfig.cs','IFixedCharacterCollisionWorld.cs','FixedFlatGroundCollisionWorld.cs','KinematicCharacterMotor.cs','KinematicCharacterMotor.Contacts.cs','KinematicCharacterMotor.Resize.cs','FixedCharacterContacts.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/Simulation/Characters/Collision/' + $_) }
-    $taskSources += @('AuthoritativePlayerState.cs','AuthoritativePlayerStateCodec.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Messages/' + $_) }
-    $taskSources += @('ClientPredictionComparer.cs','ClientPredictionReconciler.cs','PredictionError.cs','ReconciliationResult.cs','ReconciliationStatus.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Prediction/' + $_) }
+    $taskSources += @('AuthoritativeMovementState.cs','AuthoritativeMovementStateCodec.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Messages/' + $_) }
+    $taskSources += @('MovementPredictionComparer.cs','MovementPredictionReconciler.cs','MovementPredictionError.cs','MovementReconciliationResult.cs','MovementReconciliationStatus.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Prediction/' + $_) }
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/Core/Collections/TickBuffer.cs'
-    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/FixedPlayerSimulationTests.cs'
-    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Replay/AuthoritativeSimulationStep.cs'
-    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Replay/AuthoritativeTrace.cs'
-    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/AuthoritativeTraceTests.cs'
-    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Messages/ClientStateHashReportCodec.cs'
-    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Metrics/ServerStateDriftTracker.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/FixedPlayerMovementSimulationTests.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Replay/AuthoritativeMovementStep.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Replay/AuthoritativeMovementTrace.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/AuthoritativeMovementTraceTests.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Messages/ClientMovementHashReportCodec.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Metrics/ServerMovementDriftTracker.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Protocol/SequenceMath.cs'
-    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/StateDriftTrackerTests.cs'
-    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/ClientStateHashCodecTests.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/MovementDriftTrackerTests.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/ClientMovementHashCodecTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/JumpSimulationTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/SprintSimulationTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/DashSimulationTests.cs'
@@ -108,18 +108,18 @@ if ($IncludeReplication) {
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/TimeSync/TimeSyncAcknowledgementCodec.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/AdaptiveInputWindowTests.cs'
     # Exclude UnityFacade so DTO and Raw codecs compile without engine references in checked mode.
-    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/SnapshotInterpolation/RemotePlayerSnapshot.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/SnapshotInterpolation/RemotePlayerMovementSnapshot.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/SnapshotInterpolation/AdaptiveInterpolationClock.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/AdaptiveInterpolationClockTests.cs'
-    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/StateReplication/RemoteSnapshotSendState.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/StateReplication/RemoteMovementSnapshotSendState.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Protocol/SequenceMath.cs'
-    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/RemoteSnapshotSendStateTests.cs'
-    $taskSources += @('RemotePlayerSnapshotCodec.cs', 'RemotePlayerSnapshotDeltaCodec.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Messages/' + $_) }
-    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/FixedRemoteSnapshotTests.cs'
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/RemoteMovementSnapshotSendStateTests.cs'
+    $taskSources += @('RemotePlayerMovementSnapshotCodec.cs', 'RemotePlayerMovementSnapshotDeltaCodec.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Messages/' + $_) }
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/FixedRemoteMovementSnapshotTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/RemoteGrappleSnapshotTests.cs'
 }
 if ($IncludeCombat) {
-    $taskSources += @('AuthoritativeShot.cs', 'ServerWeaponFireController.cs', 'WeaponFireResult.cs', 'WeaponFireRejectReason.cs', 'ServerCombatTarget.cs', 'ServerHitscanResolver.cs', 'ServerWorldShotResolver.cs', 'ServerExplosionResolver.cs', 'AuthoritativeShotResult.cs', 'ServerProjectileSimulation.cs', 'ServerCombatHealth.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Weapons/' + $_) }
+    $taskSources += @('AuthoritativeShot.cs', 'ServerWeaponFireController.cs', 'WeaponFireResult.cs', 'WeaponFireRejectReason.cs', 'ServerCombatTarget.cs', 'ServerHitscanResolver.cs', 'ServerWorldShotResolver.cs', 'ServerExplosionResolver.cs', 'AuthoritativeShotResult.cs', 'ServerProjectileSimulation.cs', 'CombatHealthMath.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Weapons/' + $_) }
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Protocol/SequenceMath.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/LagCompensation/RewindHitboxHistory.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Messages/AuthoritativeShotResultCodec.cs'
@@ -142,7 +142,7 @@ if ($IncludeCombat) {
 if ($IncludeCombat -and $IncludeReplication) {
     $taskSources += @('LanRoomDiscoveryProtocol.cs', 'LanRoomDirectory.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Runtime/' + $_) }
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/LanRoomDiscoveryTests.cs'
-    $taskSources += @('LobbyState.cs', 'LobbyStartGate.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Match/' + $_) }
+    $taskSources += @('LobbyTypes.cs', 'LobbyStartGate.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Match/' + $_) }
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Messages/LobbyPayloadCodec.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Messages/LobbyMessageCodec.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/LobbyMessageCodecTests.cs'

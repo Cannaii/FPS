@@ -16,7 +16,7 @@ namespace AFPS.Tests.EditMode
             ServerWeaponFireController controller = new ServerWeaponFireController(WeaponSimulationConfig.DefaultRifle);
             for (int index = 0; index < 4096; index++)
             {
-                PlayerState state = new PlayerState
+                PlayerMovementState state = new PlayerMovementState
                 {
                     PositionFixed = new FixVec3(Fix.FromRaw(655360001 + index),
                         Fix.FromRaw(-index * 17), Fix.FromRaw(index * 8191)),

@@ -413,14 +413,14 @@ namespace AFPS.Tests.EditMode
         public void PredictionAuthorityAndRollback_ShareIdenticalFixedGeometry()
         {
             var backend = new FixedCharacterCollisionWorld(FloorAndWall());
-            var config = new PlayerSimulationConfig(F(6), F(20), F(20), F(8));
+            var config = new PlayerMovementConfig(F(6), F(20), F(20), F(8));
             var inputs = new TickBuffer<PlayerInputCommand>(256);
-            var states = new TickBuffer<PlayerState>(256);
-            var state = new PlayerState
+            var states = new TickBuffer<PlayerMovementState>(256);
+            var state = new PlayerMovementState
             {
                 IsGrounded = true
             };
-            PlayerState authoritative = default;
+            PlayerMovementState authoritative = default;
             for (uint tick = 1; tick <= 100; tick++)
             {
                 var input = new PlayerInputCommand
@@ -429,7 +429,7 @@ namespace AFPS.Tests.EditMode
                 };
                 input.SetFixedControls(Fix.One, Fix.One, Fix.Zero, Fix.Zero);
                 inputs.Store(tick, input);
-                state = PlayerSimulation.Simulate(state, input, config, SimulationStep.Step50Hz, backend);
+                state = PlayerMovementSimulation.Simulate(state, input, config, SimulationStep.Step50Hz, backend);
                 states.Store(tick, state);
                 if (tick == 15)
                 {
@@ -440,8 +440,8 @@ namespace AFPS.Tests.EditMode
             var corrupt = authoritative;
             corrupt.PositionFixed += new FixVec3(Fix.Epsilon, Fix.Zero, Fix.Zero);
             states.Store(15, corrupt);
-            var result = ClientPredictionReconciler.Reconcile(new AuthoritativePlayerState(120, 15, authoritative), 100, state, inputs, states, config, SimulationStep.Step50Hz, backend);
-            Assert.That(result.Status, Is.EqualTo(ReconciliationStatus.Corrected));
+            var result = MovementPredictionReconciler.Reconcile(new AuthoritativeMovementState(120, 15, authoritative), 100, state, inputs, states, config, SimulationStep.Step50Hz, backend);
+            Assert.That(result.Status, Is.EqualTo(MovementReconciliationStatus.Corrected));
             Assert.That(result.ReplayedTickCount, Is.EqualTo(85));
             Assert.That(result.State.RawEquals(state), Is.True);
             Assert.That(state.PositionFixed.X.Raw, Is.InRange(98300, 98305));

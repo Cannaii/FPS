@@ -22,10 +22,10 @@ namespace AFPS.Tests.EditMode
             }
         }
 
-        private static PlayerSimulationConfig Config => new PlayerSimulationConfig(
+        private static PlayerMovementConfig Config => new PlayerMovementConfig(
             Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
 
-        private static PlayerState Step(PlayerState state, bool jump = false, bool dash = false,
+        private static PlayerMovementState Step(PlayerMovementState state, bool jump = false, bool dash = false,
             IFixedCharacterCollisionWorld world = null)
         {
             var input = new PlayerInputCommand
@@ -34,14 +34,14 @@ namespace AFPS.Tests.EditMode
                 JumpPressed = jump,
                 DashPressed = dash
             };
-            return PlayerSimulation.Simulate(state, input, Config, SimulationStep.Step50Hz,
+            return PlayerMovementSimulation.Simulate(state, input, Config, SimulationStep.Step50Hz,
                 world ?? FixedFlatGroundCollisionWorld.Instance);
         }
 
         [Test]
         public void GroundJump_ClearsCoyoteThenAllowsExactlyOneAirJump()
         {
-            var state = Step(new PlayerState { IsGrounded = true }, true);
+            var state = Step(new PlayerMovementState { IsGrounded = true }, true);
             Fix launchVelocity = Config.JumpSpeedFixed - Config.GravityFixed * SimulationStep.Step50Hz;
             Assert.That(state.GroundJumpConsumed, Is.True);
             Assert.That(state.CoyoteRemainingFixed, Is.EqualTo(Fix.Zero));
@@ -60,7 +60,7 @@ namespace AFPS.Tests.EditMode
         [TestCase(5, 1)]
         public void WalkOff_CoyoteBeforeExpiryDoesNotConsumeAirJump(int elapsedTicks, int expectedUsed)
         {
-            var state = new PlayerState
+            var state = new PlayerMovementState
             {
                 Tick = uint.MaxValue - 2,
                 IsGrounded = true,
@@ -81,7 +81,7 @@ namespace AFPS.Tests.EditMode
         [TestCase(1, true)]
         public void CoyoteBoundary_ZeroIsExpiredOneRawIsAvailable(int raw, bool allowed)
         {
-            var state = new PlayerState { CoyoteRemainingFixed = Fix.FromRaw(raw) };
+            var state = new PlayerMovementState { CoyoteRemainingFixed = Fix.FromRaw(raw) };
             var input = new PlayerInputCommand { JumpPressed = true };
             Assert.That(PlayerJumpSimulation.TryJump(ref state, input,
                 new PlayerJumpConfig(Fix.Half, 0), false), Is.EqualTo(allowed));
@@ -90,7 +90,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void DashPriority_DoesNotSpendOrQueueJump()
         {
-            var state = Step(new PlayerState { IsGrounded = true }, true, true);
+            var state = Step(new PlayerMovementState { IsGrounded = true }, true, true);
             Assert.That(state.AirJumpsUsed, Is.EqualTo(0));
             Assert.That(state.VelocityFixed.Y, Is.EqualTo(Fix.Zero));
             for (int i = 0; i < 9; i++)
@@ -105,7 +105,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void Landing_ResetsResourcesAndAllowsNextGroundAndAirJump()
         {
-            var state = Step(Step(new PlayerState { IsGrounded = true }, true), true);
+            var state = Step(Step(new PlayerMovementState { IsGrounded = true }, true), true);
             for (int i = 0; i < 100 && !state.IsGrounded; i++)
             {
                 state = Step(state);
@@ -123,7 +123,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void FallingAirJump_ReplacesDownwardVelocityAndDoesNotConsumeStamina()
         {
-            var state = new PlayerState
+            var state = new PlayerMovementState
             {
                 PositionFixed = FixVec3.Up * Fix.FromInt(5),
                 VelocityFixed = -FixVec3.Up * Fix.FromInt(30)
@@ -141,7 +141,7 @@ namespace AFPS.Tests.EditMode
                 new FixVec3(Fix.FromInt(-5), Fix.FromInt(3), Fix.FromInt(-5)),
                 new FixVec3(Fix.FromInt(5), Fix.FromInt(4), Fix.FromInt(5))));
             var context = new SimulationWorldContext(new FixedWorld(new[] { ceiling }), Config, SimulationStep.Step50Hz);
-            var state = new PlayerState { PositionFixed = FixVec3.Up * Fix.Half };
+            var state = new PlayerMovementState { PositionFixed = FixVec3.Up * Fix.Half };
             state = Step(state, true, world: context.CollisionWorld);
             for (int i = 0; i < 5; i++)
             {
@@ -158,7 +158,7 @@ namespace AFPS.Tests.EditMode
         [TestCase(2)]
         public void JumpOnlyError_TriggersRollbackAcrossTickWrap(int field)
         {
-            var authority = new PlayerState
+            var authority = new PlayerMovementState
             {
                 Tick = uint.MaxValue,
                 PositionFixed = FixVec3.Up * Fix.FromInt(5)
@@ -176,42 +176,42 @@ namespace AFPS.Tests.EditMode
                     predicted.AirJumpsUsed = 1;
                     break;
             }
-            Assert.That(PlayerStateHash.Compute(predicted), Is.Not.EqualTo(PlayerStateHash.Compute(authority)));
-            var states = new TickBuffer<PlayerState>(8);
+            Assert.That(PlayerMovementStateHash.Compute(predicted), Is.Not.EqualTo(PlayerMovementStateHash.Compute(authority)));
+            var states = new TickBuffer<PlayerMovementState>(8);
             var inputs = new TickBuffer<PlayerInputCommand>(8);
             states.Store(authority.Tick, predicted);
             inputs.Store(0, new PlayerInputCommand { Tick = 0, JumpPressed = true });
             var current = Step(predicted, true);
-            var result = ClientPredictionReconciler.Reconcile(new AuthoritativePlayerState(10, authority.Tick, authority),
+            var result = MovementPredictionReconciler.Reconcile(new AuthoritativeMovementState(10, authority.Tick, authority),
                 0, current, inputs, states, Config, SimulationStep.Step50Hz, FixedFlatGroundCollisionWorld.Instance);
-            Assert.That(result.Status, Is.EqualTo(ReconciliationStatus.Corrected));
+            Assert.That(result.Status, Is.EqualTo(MovementReconciliationStatus.Corrected));
             Assert.That(result.State.RawEquals(Step(authority, true)), Is.True);
         }
 
         [Test]
         public void Authority_RoundtripsCoyoteAndAirJumpAndRejectsContradictions()
         {
-            var bytes = new byte[AuthoritativePlayerStateCodec.PacketSize];
+            var bytes = new byte[AuthoritativeMovementStateCodec.PacketSize];
             foreach (var state in new[]
             {
-                new PlayerState { CoyoteRemainingFixed = Fix.FromRaw(1234) },
-                new PlayerState { GroundJumpConsumed = true, AirJumpsUsed = 1 }
+                new PlayerMovementState { CoyoteRemainingFixed = Fix.FromRaw(1234) },
+                new PlayerMovementState { GroundJumpConsumed = true, AirJumpsUsed = 1 }
             })
             {
-                Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, 0, state),
+                Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(10, 0, state),
                     1, new ArraySegment<byte>(bytes), out int count), Is.True);
                 Assert.That(count, Is.EqualTo(152));
-                Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes),
+                Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes),
                     out _, out var authority), Is.True);
                 Assert.That(authority.State.RawEquals(state), Is.True);
             }
             bytes[74] = 9;
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
             bytes[74] = 1;
             bytes[48] = 0;
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
-            var invalid = new PlayerState { GroundJumpConsumed = true, CoyoteRemainingFixed = Fix.Epsilon };
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, 0, invalid),
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
+            var invalid = new PlayerMovementState { GroundJumpConsumed = true, CoyoteRemainingFixed = Fix.Epsilon };
+            Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(10, 0, invalid),
                 1, new ArraySegment<byte>(bytes), out _), Is.False);
         }
 
@@ -221,7 +221,7 @@ namespace AFPS.Tests.EditMode
         {
             var changed = new PlayerJumpConfig(Config.Jump.CoyoteDuration + (field == 0 ? Fix.Epsilon : Fix.Zero),
                 Config.Jump.ExtraAirJumps + (field == 1 ? 1 : 0));
-            var config = new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(20),
+            var config = new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(20),
                 Fix.FromInt(20), Fix.FromInt(8), jump: changed);
             var world = new FixedWorld(null);
             Assert.That(new SimulationWorldContext(world, config, SimulationStep.Step50Hz).Identity.ConfigurationHash,

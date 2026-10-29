@@ -77,8 +77,8 @@ namespace AFPS.Tests.EditMode
             internal const ushort Port = 47993;
             internal readonly UnityGameTransport ServerTransport = new UnityGameTransport();
             internal readonly UnityGameTransport ClientTransport = new UnityGameTransport();
-            internal readonly NetworkMovementSessionManager Server;
-            internal readonly NetworkMovementSessionManager Client;
+            internal readonly NetworkSessionCoordinator Server;
+            internal readonly NetworkSessionCoordinator Client;
             internal TransportConnectionId ServerId;
             private readonly byte[] receiveBuffer = new byte[2048];
             private readonly Stopwatch clock = Stopwatch.StartNew();
@@ -126,7 +126,7 @@ namespace AFPS.Tests.EditMode
                 Assert.Fail("真实UTP恢复流程未在6秒内达到预期状态。");
             }
 
-            private void Drain(UnityGameTransport transport, NetworkMovementSessionManager manager, NetworkTransportSide side)
+            private void Drain(UnityGameTransport transport, NetworkSessionCoordinator manager, NetworkTransportSide side)
             {
                 while (transport.TryPollEvent(new ArraySegment<byte>(receiveBuffer), out var transportEvent))
                 {

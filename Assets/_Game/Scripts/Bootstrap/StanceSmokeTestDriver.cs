@@ -17,7 +17,7 @@ namespace AFPS.Bootstrap
         public static bool IsRequested => Array.Exists(Environment.GetCommandLineArgs(),
             value => value.Equals("-afpsStanceSmoke", StringComparison.OrdinalIgnoreCase));
 
-        public static SimulationWorldContext CreateFixture(in PlayerSimulationConfig config, Fix deltaTime, int layerMask)
+        public static SimulationWorldContext CreateFixture(in PlayerMovementConfig config, Fix deltaTime, int layerMask)
         {
             var roof = new FixedWorldBox(1, 8, FixedSurface.Solid, new FixedAabb(
                 new FixVec3(Fix.FromInt(2), Fix.FromRatio(3, 2), Fix.FromInt(-5)),
@@ -30,7 +30,7 @@ namespace AFPS.Bootstrap
         }
 
         private readonly List<uint> entities = new List<uint>();
-        private UnityNetworkMovementController movement;
+        private UnityNetworkGameplayController movement;
         private LocalPlayerInputCollector input;
         private double configuredAt;
         private double startedAt = -1d;
@@ -46,7 +46,7 @@ namespace AFPS.Bootstrap
         private FixVec3 lastPredicted;
         private FixVec3 lastAuthority;
 
-        public void Configure(UnityNetworkMovementController controller, LocalPlayerInputCollector collector)
+        public void Configure(UnityNetworkGameplayController controller, LocalPlayerInputCollector collector)
         {
             movement = controller;
             input = collector;
@@ -57,7 +57,7 @@ namespace AFPS.Bootstrap
         private void Update()
         {
             double now = Time.realtimeSinceStartupAsDouble;
-            var manager = movement.SessionManager;
+            var manager = movement.SessionCoordinator;
             if (manager?.ClientSession != null && !SmokeTestLobby.EnsurePlaying(movement))
             {
                 return;

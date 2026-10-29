@@ -36,7 +36,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Damage direction test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var direction = new FixVec3(Fix.FromFloat(-x), Fix.Zero, Fix.FromFloat(-z));
                 var shot = Shot(mode, direction);
                 view.Consume(new AuthoritativeShotResult(shot, 4, true, 1, Fix.One, FixVec3.Zero), 1);
@@ -58,7 +58,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Vertical damage test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var shot = Shot(WeaponFireMode.Projectile, -FixVec3.Up);
                 view.Consume(new AuthoritativeShotResult(shot, 4, true, 1, Fix.One, FixVec3.Zero), 1);
                 Assert.That(view.DamageFeedbackVisible, Is.True);
@@ -80,7 +80,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Muzzle separation test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var shot = Shot(mode, FixVec3.Forward);
                 Vector3 muzzle = new Vector3(0.3f, 0.8f, 0.7f);
                 view.RememberLocalMuzzle(shot.EntityId, shot.ShotSequence, muzzle);

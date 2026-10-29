@@ -49,7 +49,7 @@ namespace AFPS.Presentation.Weapons
             recoilBasePosition = recoilPivot.localPosition;
         }
 
-        public void Render(in PlayerState state, float deltaTime)
+        public void Render(in PlayerMovementState state, float deltaTime)
         {
             if (animator != null && hasSpeedParameter)
             {
@@ -114,7 +114,7 @@ namespace AFPS.Presentation.Weapons
             recoilAges.Add(0f);
             PlayOwnedAnimation("Fire");
             FlashRemaining = 0.04f;
-            // 弹丸由 ShotResultView 按射击身份统一管理，避免创建无法关联权威结果的匿名代理。
+            // 弹丸由 ShotPresentationController 按射击身份统一管理，避免创建无法关联权威结果的匿名代理。
         }
 
         private void CacheParameters()

@@ -190,7 +190,7 @@ namespace AFPS.Simulation.Characters
             {
                 throw new InvalidOperationException("独立世界包读取字段数与版本不一致。");
             }
-            var configuration = new PlayerSimulationConfig(speed, acceleration, gravity, jumpSpeed,
+            var configuration = new PlayerMovementConfig(speed, acceleration, gravity, jumpSpeed,
                 collision, sprint, dash, jump, wall, stance, wallRun, climb, grapple);
             // 坡度法线阈值、最小位移和副武器等派生值由当前算法重建，再用完整配置指纹校验。
             return new SimulationWorldContext(world, configuration, step, layerMask, spatial, weapon);
@@ -214,7 +214,7 @@ namespace AFPS.Simulation.Characters
 
         private static int[] ConfigurationWords(SimulationWorldContext context)
         {
-            var c = context.Configuration;
+            var c = context.MovementConfiguration;
             var collision = c.Collision;
             var spatial = context.SessionSpatial;
             var weapon = context.WeaponConfiguration;

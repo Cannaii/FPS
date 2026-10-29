@@ -162,11 +162,11 @@ namespace AFPS.Tests.EditMode
             Fix health = Fix.FromInt(100);
             for (int index = 0; index < 1000; index++)
             {
-                health = ServerCombatHealth.ApplyDamage(health, Fix.Epsilon);
+                health = CombatHealthMath.ApplyDamage(health, Fix.Epsilon);
             }
             Assert.That(health.Raw, Is.EqualTo(6552600));
-            Assert.That(ServerCombatHealth.ApplyDamage(health, Fix.MaxValue), Is.EqualTo(Fix.Zero));
-            Assert.Throws<ArgumentOutOfRangeException>(() => ServerCombatHealth.ApplyDamage(Fix.One, Fix.FromRaw(-1)));
+            Assert.That(CombatHealthMath.ApplyDamage(health, Fix.MaxValue), Is.EqualTo(Fix.Zero));
+            Assert.Throws<ArgumentOutOfRangeException>(() => CombatHealthMath.ApplyDamage(Fix.One, Fix.FromRaw(-1)));
         }
 
         [TestCase(163840, 2)]
@@ -174,7 +174,7 @@ namespace AFPS.Tests.EditMode
         [TestCase(int.MaxValue, 32768)]
         public void Health_DisplayBoundaryRoundsHalfToEven(int raw, int expected)
         {
-            Assert.That(ServerCombatHealth.ToDisplayHealth(Fix.FromRaw(raw)), Is.EqualTo(expected));
+            Assert.That(CombatHealthMath.ToDisplayHealth(Fix.FromRaw(raw)), Is.EqualTo(expected));
         }
 
         [Test]

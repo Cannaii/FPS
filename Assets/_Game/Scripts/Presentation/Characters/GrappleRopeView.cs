@@ -11,7 +11,7 @@ namespace AFPS.Presentation.Characters
         private Material material;
         public bool IsVisible => line != null && line.enabled;
 
-        public void Render(in PlayerState state, Vector3 visualFeet, in PlayerSimulationConfig config, bool gameplayActive = true)
+        public void Render(in PlayerMovementState state, Vector3 visualFeet, in PlayerMovementConfig config, bool gameplayActive = true)
         {
             if (!gameplayActive || !state.IsGrappling || !PlayerGrappleSimulation.TryOrigin(state, config, out var origin))
             {

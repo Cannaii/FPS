@@ -47,7 +47,7 @@ namespace AFPS.Editor.World
 
         private static SimulationWorldContext ReadActiveContext()
         {
-            var controllers = UnityEngine.Object.FindObjectsOfType<UnityNetworkMovementController>();
+            var controllers = UnityEngine.Object.FindObjectsOfType<UnityNetworkGameplayController>();
             if (controllers.Length != 1)
             {
                 throw new InvalidOperationException("导出场景必须只有一个网络移动控制器，不能猜测服务器所用世界。");

@@ -43,7 +43,7 @@ namespace AFPS.Tests.EditMode
                 Append(ref hash, point.Z.Raw);
                 if (hit)
                 {
-                    health = ServerCombatHealth.ApplyDamage(health, shot.DamageFixed);
+                    health = CombatHealthMath.ApplyDamage(health, shot.DamageFixed);
                 }
                 Append(ref hash, health.Raw);
                 if ((index % 64) == 0)

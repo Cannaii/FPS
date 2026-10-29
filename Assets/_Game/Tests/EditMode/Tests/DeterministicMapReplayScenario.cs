@@ -14,14 +14,14 @@ namespace AFPS.Tests.EditMode
     {
         private static Fix F(int x) => Fix.FromInt(x);
         private static FixVec3 V(int x, int y, int z) => new FixVec3(F(x), F(y), F(z));
-        public static PlayerSimulationConfig CreateConfiguration() => new PlayerSimulationConfig(F(6), F(20), F(20), F(8));
+        public static PlayerMovementConfig CreateConfiguration() => new PlayerMovementConfig(F(6), F(20), F(20), F(8));
 
         public static ulong Run(SimulationWorldContext context, out int contacts)
         {
             // 装配入口与后续运行时共用，重放不自行创建另一套配置、步长或碰撞世界。
             FixedWorld restored = context.World;
             FixedCharacterCollisionWorld backend = context.CollisionWorld;
-            PlayerSimulationConfig config = context.Configuration;
+            PlayerMovementConfig config = context.MovementConfiguration;
             var random = new FixRandom(20261025);
             ulong hash = 14695981039346656037UL;
             for (int i = 0; i < 4096; i++)
@@ -40,15 +40,15 @@ namespace AFPS.Tests.EditMode
                 Add(ref hash, hit.StartedInside ? 1 : 0);
             }
 
-            var state = new PlayerState
+            var state = new PlayerMovementState
             {
                 Tick = uint.MaxValue - 2048,
                 PositionFixed = V(0, 2, 0),
                 IsGrounded = false
             };
             var inputs = new TickBuffer<PlayerInputCommand>(128);
-            var states = new TickBuffer<PlayerState>(128);
-            var packet = new byte[AuthoritativePlayerStateCodec.PacketSize];
+            var states = new TickBuffer<PlayerMovementState>(128);
+            var packet = new byte[AuthoritativeMovementStateCodec.PacketSize];
             contacts = 0;
             for (int i = 0; i < 8192; i++)
             {
@@ -60,19 +60,19 @@ namespace AFPS.Tests.EditMode
                 // 连续一段移动方向，确保实际抵达墙、台阶、天花板，而非随机输入在原地抖动。
                 input.TrySetEncodedControls((sbyte)(i % 400 < 200 ? 127 : -127), 127, (ushort)((i / 400 * 3700) % 36000), 0);
                 inputs.Store(input.Tick, input);
-                state = PlayerSimulation.Simulate(state, input, config, context.TickDeltaTime, backend);
+                state = PlayerMovementSimulation.Simulate(state, input, config, context.TickDeltaTime, backend);
                 states.Store(state.Tick, state);
                 if (state.VelocityFixed.Y == Fix.Zero || state.VelocityFixed.X == Fix.Zero || state.VelocityFixed.Z == Fix.Zero)
                 {
                     contacts++;
                 }
 
-                if (!AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState((uint)i, state.Tick, state), (uint)i, new ArraySegment<byte>(packet), out _))
+                if (!AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState((uint)i, state.Tick, state), (uint)i, new ArraySegment<byte>(packet), out _))
                 {
                     throw new Exception("Serialize failed");
                 }
 
-                if (!AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out var authority) || !state.RawEquals(authority.State))
+                if (!AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out var authority) || !state.RawEquals(authority.State))
                 {
                     throw new Exception("Raw packet mismatch");
                 }
@@ -84,8 +84,8 @@ namespace AFPS.Tests.EditMode
                     var corrupt = anchor;
                     corrupt.PositionFixed += new FixVec3(Fix.Epsilon, Fix.Zero, Fix.Zero);
                     states.Store(ack, corrupt);
-                    var result = ClientPredictionReconciler.Reconcile(
-                        new AuthoritativePlayerState((uint)i, ack, anchor),
+                    var result = MovementPredictionReconciler.Reconcile(
+                        new AuthoritativeMovementState((uint)i, ack, anchor),
                         state.Tick,
                         state,
                         inputs,
@@ -93,13 +93,13 @@ namespace AFPS.Tests.EditMode
                         config,
                         context.TickDeltaTime,
                         backend);
-                    if (result.Status != ReconciliationStatus.Corrected || !result.State.RawEquals(state))
+                    if (result.Status != MovementReconciliationStatus.Corrected || !result.State.RawEquals(state))
                     {
                         throw new Exception("Geometry rollback mismatch");
                     }
                 }
 
-                ulong raw = PlayerStateHash.Compute(state);
+                ulong raw = PlayerMovementStateHash.Compute(state);
                 Add(ref hash, unchecked((int)raw));
                 Add(ref hash, unchecked((int)(raw >> 32)));
             }

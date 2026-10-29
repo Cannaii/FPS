@@ -12,10 +12,10 @@ namespace AFPS.Tests.EditMode
 {
     public sealed class WallSimulationTests
     {
-        private static PlayerSimulationConfig Config => new PlayerSimulationConfig(
+        private static PlayerMovementConfig Config => new PlayerMovementConfig(
             Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
 
-        private static PlayerState NearWall => new PlayerState
+        private static PlayerMovementState NearWall => new PlayerMovementState
         {
             PositionFixed = new FixVec3(Fix.FromRatio(3, 2), Fix.FromInt(3), Fix.Zero),
             WallNormalFixed = -FixVec3.Right,
@@ -29,7 +29,7 @@ namespace AFPS.Tests.EditMode
                 new FixVec3(Fix.FromInt(3), Fix.FromInt(10), Fix.FromInt(10))))
         }));
 
-        private static PlayerState Step(PlayerState state, bool jump = false, bool bounce = false, bool dash = false)
+        private static PlayerMovementState Step(PlayerMovementState state, bool jump = false, bool bounce = false, bool dash = false)
         {
             var input = new PlayerInputCommand
             {
@@ -39,7 +39,7 @@ namespace AFPS.Tests.EditMode
                 DashPressed = dash
             };
             input.SetFixedControls(Fix.One, Fix.Zero, Fix.Zero, Fix.Zero);
-            return PlayerSimulation.Simulate(state, input, Config, SimulationStep.Step50Hz, World);
+            return PlayerMovementSimulation.Simulate(state, input, Config, SimulationStep.Step50Hz, World);
         }
 
         [Test]
@@ -64,7 +64,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void DashImpactThenBounce_ReflectsImpactAndCancelsDashWithoutNewCharge()
         {
-            var state = new PlayerState
+            var state = new PlayerMovementState
             {
                 PositionFixed = new FixVec3(Fix.FromRatio(7, 5), Fix.FromInt(3), Fix.Zero)
             };
@@ -159,19 +159,19 @@ namespace AFPS.Tests.EditMode
         {
             var state = NearWall;
             state.WallCooldownRemainingFixed = Fix.FromRaw(12345);
-            var bytes = new byte[AuthoritativePlayerStateCodec.PacketSize];
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, 0, state),
+            var bytes = new byte[AuthoritativeMovementStateCodec.PacketSize];
+            Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(10, 0, state),
                 1, new ArraySegment<byte>(bytes), out int count), Is.True);
             Assert.That(count, Is.EqualTo(152));
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes),
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes),
                 out _, out var decoded), Is.True);
             Assert.That(decoded.State.RawEquals(state), Is.True);
             bytes[98] = 128;
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
             foreach (var normal in new[] { FixVec3.Up, FixVec3.Zero, FixVec3.Right * Fix.Half })
             {
                 state.WallNormalFixed = normal;
-                Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, 0, state),
+                Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(10, 0, state),
                     1, new ArraySegment<byte>(bytes), out _), Is.False);
             }
         }
@@ -196,15 +196,15 @@ namespace AFPS.Tests.EditMode
                     predicted.WallCooldownRemainingFixed = Fix.One;
                     break;
             }
-            Assert.That(PlayerStateHash.Compute(predicted), Is.Not.EqualTo(PlayerStateHash.Compute(authority)));
-            var states = new TickBuffer<PlayerState>(8);
+            Assert.That(PlayerMovementStateHash.Compute(predicted), Is.Not.EqualTo(PlayerMovementStateHash.Compute(authority)));
+            var states = new TickBuffer<PlayerMovementState>(8);
             var inputs = new TickBuffer<PlayerInputCommand>(8);
             states.Store(authority.Tick, predicted);
             inputs.Store(0, new PlayerInputCommand { Tick = 0, WallBouncePressed = true, MoveX = 1f });
             var current = Step(predicted, bounce: true);
-            var result = ClientPredictionReconciler.Reconcile(new AuthoritativePlayerState(10, authority.Tick, authority),
+            var result = MovementPredictionReconciler.Reconcile(new AuthoritativeMovementState(10, authority.Tick, authority),
                 0, current, inputs, states, Config, SimulationStep.Step50Hz, World);
-            Assert.That(result.Status, Is.EqualTo(ReconciliationStatus.Corrected));
+            Assert.That(result.Status, Is.EqualTo(MovementReconciliationStatus.Corrected));
             Assert.That(result.State.RawEquals(Step(authority, bounce: true)), Is.True);
         }
 
@@ -222,7 +222,7 @@ namespace AFPS.Tests.EditMode
                 wall.MaximumBounceSpeed + (field == 2 ? Fix.Epsilon : Fix.Zero),
                 wall.Cooldown + (field == 3 ? Fix.Epsilon : Fix.Zero),
                 wall.StaminaCost + (field == 4 ? Fix.Epsilon : Fix.Zero));
-            var config = new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8), wall: changed);
+            var config = new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8), wall: changed);
             var world = new FixedWorld(null);
             Assert.That(new SimulationWorldContext(world, config, SimulationStep.Step50Hz).Identity.ConfigurationHash,
                 Is.Not.EqualTo(new SimulationWorldContext(world, Config, SimulationStep.Step50Hz).Identity.ConfigurationHash));

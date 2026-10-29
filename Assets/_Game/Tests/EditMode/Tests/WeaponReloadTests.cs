@@ -13,7 +13,7 @@ namespace AFPS.Tests.EditMode
         public void Reload_CompletesAtBoundaryAndRepeatedRequestsDoNotRestart()
         {
             ServerWeaponFireController controller = new ServerWeaponFireController(WeaponSimulationConfig.DefaultRifle);
-            PlayerState state = default;
+            PlayerMovementState state = default;
             Assert.That(controller.Process(10, 1, Fire(1), state).Accepted, Is.True);
             controller.Process(11, 1, new PlayerInputCommand { ReloadPressed = true }, state);
             Assert.That(controller.IsReloading, Is.True);

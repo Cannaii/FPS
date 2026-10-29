@@ -12,10 +12,10 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void GroundedTimeline_ChangesOnlyAtSnapshotBoundaryIncludingWrap()
         {
-            var timeline = new RemotePlayerSnapshotTimeline(1, 8, 0.02f, 0d, 2d, 5f);
-            timeline.Insert(new RemotePlayerSnapshot(1, uint.MaxValue, FixVec3.Zero,
+            var timeline = new RemotePlayerMovementTimeline(1, 8, 0.02f, 0d, 2d, 5f);
+            timeline.Insert(new RemotePlayerMovementSnapshot(1, uint.MaxValue, FixVec3.Zero,
                 Fix.Zero, Fix.Zero, FixVec3.Forward, isGrounded: false));
-            timeline.Insert(new RemotePlayerSnapshot(1, 1, FixVec3.Forward,
+            timeline.Insert(new RemotePlayerMovementSnapshot(1, 1, FixVec3.Forward,
                 Fix.Zero, Fix.Zero, FixVec3.Forward, isGrounded: true));
             Assert.That(timeline.TrySample(4294967296d, out var before), Is.True);
             Assert.That(before.IsGrounded, Is.False);

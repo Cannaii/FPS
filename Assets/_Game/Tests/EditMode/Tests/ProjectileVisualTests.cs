@@ -16,7 +16,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Projectile confirmation test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var predicted = Shot(1, 1);
                 Assert.That(view.PredictProjectile(predicted), Is.True);
                 view.Advance(0.1f);
@@ -49,7 +49,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Projectile identity test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 Assert.That(view.PredictProjectile(Shot(1, 1)), Is.True);
                 Assert.That(view.PredictProjectile(Shot(2, 1)), Is.True);
                 view.Consume(Result(Shot(1, 1), true), 1);
@@ -68,12 +68,12 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Projectile timeout test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var shot = new AuthoritativeShot(1, 1, 100, 1, WeaponFireMode.Projectile,
                     new FixVec3(Fix.Zero, Fix.One, Fix.Zero), FixVec3.Forward,
                     Fix.FromInt(20), Fix.FromInt(100), Fix.FromInt(10));
                 view.PredictProjectile(shot);
-                view.Advance(ShotResultView.PredictionTimeoutSeconds);
+                view.Advance(ShotPresentationController.PredictionTimeoutSeconds);
                 Assert.That(view.ActiveProjectileCount, Is.Zero);
                 view.Consume(Result(shot, false), 1, 110d, 0.02f);
                 Assert.That(view.ActiveProjectileCount, Is.EqualTo(1));
@@ -95,7 +95,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Projectile clock fallback test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var shot = Shot(1, 1);
                 view.PredictProjectile(shot);
                 view.Advance(0.25f);
@@ -115,7 +115,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Projectile lifecycle test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var shot = Shot(1, 1);
                 view.Consume(Result(shot, false), 1, 200d, 0.02f);
                 Assert.That(view.ActiveProjectileCount, Is.Zero);
@@ -125,7 +125,7 @@ namespace AFPS.Tests.EditMode
                 Assert.That(view.PredictProjectile(shot), Is.True, "新会话需要允许重新使用旧服务器的身份数值。");
                 view.Clear();
                 Assert.That(view.ActiveProjectileCount, Is.Zero);
-                foreach (var proxy in root.GetComponentsInChildren<PredictedProjectileVisual>(true))
+                foreach (var proxy in root.GetComponentsInChildren<ProjectileVisualProxy>(true))
                 {
                     Assert.That(proxy.gameObject.activeSelf, Is.False);
                 }
@@ -142,16 +142,16 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Projectile pool test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
-                for (uint sequence = 1; sequence <= ShotResultView.MaximumProjectileCount + 20; sequence++)
+                var view = root.AddComponent<ShotPresentationController>();
+                for (uint sequence = 1; sequence <= ShotPresentationController.MaximumProjectileCount + 20; sequence++)
                 {
                     Assert.That(view.PredictProjectile(Shot(1, sequence)), Is.True);
                 }
-                Assert.That(view.ActiveProjectileCount, Is.EqualTo(ShotResultView.MaximumProjectileCount));
-                Assert.That(view.CreatedProjectileVisualCount, Is.EqualTo(ShotResultView.MaximumProjectileCount));
+                Assert.That(view.ActiveProjectileCount, Is.EqualTo(ShotPresentationController.MaximumProjectileCount));
+                Assert.That(view.CreatedProjectileVisualCount, Is.EqualTo(ShotPresentationController.MaximumProjectileCount));
                 view.Clear();
                 Assert.That(view.PredictProjectile(Shot(1, 1000)), Is.True);
-                Assert.That(view.CreatedProjectileVisualCount, Is.EqualTo(ShotResultView.MaximumProjectileCount));
+                Assert.That(view.CreatedProjectileVisualCount, Is.EqualTo(ShotPresentationController.MaximumProjectileCount));
             }
             finally
             {
@@ -164,12 +164,12 @@ namespace AFPS.Tests.EditMode
         {
             var root = new GameObject("Projectile prefab test");
             var prefabObject = new GameObject("Projectile source",
-                typeof(SphereCollider), typeof(Rigidbody), typeof(PredictedProjectileVisual));
+                typeof(SphereCollider), typeof(Rigidbody), typeof(ProjectileVisualProxy));
             try
             {
-                var view = root.AddComponent<ShotResultView>();
-                typeof(ShotResultView).GetField("projectileVisualPrefab", BindingFlags.NonPublic | BindingFlags.Instance)
-                    .SetValue(view, prefabObject.GetComponent<PredictedProjectileVisual>());
+                var view = root.AddComponent<ShotPresentationController>();
+                typeof(ShotPresentationController).GetField("projectileVisualPrefab", BindingFlags.NonPublic | BindingFlags.Instance)
+                    .SetValue(view, prefabObject.GetComponent<ProjectileVisualProxy>());
                 var hitscan = new AuthoritativeShot(1, 2, 100, WeaponSimulationConfig.DefaultRifle,
                     FixVec3.Zero, FixVec3.Forward);
                 Assert.That(view.PredictProjectile(hitscan), Is.False);
@@ -197,11 +197,11 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Slow projectile lifetime test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var shot = new AuthoritativeShot(1, 1, 100, 1, WeaponFireMode.Projectile,
                     FixVec3.Zero, FixVec3.Forward, Fix.One, Fix.FromInt(10), Fix.Epsilon);
                 view.Consume(Result(shot, false), 1);
-                view.Advance(PredictedProjectileVisual.MaximumLifetimeSeconds);
+                view.Advance(ProjectileVisualProxy.MaximumLifetimeSeconds);
                 Assert.That(view.ActiveProjectileCount, Is.Zero);
             }
             finally
@@ -216,7 +216,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Environment impact test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var shot = Shot(1, 1);
                 view.PredictProjectile(shot);
                 view.Consume(new AuthoritativeShotResult(shot, 29, false, 0, Fix.Zero,
@@ -238,7 +238,7 @@ namespace AFPS.Tests.EditMode
         [TestCase(100u, double.NaN, 0f)]
         public void Clock_IncludesSpawnStepAndSupportsTickWrap(uint shotTick, double currentTick, float expectedSeconds)
         {
-            Assert.That(ShotResultView.EstimateProjectileAge(shotTick, currentTick, 0.02f),
+            Assert.That(ShotPresentationController.EstimateProjectileAge(shotTick, currentTick, 0.02f),
                 Is.EqualTo(expectedSeconds).Within(0.00001f));
         }
 

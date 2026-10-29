@@ -16,7 +16,7 @@ namespace AFPS.Bootstrap
     /// <summary>F3只读诊断；默认关闭，不捕获鼠标、不暂停输入，隐藏时不重建文字或扫描连接。</summary>
     public sealed class NetworkDebugPanel : MonoBehaviour
     {
-        private NetworkMovementSessionManager manager;
+        private NetworkSessionCoordinator manager;
         private UnityNetworkBootstrap bootstrap;
         private NetworkMetricsRateSampler rates = new NetworkMetricsRateSampler();
         private readonly List<ServerConnectionDiagnostics> connections = new List<ServerConnectionDiagnostics>(64);
@@ -31,7 +31,7 @@ namespace AFPS.Bootstrap
         public string DisplayedText => clientText == null ? string.Empty
             : clientText.text + "\n" + serverText.text + "\n" + detailText.text;
 
-        public void Configure(NetworkMovementSessionManager owner, UnityNetworkBootstrap network)
+        public void Configure(NetworkSessionCoordinator owner, UnityNetworkBootstrap network)
         {
             manager = owner ?? throw new ArgumentNullException(nameof(owner));
             bootstrap = network;

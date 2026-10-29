@@ -64,7 +64,7 @@ namespace AFPS.Tests.EditMode
         {
             WeaponSimulationConfig config = new WeaponSimulationConfig(7, WeaponFireMode.Projectile,
                 2, 5, Fix.FromRaw(1310721), Fix.MaxValue, Fix.FromRaw(655361), Fix.FromRaw(104858));
-            PlayerState state = new PlayerState
+            PlayerMovementState state = new PlayerMovementState
             {
                 PositionFixed = new FixVec3(Fix.FromRaw(655360001), Fix.FromRaw(655360003), Fix.MinValue),
                 YawFixedDegrees = Fix.FromInt(90)
@@ -92,7 +92,7 @@ namespace AFPS.Tests.EditMode
         public void Generation_RejectsOriginOverflowWithoutAmmoOrCooldownAndConsumesSequence()
         {
             ServerWeaponFireController controller = new ServerWeaponFireController(WeaponSimulationConfig.DefaultRifle);
-            PlayerState state = new PlayerState { PositionFixed = new FixVec3(Fix.Zero, Fix.MaxValue, Fix.Zero) };
+            PlayerMovementState state = new PlayerMovementState { PositionFixed = new FixVec3(Fix.Zero, Fix.MaxValue, Fix.Zero) };
             Assert.That(controller.Process(10, 1, Fire(1), state).RejectReason, Is.EqualTo(WeaponFireRejectReason.InvalidOrigin));
             Assert.That(controller.Ammo, Is.EqualTo(30));
             state.PositionFixed = FixVec3.Zero;
@@ -105,7 +105,7 @@ namespace AFPS.Tests.EditMode
         public void Generation_RejectsInvalidAimWithoutAmmoOrCooldown()
         {
             ServerWeaponFireController controller = new ServerWeaponFireController(WeaponSimulationConfig.DefaultRifle);
-            PlayerState state = new PlayerState { PitchFixedDegrees = Fix.FromRaw(5891687) };
+            PlayerMovementState state = new PlayerMovementState { PitchFixedDegrees = Fix.FromRaw(5891687) };
             WeaponFireResult rejected = controller.Process(10, 1, Fire(1), state);
             Assert.That(rejected.RejectReason, Is.EqualTo(WeaponFireRejectReason.InvalidAim));
             Assert.That(rejected.RemainingAmmo, Is.EqualTo(30));
@@ -118,7 +118,7 @@ namespace AFPS.Tests.EditMode
         public void Generation_IncludesMaximumOriginAndPreservesTickSequenceWrap()
         {
             WeaponSimulationConfig config = WeaponSimulationConfig.DefaultRifle;
-            PlayerState state = new PlayerState
+            PlayerMovementState state = new PlayerMovementState
             {
                 PositionFixed = new FixVec3(Fix.MinValue,
                     Fix.FromRaw(int.MaxValue - config.EyeHeightFixed.Raw), Fix.MaxValue)

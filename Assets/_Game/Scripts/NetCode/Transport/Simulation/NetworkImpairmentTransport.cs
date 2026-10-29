@@ -52,7 +52,7 @@ namespace AFPS.NetCode.Transport.Simulation
         /// <summary>
         /// 当前生命周期用于丢包、抖动和乱序决策的可复现随机序列。
         /// </summary>
-        private DeterministicRandom random;
+        private NetworkImpairmentRandom random;
         /// <summary>
         /// 下一个排队数据包获得的稳定次序，在释放时间相同时用于确定先后关系。
         /// </summary>
@@ -81,7 +81,7 @@ namespace AFPS.NetCode.Transport.Simulation
             this.innerTransport = innerTransport ?? throw new ArgumentNullException(nameof(innerTransport));
             this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
             this.config = config;
-            random = new DeterministicRandom(config.RandomSeed);
+            random = new NetworkImpairmentRandom(config.RandomSeed);
         }
 
         public bool TryStartServer(ushort port, int maxConnections, out string error) => innerTransport.TryStartServer(port, maxConnections, out error);
@@ -249,7 +249,7 @@ namespace AFPS.NetCode.Transport.Simulation
         private void ResetSimulationState()
         {
             scheduledPackets.Clear();
-            random = new DeterministicRandom(config.RandomSeed);
+            random = new NetworkImpairmentRandom(config.RandomSeed);
             nextEnqueueOrder = 0;
             DroppedPacketCount = 0;
             ReleasedPacketCount = 0;

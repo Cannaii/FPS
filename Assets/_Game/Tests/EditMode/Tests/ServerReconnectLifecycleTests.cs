@@ -84,14 +84,14 @@ namespace AFPS.Tests.EditMode
             Assert.That(restored.CurrentState.RawEquals(before), Is.True);
             foreach (var packet in pair.ServerTransport.Sent.FindAll(p => p.Connection.Equals(Replacement)))
             {
-                if (packet.Type == NetworkMessageType.AuthoritativePlayerState
+                if (packet.Type == NetworkMessageType.AuthoritativeMovementState
                     || packet.Type == NetworkMessageType.AuthoritativeWeaponState)
                 {
                     Assert.That(packet.Delivery, Is.EqualTo(TransportDelivery.ReliableSequenced));
                 }
             }
             Assert.That(pair.ServerTransport.Sent.Exists(p => p.Connection.Equals(Replacement)
-                && p.Type == NetworkMessageType.AuthoritativePlayerState), Is.True);
+                && p.Type == NetworkMessageType.AuthoritativeMovementState), Is.True);
             Assert.That(pair.ServerTransport.Sent.Exists(p => p.Connection.Equals(Replacement)
                 && p.Type == NetworkMessageType.AuthoritativeWeaponState), Is.True);
             Admit(pair, new TransportConnectionId(40), 3);
@@ -100,7 +100,7 @@ namespace AFPS.Tests.EditMode
         }
 
         [TestCase(NetworkMessageType.PlayerSessionAssignment)]
-        [TestCase(NetworkMessageType.AuthoritativePlayerState)]
+        [TestCase(NetworkMessageType.AuthoritativeMovementState)]
         [TestCase(NetworkMessageType.AuthoritativeWeaponState)]
         public void RecoverySeedQueueFailure_RetriesReliablyWithoutConsumingInput(NetworkMessageType failedType)
         {
@@ -212,7 +212,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(pair.Server.TryGetServerDeathmatchPlayer(2, out var attacker), Is.True);
             Assert.That(attacker.Kills, Is.EqualTo(1));
             Assert.That(pair.ServerTransport.Sent.Exists(p => p.Connection.Equals(shooter)
-                && p.Type == NetworkMessageType.RemotePlayerSnapshot), Is.True);
+                && p.Type == NetworkMessageType.RemotePlayerMovementSnapshot), Is.True);
             RunningMatchFixture.Advance(pair.Server, 274);
             Assert.That(pair.Server.TryGetServerHealth(1, out float health), Is.True);
             Assert.That(health, Is.Zero);

@@ -99,13 +99,13 @@ namespace AFPS.Tests.EditMode
 
         private static SessionRecoverySeed Seed()
         {
-            var state = new PlayerState
+            var state = new PlayerMovementState
             {
                 Tick = 17, PositionFixed = new FixVec3(Fix.FromRaw(123), Fix.FromInt(2), Fix.FromRaw(-123)),
                 StaminaSpentFixed = Fix.Half, DashSpentCharges = 1, DashRechargeRemainingFixed = Fix.Half
             };
             return new SessionRecoverySeed(2, 1, uint.MaxValue,
-                new AuthoritativePlayerState(100, 17, state),
+                new AuthoritativeMovementState(100, 17, state),
                 new AuthoritativeWeaponState(1, 100, 17, 17, 30, 0, true), 16);
         }
     }

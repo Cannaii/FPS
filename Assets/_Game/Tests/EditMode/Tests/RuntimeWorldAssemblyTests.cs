@@ -16,7 +16,7 @@ namespace AFPS.Tests.EditMode
         private Scene scene;
         private Scene previousActiveScene;
         private string temporaryScenePath;
-        private UnityNetworkMovementController movement;
+        private UnityNetworkGameplayController movement;
         private TextAsset damagedSnapshot;
 
         [SetUp]
@@ -31,7 +31,7 @@ namespace AFPS.Tests.EditMode
             scene = EditorSceneManager.OpenScene(temporaryScenePath, OpenSceneMode.Additive);
             SceneManager.SetActiveScene(previousActiveScene);
             movement = scene.GetRootGameObjects()
-                .SelectMany(root => root.GetComponentsInChildren<UnityNetworkMovementController>(true))
+                .SelectMany(root => root.GetComponentsInChildren<UnityNetworkGameplayController>(true))
                 .Single();
         }
 
@@ -53,7 +53,7 @@ namespace AFPS.Tests.EditMode
         public void SavedScene_LoadsBakedWorldWithSceneCollisionMask()
         {
             Assert.That(movement.TryPrepareSimulation(out string error), Is.True, error);
-            var field = typeof(UnityNetworkMovementController).GetField(
+            var field = typeof(UnityNetworkGameplayController).GetField(
                 "preparedWorld", BindingFlags.Instance | BindingFlags.NonPublic);
             var world = (SimulationWorldContext)field.GetValue(movement);
             Assert.That(world.Identity.WorldHash, Is.EqualTo(11671102255531124119UL));
@@ -77,7 +77,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(bootstrap.TryStartNetwork(options, out string error), Is.False);
             Assert.That(error, Does.Contain("缺少已烘焙地图"));
             Assert.That(bootstrap.Runtime, Is.Null);
-            Assert.That(movement.SessionManager, Is.Null);
+            Assert.That(movement.SessionCoordinator, Is.Null);
             Assert.That(movement.CanEnterGame, Is.False);
         }
 

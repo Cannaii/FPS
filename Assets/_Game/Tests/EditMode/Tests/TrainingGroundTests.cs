@@ -25,13 +25,13 @@ namespace AFPS.Tests.EditMode
             scene = EditorSceneManager.OpenScene(TrainingGroundBuilder.ScenePath, OpenSceneMode.Additive);
             foreach (var root in scene.GetRootGameObjects())
             {
-                var controller = root.GetComponentInChildren<UnityNetworkMovementController>();
+                var controller = root.GetComponentInChildren<UnityNetworkGameplayController>();
                 if (controller == null)
                 {
                     continue;
                 }
                 Assert.That(controller.TryPrepareSimulation(out var error), Is.True, error);
-                context = (SimulationWorldContext)typeof(UnityNetworkMovementController)
+                context = (SimulationWorldContext)typeof(UnityNetworkGameplayController)
                     .GetField("preparedWorld", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(controller);
             }
             Assert.That(context, Is.Not.Null);
@@ -142,13 +142,13 @@ namespace AFPS.Tests.EditMode
             Assert.That(state.IsGrappling, Is.False);
         }
 
-        private static PlayerState State(float x, float y, float z) => new PlayerState
+        private static PlayerMovementState State(float x, float y, float z) => new PlayerMovementState
         {
             PositionFixed = new FixVec3(Fix.FromFloat(x), Fix.FromFloat(y), Fix.FromFloat(z)),
             IsGrounded = true
         };
 
-        private PlayerState Step(in PlayerState state, in PlayerInputCommand input) =>
-            PlayerSimulation.Simulate(state, input, context.Configuration, context.TickDeltaTime, context.CollisionWorld);
+        private PlayerMovementState Step(in PlayerMovementState state, in PlayerInputCommand input) =>
+            PlayerMovementSimulation.Simulate(state, input, context.MovementConfiguration, context.TickDeltaTime, context.CollisionWorld);
     }
 }

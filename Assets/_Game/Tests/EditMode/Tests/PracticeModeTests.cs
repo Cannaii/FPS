@@ -96,9 +96,9 @@ namespace AFPS.Tests.EditMode
             using (server)
             using (client)
             {
-                var initial = new PlayerState { IsGrounded = true };
-                var config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-                var manager = new NetworkMovementSessionManager(
+                var initial = new PlayerMovementState { IsGrounded = true };
+                var config = new PlayerMovementConfig(6f, 20f, 20f, 8f);
+                var manager = new NetworkSessionCoordinator(
                     server,
                     client,
                     initial,
@@ -140,7 +140,7 @@ namespace AFPS.Tests.EditMode
             }
         }
 
-        private static void Drain(IGameTransport transport, NetworkTransportSide side, NetworkMovementSessionManager manager)
+        private static void Drain(IGameTransport transport, NetworkTransportSide side, NetworkSessionCoordinator manager)
         {
             var bytes = new byte[2048];
             while (transport.TryPollEvent(new ArraySegment<byte>(bytes), out var packet))

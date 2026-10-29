@@ -32,7 +32,7 @@ internal static class WorldPackageProbe
                     throw new InvalidOperationException("引擎外装配产物不能引用Unity程序集。");
                 }
             }
-            var state = new PlayerState { PositionFixed = context.SessionSpatial.SpawnOrigin };
+            var state = new PlayerMovementState { PositionFixed = context.SessionSpatial.SpawnOrigin };
             var commands = new PlayerInputCommand[1];
             var decoded = new PlayerInputCommand[1];
             byte[] packet = new byte[InputCommandBatchCodec.GetPacketSize(1)];
@@ -58,13 +58,13 @@ internal static class WorldPackageProbe
                 {
                     throw new FormatException("权威输入协议回读失败。");
                 }
-                state = PlayerSimulation.Simulate(state, decoded[0], context.Configuration,
+                state = PlayerMovementSimulation.Simulate(state, decoded[0], context.MovementConfiguration,
                     context.TickDeltaTime, context.CollisionWorld);
-                rollingHash = unchecked((rollingHash ^ PlayerStateHash.Compute(state)) * 1099511628211UL);
+                rollingHash = unchecked((rollingHash ^ PlayerMovementStateHash.Compute(state)) * 1099511628211UL);
             }
             Console.WriteLine($"EngineFree=True;Algorithm={context.Identity.AlgorithmVersion};"
                 + $"World={context.Identity.WorldHash};Configuration={context.Identity.ConfigurationHash}");
-            Console.WriteLine($"Ticks=512;FinalRawHash={PlayerStateHash.Compute(state)};RollingRawHash={rollingHash}");
+            Console.WriteLine($"Ticks=512;FinalRawHash={PlayerMovementStateHash.Compute(state)};RollingRawHash={rollingHash}");
             return 0;
         }
         catch (Exception exception)

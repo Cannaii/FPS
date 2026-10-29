@@ -10,7 +10,7 @@ namespace AFPS.Bootstrap
         // 秒，单调实时时间；仅用于自动验证，不改变正常独服生命周期。
         private const double TimeoutSeconds = 40;
         private UnityNetworkBootstrap bootstrap;
-        private UnityNetworkMovementController movement;
+        private UnityNetworkGameplayController movement;
         private double startedAt;
         private bool sawTwoPlayers;
 
@@ -20,7 +20,7 @@ namespace AFPS.Bootstrap
         public void Configure(UnityNetworkBootstrap owner)
         {
             bootstrap = owner;
-            movement = owner.GetComponent<UnityNetworkMovementController>();
+            movement = owner.GetComponent<UnityNetworkGameplayController>();
             startedAt = Time.realtimeSinceStartupAsDouble;
         }
 
@@ -32,7 +32,7 @@ namespace AFPS.Bootstrap
                 return;
             }
 
-            var manager = movement != null ? movement.SessionManager : null;
+            var manager = movement != null ? movement.SessionCoordinator : null;
             if (manager != null)
             {
                 sawTwoPlayers |= manager.ServerSessionCount >= 2;

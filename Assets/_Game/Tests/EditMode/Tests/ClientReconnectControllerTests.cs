@@ -226,8 +226,8 @@ namespace AFPS.Tests.EditMode
             internal readonly FakeTransport ClientWire = new FakeTransport(TransportRole.Client);
             internal readonly RestartTransport Transport;
             internal readonly GameNetworkRuntime Runtime;
-            internal readonly NetworkMovementSessionManager Server;
-            internal readonly NetworkMovementSessionManager Client;
+            internal readonly NetworkSessionCoordinator Server;
+            internal readonly NetworkSessionCoordinator Client;
             internal readonly ClientReconnectController Controller;
             private TransportConnectionId serverId = ServerId;
             private TransportConnectionId clientId = ClientId;

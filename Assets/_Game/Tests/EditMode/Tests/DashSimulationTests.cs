@@ -12,7 +12,7 @@ namespace AFPS.Tests.EditMode
 {
     public sealed class DashSimulationTests
     {
-        private static PlayerSimulationConfig Config => new PlayerSimulationConfig(
+        private static PlayerMovementConfig Config => new PlayerMovementConfig(
             Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
 
         private static PlayerInputCommand Input(uint tick, bool dash = false, int yaw = 0)
@@ -22,15 +22,15 @@ namespace AFPS.Tests.EditMode
             return input;
         }
 
-        private static PlayerState Step(PlayerState state, PlayerInputCommand input) =>
-            PlayerSimulation.Simulate(state, input, Config, SimulationStep.Step50Hz,
+        private static PlayerMovementState Step(PlayerMovementState state, PlayerInputCommand input) =>
+            PlayerMovementSimulation.Simulate(state, input, Config, SimulationStep.Step50Hz,
                 FixedFlatGroundCollisionWorld.Instance);
 
         [TestCase(false)]
         [TestCase(true)]
         public void Dash_LocksDirectionAndFreezesVerticalVelocity(bool grounded)
         {
-            var state = new PlayerState
+            var state = new PlayerMovementState
             {
                 IsGrounded = grounded,
                 PositionFixed = new FixVec3(Fix.Zero, grounded ? Fix.Zero : Fix.FromInt(5), Fix.Zero),
@@ -65,17 +65,17 @@ namespace AFPS.Tests.EditMode
         {
             var input = Input(1, true, 90);
             input.SetFixedControls(Fix.Zero, Fix.Zero, Fix.FromInt(90), Fix.FromInt(80));
-            var idle = Step(new PlayerState { IsGrounded = true }, input);
+            var idle = Step(new PlayerMovementState { IsGrounded = true }, input);
             Assert.That(idle.VelocityFixed.X.Raw, Is.EqualTo(Config.Dash.Speed.Raw).Within(16));
             input.SetFixedControls(Fix.One, Fix.One, Fix.Zero, Fix.Zero);
-            var diagonal = Step(new PlayerState { IsGrounded = true }, input);
+            var diagonal = Step(new PlayerMovementState { IsGrounded = true }, input);
             Assert.That(diagonal.VelocityFixed.Magnitude.Raw, Is.EqualTo(Config.Dash.Speed.Raw).Within(32));
         }
 
         [Test]
         public void InsufficientStaminaOrCharges_DoesNotSpendResources()
         {
-            var state = new PlayerState { IsGrounded = true, StaminaSpentFixed = Fix.One };
+            var state = new PlayerMovementState { IsGrounded = true, StaminaSpentFixed = Fix.One };
             state = Step(state, Input(1, true));
             Assert.That(state.DashSpentCharges, Is.EqualTo(0));
             Assert.That(state.DashRemainingFixed, Is.EqualTo(Fix.Zero));
@@ -91,7 +91,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void ExactStaminaThreshold_AllowsDashAndLatchesExhaustion()
         {
-            var state = new PlayerState
+            var state = new PlayerMovementState
             {
                 IsGrounded = true, StaminaSpentFixed = Fix.One - Config.Dash.StaminaCost
             };
@@ -110,10 +110,10 @@ namespace AFPS.Tests.EditMode
             var floor = new FixedWorldPlane(2, 0, FixedSurface.Solid | FixedSurface.Ground, FixedAxis.Y, Fix.Zero);
             var context = new SimulationWorldContext(new FixedWorld(new[] { wall }, new[] { floor }),
                 Config, SimulationStep.Step50Hz);
-            var state = new PlayerState { IsGrounded = true };
+            var state = new PlayerMovementState { IsGrounded = true };
             for (uint tick = 1; tick <= 8; tick++)
             {
-                state = PlayerSimulation.Simulate(state, Input(tick, true), Config,
+                state = PlayerMovementSimulation.Simulate(state, Input(tick, true), Config,
                     SimulationStep.Step50Hz, context.CollisionWorld);
                 Assert.That(state.PositionFixed.Z, Is.LessThanOrEqualTo(Fix.Half));
             }
@@ -126,7 +126,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void Recharge_IsSequentialAndPreservesOvershoot()
         {
-            var state = new PlayerState { DashSpentCharges = 2, DashRechargeRemainingFixed = Fix.Half };
+            var state = new PlayerMovementState { DashSpentCharges = 2, DashRechargeRemainingFixed = Fix.Half };
             PlayerDashSimulation.Begin(ref state, default, Config.Dash, FixVec3.Zero, FixVec3.Forward, Fix.One);
             Assert.That(state.DashSpentCharges, Is.EqualTo(1));
             Assert.That(state.DashRechargeRemainingFixed, Is.EqualTo(Fix.One));
@@ -154,21 +154,21 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void Authority_RoundtripsEveryRawFieldAndRejectsInvalidDash()
         {
-            var state = Step(new PlayerState { IsGrounded = true }, Input(1, true));
-            var bytes = new byte[AuthoritativePlayerStateCodec.PacketSize];
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, 1, state),
+            var state = Step(new PlayerMovementState { IsGrounded = true }, Input(1, true));
+            var bytes = new byte[AuthoritativeMovementStateCodec.PacketSize];
+            Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(10, 1, state),
                 1, new ArraySegment<byte>(bytes), out int count), Is.True);
             Assert.That(count, Is.EqualTo(152));
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes),
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes),
                 out _, out var authority), Is.True);
             Assert.That(authority.State.RawEquals(state), Is.True);
             // 充能在整包第65字节；大于协议上限或与计时器矛盾都应拒绝。
             bytes[65] = 9;
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
             bytes[65] = 0;
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
             state.DashVelocityFixed = FixVec3.Up;
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(10, 1, state),
+            Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(10, 1, state),
                 1, new ArraySegment<byte>(bytes), out _), Is.False);
         }
 
@@ -178,7 +178,7 @@ namespace AFPS.Tests.EditMode
         [TestCase(3)]
         public void DashOnlyError_TriggersRollbackAcrossTickWrap(int field)
         {
-            var authority = Step(new PlayerState { Tick = uint.MaxValue - 1, IsGrounded = true }, Input(uint.MaxValue, true));
+            var authority = Step(new PlayerMovementState { Tick = uint.MaxValue - 1, IsGrounded = true }, Input(uint.MaxValue, true));
             var predicted = authority;
             switch (field)
             {
@@ -195,16 +195,16 @@ namespace AFPS.Tests.EditMode
                     predicted.DashRechargeRemainingFixed += Fix.Epsilon;
                     break;
             }
-            Assert.That(PlayerStateHash.Compute(predicted), Is.Not.EqualTo(PlayerStateHash.Compute(authority)));
-            var states = new TickBuffer<PlayerState>(8);
+            Assert.That(PlayerMovementStateHash.Compute(predicted), Is.Not.EqualTo(PlayerMovementStateHash.Compute(authority)));
+            var states = new TickBuffer<PlayerMovementState>(8);
             states.Store(predicted.Tick, predicted);
             var inputs = new TickBuffer<PlayerInputCommand>(8);
             inputs.Store(0, Input(0));
             inputs.Store(1, Input(1));
             var current = Step(Step(predicted, Input(0)), Input(1));
-            var result = ClientPredictionReconciler.Reconcile(new AuthoritativePlayerState(10, authority.Tick, authority),
+            var result = MovementPredictionReconciler.Reconcile(new AuthoritativeMovementState(10, authority.Tick, authority),
                 1, current, inputs, states, Config, SimulationStep.Step50Hz, FixedFlatGroundCollisionWorld.Instance);
-            Assert.That(result.Status, Is.EqualTo(ReconciliationStatus.Corrected));
+            Assert.That(result.Status, Is.EqualTo(MovementReconciliationStatus.Corrected));
             Assert.That(result.State.RawEquals(Step(Step(authority, Input(0)), Input(1))), Is.True);
         }
 
@@ -222,12 +222,12 @@ namespace AFPS.Tests.EditMode
                 original.RechargeDuration + (field == 2 ? Fix.Epsilon : Fix.Zero),
                 original.MaxCharges + (field == 3 ? 1 : 0),
                 original.StaminaCost + (field == 4 ? Fix.Epsilon : Fix.Zero));
-            var config = new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(20),
+            var config = new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(20),
                 Fix.FromInt(20), Fix.FromInt(8), dash: changed);
             var world = new FixedWorld(null);
             Assert.That(new SimulationWorldContext(world, config, SimulationStep.Step50Hz).Identity.ConfigurationHash,
                 Is.Not.EqualTo(new SimulationWorldContext(world, Config, SimulationStep.Step50Hz).Identity.ConfigurationHash));
-            Assert.Throws<ArgumentOutOfRangeException>(() => new PlayerSimulationConfig(
+            Assert.Throws<ArgumentOutOfRangeException>(() => new PlayerMovementConfig(
                 Fix.One, Fix.One, Fix.One, Fix.One, dash: default(PlayerDashConfig)));
         }
 

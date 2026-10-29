@@ -5,7 +5,7 @@ namespace AFPS.Simulation.Characters
     /// <summary>只处理输入、资源和计时；位移始终经过主运动器的碰撞，不提供无敌帧。</summary>
     public static class PlayerDashSimulation
     {
-        public static bool Begin(ref PlayerState next, in PlayerInputCommand input,
+        public static bool Begin(ref PlayerMovementState next, in PlayerInputCommand input,
             in PlayerDashConfig config, in FixVec3 worldMove, in FixVec3 forward, Fix deltaTime)
         {
             // 串行恢复充能，大步长也保留跨越多个恢复周期的余量；不依赖绝对Tick，支持uint回绕。
@@ -41,7 +41,7 @@ namespace AFPS.Simulation.Characters
             return active;
         }
 
-        public static void Complete(ref PlayerState next, Fix deltaTime)
+        public static void Complete(ref PlayerMovementState next, Fix deltaTime)
         {
             // 末Tick仍完整积分，持续时间向上取整到模拟Tick；之后由正常加速度收敛余速。
             next.DashRemainingFixed = FixMath.Max(Fix.Zero, next.DashRemainingFixed - deltaTime);
@@ -51,7 +51,7 @@ namespace AFPS.Simulation.Characters
             }
         }
 
-        public static void Cancel(ref PlayerState state)
+        public static void Cancel(ref PlayerMovementState state)
         {
             // 传送/死亡只终止冲刺，不返还体力或充能，避免利用状态切换刷新资源。
             state.DashRemainingFixed = Fix.Zero;

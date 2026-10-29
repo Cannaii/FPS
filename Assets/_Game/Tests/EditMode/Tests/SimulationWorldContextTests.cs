@@ -71,7 +71,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void DefaultAndLayerEightMasksHaveAfcdGoldenFingerprints()
         {
-            var configuration = new PlayerSimulationConfig(
+            var configuration = new PlayerMovementConfig(
                 Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
             var defaultContext = new SimulationWorldContext(CreateWorld(), configuration, SimulationStep.Step50Hz);
             var sceneContext = new SimulationWorldContext(CreateWorld(), configuration, SimulationStep.Step50Hz, 256);
@@ -96,7 +96,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(loaded.CollisionWorld.VersionHash, Is.EqualTo(world.VersionHash));
             Assert.That(loaded.CollisionWorld.CapsuleCast(
                 new FixVec3(Fix.Zero, Fix.One, Fix.Zero), -FixVec3.Up, Fix.FromInt(2),
-                loaded.Configuration.Collision, out FixedCharacterCollisionHit hit), Is.True);
+                loaded.MovementConfiguration.Collision, out FixedCharacterCollisionHit hit), Is.True);
             Assert.That(hit.Distance, Is.EqualTo(Fix.One));
         }
 
@@ -120,7 +120,7 @@ namespace AFPS.Tests.EditMode
             var context = new SimulationWorldContext(CreateWorld(), CreateConfiguration(), SimulationStep.Step50Hz, 0);
             Assert.That(context.CollisionWorld.CapsuleCast(
                 new FixVec3(Fix.Zero, Fix.One, Fix.Zero), -FixVec3.Up, Fix.FromInt(2),
-                context.Configuration.Collision, out _), Is.False);
+                context.MovementConfiguration.Collision, out _), Is.False);
             Assert.That(context.CollisionLayerMask, Is.Zero);
         }
 
@@ -159,7 +159,7 @@ namespace AFPS.Tests.EditMode
             });
         }
 
-        private static PlayerSimulationConfig CreateConfiguration(Setting? changed = null)
+        private static PlayerMovementConfig CreateConfiguration(Setting? changed = null)
         {
             // 尺寸用米，速度用米/秒，加速度用米/秒²，坡度用度；每次只改变一项的最低 Raw。
             Fix Value(int raw, Setting setting) => Fix.FromRaw(raw + (changed == setting ? 1 : 0));
@@ -171,7 +171,7 @@ namespace AFPS.Tests.EditMode
                 Value(19661, Setting.StepHeight),
                 Value(3276800, Setting.Slope),
                 4 + (changed == Setting.SlideIterations ? 1 : 0));
-            return new PlayerSimulationConfig(
+            return new PlayerMovementConfig(
                 Value(393216, Setting.Speed),
                 Value(1310720, Setting.Acceleration),
                 Value(1310720, Setting.Gravity),

@@ -24,12 +24,12 @@ namespace AFPS.Simulation.Characters.Collision
             out FixedCharacterCollisionHit hit)
         {
             hit = default;
-            if (!world.CapsuleCast(PlayerState.ToVector(feetPosition), PlayerState.ToVector(direction), distance.ToFloat(), config, out CharacterCollisionHit legacy))
+            if (!world.CapsuleCast(PlayerMovementState.ToVector(feetPosition), PlayerMovementState.ToVector(direction), distance.ToFloat(), config, out CharacterCollisionHit legacy))
             {
                 return false;
             }
 
-            hit = new FixedCharacterCollisionHit(Fix.FromFloat(legacy.Distance), PlayerState.ToFixed(legacy.Normal).Normalized());
+            hit = new FixedCharacterCollisionHit(Fix.FromFloat(legacy.Distance), PlayerMovementState.ToFixed(legacy.Normal).Normalized());
             return true;
         }
     }

@@ -33,7 +33,7 @@ namespace AFPS.Tests.EditMode
 
         private static SimulationWorldContext Context(WeaponSimulationConfig weapon) => new SimulationWorldContext(
             new FixedWorld(null, null),
-            new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8)),
+            new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8)),
             SimulationStep.Step50Hz, weaponConfiguration: weapon);
 
         [TestCase(Setting.Id)]

@@ -11,7 +11,7 @@ namespace AFPS.Simulation.Characters
         // 包含发射眼高及碰撞后的少量绳长误差；同时限制坏状态的向量减法和长度计算。
         public static readonly Fix MaximumRopeLength = Fix.FromInt(256);
 
-        public static bool TryOrigin(in PlayerState state, in PlayerSimulationConfig config, out FixVec3 origin)
+        public static bool TryOrigin(in PlayerMovementState state, in PlayerMovementConfig config, out FixVec3 origin)
         {
             Fix height = FixMath.Min(PlayerStanceSimulation.EyeHeight(state, config.Grapple.OriginHeight, config),
                 PlayerStanceSimulation.Collision(state, config).HeightFixed);
@@ -42,8 +42,8 @@ namespace AFPS.Simulation.Characters
             return distance <= MaximumRopeLength;
         }
 
-        public static bool Begin(ref PlayerState next, in PlayerState previous, in PlayerInputCommand input,
-            in PlayerSimulationConfig config, IFixedCharacterCollisionWorld world, bool interrupted)
+        public static bool Begin(ref PlayerMovementState next, in PlayerMovementState previous, in PlayerInputCommand input,
+            in PlayerMovementConfig config, IFixedCharacterCollisionWorld world, bool interrupted)
         {
             if (!input.GrappleHeld)
             {
@@ -98,7 +98,7 @@ namespace AFPS.Simulation.Characters
             return next.IsGrappling;
         }
 
-        public static void Apply(ref PlayerState next, FixVec3 velocity, in PlayerSimulationConfig config, Fix deltaTime)
+        public static void Apply(ref PlayerMovementState next, FixVec3 velocity, in PlayerMovementConfig config, Fix deltaTime)
         {
             if (!TryOffset(next.PositionFixed, next.GrapplePointFixed, out var to, out var distance)
                 || distance <= config.Grapple.BreakDistance)
@@ -132,7 +132,7 @@ namespace AFPS.Simulation.Characters
             next.VelocityFixed = FixVec3.ClampMagnitude(velocity, c.MaximumSpeed);
         }
 
-        public static void Complete(ref PlayerState next, in PlayerGrappleConfig config)
+        public static void Complete(ref PlayerMovementState next, in PlayerGrappleConfig config)
         {
             if (next.IsGrappling && (!TryOffset(next.PositionFixed, next.GrapplePointFixed, out _, out var distance)
                 || distance <= config.BreakDistance))
@@ -141,7 +141,7 @@ namespace AFPS.Simulation.Characters
             }
         }
 
-        public static void Cancel(ref PlayerState state)
+        public static void Cancel(ref PlayerMovementState state)
         {
             state.IsGrappling = false;
             state.GrapplePointFixed = FixVec3.Zero;

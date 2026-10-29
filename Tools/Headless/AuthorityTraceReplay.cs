@@ -24,7 +24,7 @@ internal static class AuthorityTraceReplayProgram
             {
                 using (var stream = File.OpenRead(path))
                 {
-                    var result = AuthoritativeTraceReplay.Run(stream);
+                    var result = AuthoritativeMovementTraceReplay.Run(stream);
                     Console.WriteLine($"EngineFree=True;Trace={Path.GetFileName(path)};Entity={result.EntityId};"
                         + $"Frames={result.Frames};Resets={result.Resets};Algorithm={result.Identity.AlgorithmVersion};"
                         + $"World={result.Identity.WorldHash};Configuration={result.Identity.ConfigurationHash};"

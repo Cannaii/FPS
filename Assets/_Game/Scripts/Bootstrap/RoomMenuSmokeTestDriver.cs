@@ -17,7 +17,7 @@ namespace AFPS.Bootstrap
             argument => argument.Equals("-afpsRoomMenuSmoke", StringComparison.OrdinalIgnoreCase));
 
         private UnityNetworkBootstrap bootstrap;
-        private UnityNetworkMovementController movement;
+        private UnityNetworkGameplayController movement;
         private LocalPlayerInputCollector input;
         private double started;
         private string role;
@@ -42,7 +42,7 @@ namespace AFPS.Bootstrap
         public void Configure(UnityNetworkBootstrap owner)
         {
             bootstrap = owner;
-            movement = owner.GetComponent<UnityNetworkMovementController>();
+            movement = owner.GetComponent<UnityNetworkGameplayController>();
             input = FindObjectOfType<LocalPlayerInputCollector>(true);
             started = Time.realtimeSinceStartupAsDouble;
             string[] arguments = Environment.GetCommandLineArgs();
@@ -81,7 +81,7 @@ namespace AFPS.Bootstrap
                 Finish(false, $"timeout=True clicked={clicked}");
                 return;
             }
-            var menu = bootstrap.GetComponent<NetworkConnectionMenu>();
+            var menu = bootstrap.GetComponent<NetworkLobbyMenu>();
             if (menu == null)
             {
                 return;
@@ -161,13 +161,13 @@ namespace AFPS.Bootstrap
                 File.Move(codePath + ".tmp", codePath);
                 codePublished = true;
             }
-            var match = movement.SessionManager?.ClientDeathmatchState;
+            var match = movement.SessionCoordinator?.ClientDeathmatchState;
             if (!movement.CanEnterGame || match == null || match.OnlinePlayerCount != 2)
             {
                 return;
             }
             var enter = Button("Enter Button");
-            var manager = movement.SessionManager;
+            var manager = movement.SessionCoordinator;
             if (!spawnConfirmed && manager.TryGetLocalLobbyPlayer(out var spawnPlayer))
             {
                 if (spawnRequested && !manager.LobbyReadyPending)
@@ -245,7 +245,7 @@ namespace AFPS.Bootstrap
             {
                 return;
             }
-            var combatHud = FindObjectsOfType<Canvas>(true).FirstOrDefault(canvas => canvas.name == "Deathmatch HUD");
+            var combatHud = FindObjectsOfType<Canvas>(true).FirstOrDefault(canvas => canvas.name == "Gameplay HUD");
             if (combatHud == null || combatHud.enabled)
             {
                 return;

@@ -22,7 +22,7 @@ namespace AFPS.NetCode.Runtime
         private const double AttemptTimeoutSeconds = 5;
         private const double RetryDelaySeconds = 0.5;
         private readonly GameNetworkRuntime runtime;
-        private readonly NetworkMovementSessionManager manager;
+        private readonly NetworkSessionCoordinator manager;
         private TransportConnectionId connection;
         private double startedAt;
         private double nextAttemptAt;
@@ -49,7 +49,7 @@ namespace AFPS.NetCode.Runtime
             _ => string.Empty
         };
 
-        public ClientReconnectController(GameNetworkRuntime runtime, NetworkMovementSessionManager manager)
+        public ClientReconnectController(GameNetworkRuntime runtime, NetworkSessionCoordinator manager)
         {
             this.runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
             this.manager = manager ?? throw new ArgumentNullException(nameof(manager));

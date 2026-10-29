@@ -38,7 +38,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Rejection view test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 view.PredictProjectile(Shot(2, 3));
                 view.PredictProjectile(Shot(2, 4));
                 view.Reject(new ShotRejection(2, 3, 1, 100, WeaponFireRejectReason.FireRateLimited));
@@ -61,7 +61,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Damage view test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var shot = Shot(2, 1);
                 var result = new AuthoritativeShotResult(shot, 29, true, 1, Fix.FromInt(80), FixVec3.Zero);
                 view.Consume(result, 3);
@@ -87,7 +87,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Self damage test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 view.Consume(new AuthoritativeShotResult(Shot(1, 1), 4, true, 1, Fix.Zero, FixVec3.Zero), 1);
                 Assert.That(view.HitMarkerVisible, Is.False);
                 Assert.That(view.LastHitWasKill, Is.False);
@@ -105,7 +105,7 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Multi target marker test");
             try
             {
-                var view = root.AddComponent<ShotResultView>();
+                var view = root.AddComponent<ShotPresentationController>();
                 var shot = Shot(1, 1);
                 var kill = new AuthoritativeShotResult(shot, 4, true, 2, Fix.Zero, FixVec3.Zero);
                 var hit = new AuthoritativeShotResult(shot, 4, true, 3, Fix.FromInt(40), FixVec3.Zero);

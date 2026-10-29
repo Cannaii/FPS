@@ -332,26 +332,26 @@ namespace AFPS.Tests.EditMode
         {
             var transport = new FakeTransport(TransportRole.Server);
             var context = Context();
-            PlayerState initial = InitialState();
-            Assert.Throws<ArgumentException>(() => new NetworkMovementSessionManager(transport, null, initial, initial,
-                new PlayerSimulationConfig(7f, 20f, 20f, 8f), 0.02f, 64, 3, 16, 2, 2, 0, 0, simulationWorld: context));
-            Assert.Throws<ArgumentException>(() => new NetworkMovementSessionManager(transport, null, initial, initial,
-                context.Configuration, 0.04f, 64, 3, 16, 2, 2, 0, 0, simulationWorld: context));
-            Assert.Throws<ArgumentException>(() => new NetworkMovementSessionManager(transport, null, initial, initial,
-                context.Configuration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
+            PlayerMovementState initial = InitialState();
+            Assert.Throws<ArgumentException>(() => new NetworkSessionCoordinator(transport, null, initial, initial,
+                new PlayerMovementConfig(7f, 20f, 20f, 8f), 0.02f, 64, 3, 16, 2, 2, 0, 0, simulationWorld: context));
+            Assert.Throws<ArgumentException>(() => new NetworkSessionCoordinator(transport, null, initial, initial,
+                context.MovementConfiguration, 0.04f, 64, 3, 16, 2, 2, 0, 0, simulationWorld: context));
+            Assert.Throws<ArgumentException>(() => new NetworkSessionCoordinator(transport, null, initial, initial,
+                context.MovementConfiguration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
                 collisionWorld: AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance, simulationWorld: context));
-            Assert.Throws<ArgumentException>(() => new NetworkMovementSessionManager(transport, null, initial, initial,
-                context.Configuration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
+            Assert.Throws<ArgumentException>(() => new NetworkSessionCoordinator(transport, null, initial, initial,
+                context.MovementConfiguration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
                 serverSpawnSpacing: 3f, simulationWorld: context));
-            Assert.Throws<ArgumentException>(() => new NetworkMovementSessionManager(transport, null, initial, initial,
-                context.Configuration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
+            Assert.Throws<ArgumentException>(() => new NetworkSessionCoordinator(transport, null, initial, initial,
+                context.MovementConfiguration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
                 interestRadius: 149f, simulationWorld: context));
             var rifle = WeaponSimulationConfig.DefaultRifle;
             var changedWeapon = new WeaponSimulationConfig(rifle.WeaponId, rifle.FireMode,
                 rifle.MagazineCapacity, rifle.FireIntervalTicks, rifle.DamageFixed + Fix.Epsilon,
                 rifle.RangeFixed, rifle.ProjectileSpeedFixed, rifle.EyeHeightFixed);
-            Assert.Throws<ArgumentException>(() => new NetworkMovementSessionManager(transport, null, initial, initial,
-                context.Configuration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
+            Assert.Throws<ArgumentException>(() => new NetworkSessionCoordinator(transport, null, initial, initial,
+                context.MovementConfiguration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
                 weaponConfig: changedWeapon, simulationWorld: context));
             Assert.Throws<ArgumentOutOfRangeException>(() => CreateManager(transport, null, context, timeout: 0));
             Assert.Throws<ArgumentOutOfRangeException>(() => CreateManager(transport, null, context, retry: 8));
@@ -367,7 +367,7 @@ namespace AFPS.Tests.EditMode
                 new FixedWorldPlane(1, 0, FixedSurface.Solid | FixedSurface.Ground, FixedAxis.Y,
                     Fix.FromInt(mismatch == SimulationCompatibility.WorldMismatch ? 3 : 2), true)
             });
-            var configuration = new PlayerSimulationConfig(
+            var configuration = new PlayerMovementConfig(
                 Fix.FromInt(mismatch == SimulationCompatibility.ConfigurationMismatch ? 7 : 6),
                 Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
             var spatial = new SimulationSessionSpatialConfig(
@@ -375,7 +375,7 @@ namespace AFPS.Tests.EditMode
             return new SimulationWorldContext(world, configuration, SimulationStep.Step50Hz, sessionSpatial: spatial);
         }
 
-        internal static NetworkMovementSessionManager CreateManager(
+        internal static NetworkSessionCoordinator CreateManager(
             IGameTransport server,
             IGameTransport client,
             SimulationWorldContext context,
@@ -384,8 +384,8 @@ namespace AFPS.Tests.EditMode
             bool initializeClock = true,
             float durationSeconds = 300f)
         {
-            PlayerState initial = InitialState();
-            var manager = new NetworkMovementSessionManager(server, client, initial, initial, context.Configuration,
+            PlayerMovementState initial = InitialState();
+            var manager = new NetworkSessionCoordinator(server, client, initial, initial, context.MovementConfiguration,
                 0.02f, 64, 3, 16, 2, 2, 0, 0,
                 weaponConfig: context.WeaponConfiguration, simulationWorld: context,
                 deathmatchDurationSeconds: durationSeconds,
@@ -398,7 +398,7 @@ namespace AFPS.Tests.EditMode
             return manager;
         }
 
-        private static PlayerState InitialState() => new PlayerState
+        private static PlayerMovementState InitialState() => new PlayerMovementState
         {
             PositionFixed = new FixVec3(Fix.Zero, Fix.FromInt(2), Fix.Zero),
             IsGrounded = true
@@ -427,8 +427,8 @@ namespace AFPS.Tests.EditMode
             internal TransportConnectionId ActiveClientId = ClientId;
             internal readonly FakeTransport ServerTransport = new FakeTransport(TransportRole.Server);
             internal readonly FakeTransport ClientTransport = new FakeTransport(TransportRole.Client);
-            internal readonly NetworkMovementSessionManager Server;
-            internal readonly NetworkMovementSessionManager Client;
+            internal readonly NetworkSessionCoordinator Server;
+            internal readonly NetworkSessionCoordinator Client;
 
             internal Pair(
                 SimulationCompatibility mismatch = SimulationCompatibility.Compatible,
@@ -439,7 +439,7 @@ namespace AFPS.Tests.EditMode
                 var context = Context(mismatch);
                 if (clientWeapon.HasValue)
                 {
-                    context = new SimulationWorldContext(context.World, context.Configuration,
+                    context = new SimulationWorldContext(context.World, context.MovementConfiguration,
                         context.TickDeltaTime, context.CollisionLayerMask, context.SessionSpatial, clientWeapon.Value);
                 }
                 Client = CreateManager(null, ClientTransport, context);

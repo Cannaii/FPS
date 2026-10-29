@@ -12,11 +12,11 @@ namespace AFPS.NetCode.Messages
         public readonly uint EntityId;
         public readonly uint LastShotSequence;
         public readonly uint ReplayWindow;
-        public readonly AuthoritativePlayerState Movement;
+        public readonly AuthoritativeMovementState Movement;
         public readonly AuthoritativeWeaponState Weapon;
 
         public SessionRecoverySeed(uint attempt, uint entityId, uint lastShotSequence,
-            AuthoritativePlayerState movement, AuthoritativeWeaponState weapon, uint replayWindow = 32)
+            AuthoritativeMovementState movement, AuthoritativeWeaponState weapon, uint replayWindow = 32)
         {
             Attempt = attempt;
             EntityId = entityId;
@@ -31,7 +31,7 @@ namespace AFPS.NetCode.Messages
     {
         // 复用已有Raw编解码的完整内包，避免新增另一份玩家/武器字段布局。
         private const int MetadataSize = 16;
-        public const int SeedPayloadSize = MetadataSize + AuthoritativePlayerStateCodec.PacketSize + AuthoritativeWeaponStateCodec.PacketSize;
+        public const int SeedPayloadSize = MetadataSize + AuthoritativeMovementStateCodec.PacketSize + AuthoritativeWeaponStateCodec.PacketSize;
         public const int SeedPacketSize = PacketHeader.Size + SeedPayloadSize;
         public const int ReceiptPacketSize = PacketHeader.Size + 8;
 
@@ -49,10 +49,10 @@ namespace AFPS.NetCode.Messages
             if (!writer.TryWriteUInt32(seed.Attempt) || !writer.TryWriteUInt32(seed.EntityId)
                 || !writer.TryWriteUInt32(seed.LastShotSequence)
                 || !writer.TryWriteUInt32(seed.ReplayWindow)
-                || !AuthoritativePlayerStateCodec.TrySerialize(seed.Movement, epoch,
-                    Slice(destination, PacketHeader.Size + MetadataSize, AuthoritativePlayerStateCodec.PacketSize), out _)
+                || !AuthoritativeMovementStateCodec.TrySerialize(seed.Movement, epoch,
+                    Slice(destination, PacketHeader.Size + MetadataSize, AuthoritativeMovementStateCodec.PacketSize), out _)
                 || !AuthoritativeWeaponStateCodec.TrySerialize(seed.Weapon, epoch,
-                    Slice(destination, PacketHeader.Size + MetadataSize + AuthoritativePlayerStateCodec.PacketSize,
+                    Slice(destination, PacketHeader.Size + MetadataSize + AuthoritativeMovementStateCodec.PacketSize,
                         AuthoritativeWeaponStateCodec.PacketSize), out _))
             {
                 return false;
@@ -75,11 +75,11 @@ namespace AFPS.NetCode.Messages
             if (!reader.TryReadUInt32(out uint attempt) || !reader.TryReadUInt32(out uint entityId)
                 || !reader.TryReadUInt32(out uint lastShot)
                 || !reader.TryReadUInt32(out uint replayWindow)
-                || !AuthoritativePlayerStateCodec.TryDeserialize(
-                    Slice(packet, PacketHeader.Size + MetadataSize, AuthoritativePlayerStateCodec.PacketSize),
+                || !AuthoritativeMovementStateCodec.TryDeserialize(
+                    Slice(packet, PacketHeader.Size + MetadataSize, AuthoritativeMovementStateCodec.PacketSize),
                     out var movementHeader, out var movement)
                 || !AuthoritativeWeaponStateCodec.TryDeserialize(
-                    Slice(packet, PacketHeader.Size + MetadataSize + AuthoritativePlayerStateCodec.PacketSize,
+                    Slice(packet, PacketHeader.Size + MetadataSize + AuthoritativeMovementStateCodec.PacketSize,
                         AuthoritativeWeaponStateCodec.PacketSize), out var weaponHeader, out var weapon)
                 || movementHeader.Sequence != header.Sequence || weaponHeader.Sequence != header.Sequence)
             {

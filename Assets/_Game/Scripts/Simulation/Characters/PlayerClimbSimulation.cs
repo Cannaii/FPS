@@ -6,13 +6,13 @@ namespace AFPS.Simulation.Characters
 {
     public static class PlayerClimbSimulation
     {
-        public static void AdvanceTimers(ref PlayerState state, Fix deltaTime)
+        public static void AdvanceTimers(ref PlayerMovementState state, Fix deltaTime)
         {
             state.ClimbCooldownRemainingFixed = FixMath.Max(Fix.Zero, state.ClimbCooldownRemainingFixed - deltaTime);
         }
 
-        public static bool TryJump(ref PlayerState next, in PlayerState previous, in PlayerInputCommand input,
-            in PlayerSimulationConfig config)
+        public static bool TryJump(ref PlayerMovementState next, in PlayerMovementState previous, in PlayerInputCommand input,
+            in PlayerMovementConfig config)
         {
             if (!previous.IsClimbing || !input.JumpPressed)
             {
@@ -26,8 +26,8 @@ namespace AFPS.Simulation.Characters
             return true;
         }
 
-        public static FixedLadderContact Begin(ref PlayerState next, in PlayerState previous,
-            in PlayerInputCommand input, in PlayerSimulationConfig config,
+        public static FixedLadderContact Begin(ref PlayerMovementState next, in PlayerMovementState previous,
+            in PlayerInputCommand input, in PlayerMovementConfig config,
             IFixedCharacterCollisionWorld collisionWorld, FixVec3 forward, bool interrupted)
         {
             Clear(ref next);
@@ -89,7 +89,7 @@ namespace AFPS.Simulation.Characters
             return ladder;
         }
 
-        public static void Complete(ref PlayerState next, in PlayerInputCommand input,
+        public static void Complete(ref PlayerMovementState next, in PlayerInputCommand input,
             in FixedLadderContact ladder, in PlayerClimbConfig config)
         {
             if (!next.IsClimbing)
@@ -112,13 +112,13 @@ namespace AFPS.Simulation.Characters
             }
         }
 
-        public static void Detach(ref PlayerState state, in PlayerClimbConfig config)
+        public static void Detach(ref PlayerMovementState state, in PlayerClimbConfig config)
         {
             Clear(ref state);
             state.ClimbCooldownRemainingFixed = config.ReattachDelay;
         }
 
-        public static void Clear(ref PlayerState state)
+        public static void Clear(ref PlayerMovementState state)
         {
             state.IsClimbing = false;
             state.ClimbShapeId = 0;

@@ -12,13 +12,13 @@ namespace AFPS.Tests.EditMode
 
         public static ulong Run()
         {
-            var config = new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8));
+            var config = new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(30), Fix.FromInt(20), Fix.FromInt(8));
             var ladder = new FixedWorldBox(1, 0, FixedSurface.Ladder, new FixedAabb(
                 new FixVec3(Fix.FromInt(2), Fix.Zero, Fix.FromInt(-1)),
                 new FixVec3(Fix.FromRatio(21, 10), Fix.FromInt(3), Fix.One)));
             var floor = new FixedWorldPlane(2, 0, FixedSurface.Ground | FixedSurface.Solid, FixedAxis.Y, Fix.Zero);
             var world = new FixedCharacterCollisionWorld(new FixedWorld(new[] { ladder }, new[] { floor }));
-            PlayerState state = default;
+            PlayerMovementState state = default;
             ulong hash = 14695981039346656037UL;
             bool climbed = false;
             bool held = false;
@@ -30,7 +30,7 @@ namespace AFPS.Tests.EditMode
                 int phase = i % 256;
                 if (phase == 0 || phase == 140 || phase == 170 || phase == 200)
                 {
-                    state = new PlayerState
+                    state = new PlayerMovementState
                     {
                         PositionFixed = new FixVec3(Fix.FromRatio(3, 2),
                             phase == 0 ? Fix.Zero : phase == 200 ? Fix.FromRatio(1, 5) : Fix.One, Fix.Zero),
@@ -47,13 +47,13 @@ namespace AFPS.Tests.EditMode
                     DashPressed = phase == 180
                 };
                 var previous = state;
-                state = PlayerSimulation.Simulate(state, input, config, SimulationStep.Step50Hz, world);
+                state = PlayerMovementSimulation.Simulate(state, input, config, SimulationStep.Step50Hz, world);
                 climbed |= state.IsClimbing && state.VelocityFixed.Y > Fix.Zero;
                 held |= state.IsClimbing && phase >= 25 && phase < 40 && state.PositionFixed == previous.PositionFixed;
                 topExit |= previous.IsClimbing && !state.IsClimbing && state.PositionFixed.Y >= Fix.FromInt(3);
                 bottomExit |= previous.IsClimbing && !state.IsClimbing && state.PositionFixed.Y == Fix.Zero;
                 jumped |= phase == 150 && state.VelocityFixed.X < Fix.Zero && state.VelocityFixed.Y > Fix.FromInt(7);
-                ulong raw = PlayerStateHash.Compute(state);
+                ulong raw = PlayerMovementStateHash.Compute(state);
                 for (int shift = 0; shift < 64; shift += 8)
                 {
                     hash = unchecked((hash ^ ((raw >> shift) & 255UL)) * 1099511628211UL);

@@ -20,7 +20,7 @@ internal static class CapsuleWorldReplay
         }
 
         var backend = new FixedCharacterCollisionWorld(restored);
-        var config = new PlayerSimulationConfig(F(6), F(20), F(20), F(8));
+        var config = new PlayerMovementConfig(F(6), F(20), F(20), F(8));
         var random = new FixRandom(20261025);
         ulong hash = 14695981039346656037UL;
         for (int i = 0; i < 4096; i++)
@@ -39,14 +39,14 @@ internal static class CapsuleWorldReplay
             Add(ref hash, hit.StartedInside ? 1 : 0);
         }
 
-        var state = new PlayerState
+        var state = new PlayerMovementState
         {
             Tick = uint.MaxValue - 2048,
             IsGrounded = true
         };
         var inputs = new TickBuffer<PlayerInputCommand>(128);
-        var states = new TickBuffer<PlayerState>(128);
-        var packet = new byte[AuthoritativePlayerStateCodec.PacketSize];
+        var states = new TickBuffer<PlayerMovementState>(128);
+        var packet = new byte[AuthoritativeMovementStateCodec.PacketSize];
         int contacts = 0;
         for (int i = 0; i < 8192; i++)
         {
@@ -58,19 +58,19 @@ internal static class CapsuleWorldReplay
             // 连续一段移动方向，确保实际抵达墙、台阶、天花板，而非随机输入在原地抖动。
             input.TrySetEncodedControls((sbyte)(i % 400 < 200 ? 127 : -127), 127, (ushort)((i / 400 * 3700) % 36000), 0);
             inputs.Store(input.Tick, input);
-            state = PlayerSimulation.Simulate(state, input, config, SimulationStep.Step50Hz, backend);
+            state = PlayerMovementSimulation.Simulate(state, input, config, SimulationStep.Step50Hz, backend);
             states.Store(state.Tick, state);
             if (state.VelocityFixed.Y == Fix.Zero || state.VelocityFixed.X == Fix.Zero || state.VelocityFixed.Z == Fix.Zero)
             {
                 contacts++;
             }
 
-            if (!AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState((uint)i, state.Tick, state), (uint)i, new ArraySegment<byte>(packet), out _))
+            if (!AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState((uint)i, state.Tick, state), (uint)i, new ArraySegment<byte>(packet), out _))
             {
                 throw new Exception("Serialize failed");
             }
 
-            if (!AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out var authority) || !state.RawEquals(authority.State))
+            if (!AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out var authority) || !state.RawEquals(authority.State))
             {
                 throw new Exception("Raw packet mismatch");
             }
@@ -82,14 +82,14 @@ internal static class CapsuleWorldReplay
                 var corrupt = anchor;
                 corrupt.PositionFixed += new FixVec3(Fix.Epsilon, Fix.Zero, Fix.Zero);
                 states.Store(ack, corrupt);
-                var result = ClientPredictionReconciler.Reconcile(new AuthoritativePlayerState((uint)i, ack, anchor), state.Tick, state, inputs, states, config, SimulationStep.Step50Hz, backend);
-                if (result.Status != ReconciliationStatus.Corrected || !result.State.RawEquals(state))
+                var result = MovementPredictionReconciler.Reconcile(new AuthoritativeMovementState((uint)i, ack, anchor), state.Tick, state, inputs, states, config, SimulationStep.Step50Hz, backend);
+                if (result.Status != MovementReconciliationStatus.Corrected || !result.State.RawEquals(state))
                 {
                     throw new Exception("Geometry rollback mismatch");
                 }
             }
 
-            ulong raw = PlayerStateHash.Compute(state);
+            ulong raw = PlayerMovementStateHash.Compute(state);
             Add(ref hash, unchecked((int)raw));
             Add(ref hash, unchecked((int)(raw >> 32)));
         }

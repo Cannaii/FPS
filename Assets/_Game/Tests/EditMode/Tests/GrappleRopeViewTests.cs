@@ -15,8 +15,8 @@ namespace AFPS.Tests.EditMode
             try
             {
                 var view = target.AddComponent<GrappleRopeView>();
-                var config = new PlayerSimulationConfig(6f, 30f, 20f, 8f);
-                var state = new PlayerState
+                var config = new PlayerMovementConfig(6f, 30f, 20f, 8f);
+                var state = new PlayerMovementState
                 {
                     IsGrappling = true, GrappleConsumed = true, GrappleShapeId = 1,
                     GrapplePointFixed = FixVec3.Forward * Fix.FromInt(10), GrappleLengthFixed = Fix.FromInt(10)

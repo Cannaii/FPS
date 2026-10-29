@@ -7,9 +7,9 @@ namespace AFPS.Bootstrap
     /// <summary>仅显式冒烟驱动调用；通过真实UI准备，不改变服务器门禁或压缩倒计时。</summary>
     internal static class SmokeTestLobby
     {
-        public static bool EnsurePlaying(UnityNetworkMovementController movement)
+        public static bool EnsurePlaying(UnityNetworkGameplayController movement)
         {
-            var manager = movement?.SessionManager;
+            var manager = movement?.SessionCoordinator;
             if (manager == null)
             {
                 return false;
@@ -25,7 +25,7 @@ namespace AFPS.Bootstrap
             bool playing = manager.ClientLobby.Phase == LobbyPhase.Playing;
             bool prepare = !player.Ready && !player.Recovering && !manager.ClientRecoveryPending
                 && !manager.LobbyReadyPending && manager.ClientLobby.Phase == LobbyPhase.Waiting;
-            if (prepare || (playing && movement.GetComponent<NetworkConnectionMenu>() != null))
+            if (prepare || (playing && movement.GetComponent<NetworkLobbyMenu>() != null))
             {
                 foreach (var button in Object.FindObjectsOfType<Button>())
                 {

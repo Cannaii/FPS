@@ -21,8 +21,8 @@ namespace AFPS.Tests.EditMode
                 out var loaded, out var error), Is.True, error.ToString());
             Assert.That(loaded.Identity.Equals(original.Identity), Is.True);
             Assert.That(loaded.WeaponConfiguration.FireIntervalTicks, Is.EqualTo(uint.MaxValue));
-            Assert.That(loaded.Configuration.Collision.MaxSlopeAngleFixedDegrees,
-                Is.EqualTo(original.Configuration.Collision.MaxSlopeAngleFixedDegrees));
+            Assert.That(loaded.MovementConfiguration.Collision.MaxSlopeAngleFixedDegrees,
+                Is.EqualTo(original.MovementConfiguration.Collision.MaxSlopeAngleFixedDegrees));
             Assert.That(loaded.SessionSpatial.SpawnOrigin, Is.EqualTo(original.SessionSpatial.SpawnOrigin));
             CollectionAssert.AreEqual(package, SimulationWorldPackageCodec.Serialize(loaded));
             Array.Clear(envelope, 0, envelope.Length);
@@ -110,7 +110,7 @@ namespace AFPS.Tests.EditMode
             });
             var collision = new CharacterCollisionConfig(Fix.Half, Fix.FromInt(2), Fix.FromRaw(701),
                 Fix.FromRaw(6543), Fix.FromRaw(19999), Fix.FromRaw(5301862), 5);
-            var configuration = new PlayerSimulationConfig(Fix.FromRaw(400001), Fix.FromRaw(1400001),
+            var configuration = new PlayerMovementConfig(Fix.FromRaw(400001), Fix.FromRaw(1400001),
                 Fix.FromRaw(1300001), Fix.FromRaw(600001), collision,
                 new PlayerSprintConfig(Fix.FromRaw(100001), Fix.FromRaw(20001), Fix.FromRaw(17001), Fix.FromRaw(13001)),
                 new PlayerDashConfig(Fix.FromRaw(1000001), Fix.FromRaw(16001), Fix.FromRaw(100001), 3, Fix.FromRaw(14001)),

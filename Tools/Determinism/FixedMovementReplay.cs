@@ -10,17 +10,17 @@ internal static class FixedMovementReplay
 {
     private static int Main()
     {
-        var config = new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
+        var config = new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
         var world = FixedFlatGroundCollisionWorld.Instance;
-        var state = new PlayerState
+        var state = new PlayerMovementState
         {
             Tick = uint.MaxValue - 2048,
             IsGrounded = true
         };
         var random = new FixRandom(20261022);
         var inputs = new TickBuffer<PlayerInputCommand>(128);
-        var states = new TickBuffer<PlayerState>(128);
-        var packet = new byte[AuthoritativePlayerStateCodec.PacketSize];
+        var states = new TickBuffer<PlayerMovementState>(128);
+        var packet = new byte[AuthoritativeMovementStateCodec.PacketSize];
         ulong hash = 14695981039346656037UL;
         for (int i = 0; i < 8192; i++)
         {
@@ -32,14 +32,14 @@ internal static class FixedMovementReplay
             };
             input.TrySetEncodedControls((sbyte)random.NextInt(-127, 128), (sbyte)random.NextInt(-127, 128), (ushort)random.NextInt(0, 36000), (short)random.NextInt(-8990, 8991));
             inputs.Store(tick, input);
-            state = PlayerSimulation.Simulate(state, input, config, SimulationStep.Step50Hz, world);
+            state = PlayerMovementSimulation.Simulate(state, input, config, SimulationStep.Step50Hz, world);
             states.Store(tick, state);
-            if (!AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState((uint)i, tick, state), (uint)i, new ArraySegment<byte>(packet), out _))
+            if (!AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState((uint)i, tick, state), (uint)i, new ArraySegment<byte>(packet), out _))
             {
                 throw new Exception("Serialize failed");
             }
 
-            if (!AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out var authority) || !state.RawEquals(authority.State))
+            if (!AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out var authority) || !state.RawEquals(authority.State))
             {
                 throw new Exception("Raw roundtrip mismatch");
             }
@@ -51,14 +51,14 @@ internal static class FixedMovementReplay
                 var corrupted = anchor;
                 corrupted.PositionFixed += new FixVec3(Fix.Epsilon, Fix.Zero, Fix.Zero);
                 states.Store(ack, corrupted);
-                var result = ClientPredictionReconciler.Reconcile(new AuthoritativePlayerState((uint)i, ack, anchor), tick, state, inputs, states, config, SimulationStep.Step50Hz, world);
-                if (result.Status != ReconciliationStatus.Corrected || result.ReplayedTickCount != 7 || !result.State.RawEquals(state))
+                var result = MovementPredictionReconciler.Reconcile(new AuthoritativeMovementState((uint)i, ack, anchor), tick, state, inputs, states, config, SimulationStep.Step50Hz, world);
+                if (result.Status != MovementReconciliationStatus.Corrected || result.ReplayedTickCount != 7 || !result.State.RawEquals(state))
                 {
                     throw new Exception("Rollback replay mismatch");
                 }
             }
 
-            ulong raw = PlayerStateHash.Compute(state);
+            ulong raw = PlayerMovementStateHash.Compute(state);
             for (int shift = 0; shift < 64; shift += 8)
             {
                 hash = unchecked((hash ^ ((raw >> shift) & 255UL)) * 1099511628211UL);

@@ -16,7 +16,7 @@ namespace AFPS.Tests.EditMode
         [TestCase(false)]
         public void LargeStaminaChanges_SaturateBeforeIntegerConversion(bool sprinting)
         {
-            var previous = new PlayerState { IsGrounded = true, StaminaSpentFixed = Fix.Half };
+            var previous = new PlayerMovementState { IsGrounded = true, StaminaSpentFixed = Fix.Half };
             var next = previous;
             next.PositionFixed = FixVec3.Forward;
             var config = new PlayerSprintConfig(Fix.One, Fix.MaxValue, Fix.MaxValue, Fix.Half);
@@ -33,7 +33,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void BlockedMovement_DoesNotConsumeStamina()
         {
-            var previous = new PlayerState { IsGrounded = true, StaminaSpentFixed = Fix.Half };
+            var previous = new PlayerMovementState { IsGrounded = true, StaminaSpentFixed = Fix.Half };
             var next = PlayerSprintSimulation.Complete(previous, previous, Input(1),
                 PlayerSprintConfig.Default, SimulationStep.Step50Hz, true);
             Assert.That(next.IsSprinting, Is.False);
@@ -43,7 +43,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void ReleaseAtExactRecoveryThreshold_ClearsExhaustion()
         {
-            var state = new PlayerState
+            var state = new PlayerMovementState
             {
                 IsGrounded = true, SprintExhausted = true,
                 StaminaSpentFixed = Fix.One - PlayerSprintConfig.Default.RestartStamina + Fix.FromRaw(262)
@@ -53,7 +53,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(Fix.One - state.StaminaSpentFixed, Is.EqualTo(PlayerSprintConfig.Default.RestartStamina));
         }
 
-        private static PlayerSimulationConfig Config => new PlayerSimulationConfig(
+        private static PlayerMovementConfig Config => new PlayerMovementConfig(
             Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
 
         private static PlayerInputCommand Input(uint tick, bool held = true)
@@ -63,14 +63,14 @@ namespace AFPS.Tests.EditMode
             return input;
         }
 
-        private static PlayerState Step(PlayerState state, PlayerInputCommand input) =>
-            PlayerSimulation.Simulate(state, input, Config, SimulationStep.Step50Hz,
+        private static PlayerMovementState Step(PlayerMovementState state, PlayerInputCommand input) =>
+            PlayerMovementSimulation.Simulate(state, input, Config, SimulationStep.Step50Hz,
                 FixedFlatGroundCollisionWorld.Instance);
 
         [Test]
         public void Sprint_UsesSharedSpeedAndConsumesExactRawStamina()
         {
-            var state = new PlayerState { IsGrounded = true };
+            var state = new PlayerMovementState { IsGrounded = true };
             for (uint tick = 1; tick <= 50; tick++)
             {
                 state = Step(state, Input(tick));
@@ -83,7 +83,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void Exhaustion_RequiresReleaseAndRecoveryBeforeRestart()
         {
-            var state = new PlayerState { IsGrounded = true, StaminaSpentFixed = Fix.One - Fix.Epsilon };
+            var state = new PlayerMovementState { IsGrounded = true, StaminaSpentFixed = Fix.One - Fix.Epsilon };
             state = Step(state, Input(1));
             Assert.That(state.StaminaSpentFixed, Is.EqualTo(Fix.One));
             Assert.That(state.SprintExhausted, Is.True);
@@ -103,7 +103,7 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void Exhaustion_DoesNotClearBeforeRestartThreshold()
         {
-            var state = new PlayerState
+            var state = new PlayerMovementState
             {
                 IsGrounded = true, StaminaSpentFixed = Fix.One, SprintExhausted = true
             };
@@ -118,7 +118,7 @@ namespace AFPS.Tests.EditMode
         [TestCase(2)]
         public void StandingBackwardsAndAirborne_DoNotDrain(int mode)
         {
-            var state = new PlayerState { IsGrounded = mode != 2, StaminaSpentFixed = Fix.FromRatio(1, 2) };
+            var state = new PlayerMovementState { IsGrounded = mode != 2, StaminaSpentFixed = Fix.FromRatio(1, 2) };
             if (mode == 2)
             {
                 state.PositionFixed = new FixVec3(Fix.Zero, Fix.FromInt(10), Fix.Zero);
@@ -149,40 +149,40 @@ namespace AFPS.Tests.EditMode
         [Test]
         public void Authority_TransportsStaminaAndRejectsInvalidStates()
         {
-            var state = new PlayerState { Tick = 1, StaminaSpentFixed = Fix.FromRaw(12345), SprintExhausted = true };
-            var bytes = new byte[AuthoritativePlayerStateCodec.PacketSize];
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(2, 1, state),
+            var state = new PlayerMovementState { Tick = 1, StaminaSpentFixed = Fix.FromRaw(12345), SprintExhausted = true };
+            var bytes = new byte[AuthoritativeMovementStateCodec.PacketSize];
+            Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(2, 1, state),
                 1, new ArraySegment<byte>(bytes), out int count), Is.True);
             Assert.That(count, Is.EqualTo(152));
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes),
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes),
                 out _, out var decoded), Is.True);
             Assert.That(decoded.State.RawEquals(state), Is.True);
             state.IsSprinting = true;
-            Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(2, 1, state),
+            Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(2, 1, state),
                 1, new ArraySegment<byte>(bytes), out _), Is.False);
             bytes[48] = 6;
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
             bytes[48] = 0;
             bytes[52] = 1;
-            Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
+            Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
         }
 
         [Test]
         public void StaminaOnlyError_TriggersRollbackAcrossTickWrap()
         {
-            var authority = new PlayerState { Tick = uint.MaxValue, IsGrounded = true };
+            var authority = new PlayerMovementState { Tick = uint.MaxValue, IsGrounded = true };
             var predicted = authority;
             predicted.StaminaSpentFixed = Fix.Epsilon;
-            Assert.That(PlayerStateHash.Compute(authority), Is.Not.EqualTo(PlayerStateHash.Compute(predicted)));
-            var states = new TickBuffer<PlayerState>(8);
+            Assert.That(PlayerMovementStateHash.Compute(authority), Is.Not.EqualTo(PlayerMovementStateHash.Compute(predicted)));
+            var states = new TickBuffer<PlayerMovementState>(8);
             states.Store(authority.Tick, predicted);
             var inputs = new TickBuffer<PlayerInputCommand>(8);
             inputs.Store(0, Input(0));
             inputs.Store(1, Input(1));
-            PlayerState current = Step(Step(predicted, Input(0)), Input(1));
-            var result = ClientPredictionReconciler.Reconcile(new AuthoritativePlayerState(100, authority.Tick, authority),
+            PlayerMovementState current = Step(Step(predicted, Input(0)), Input(1));
+            var result = MovementPredictionReconciler.Reconcile(new AuthoritativeMovementState(100, authority.Tick, authority),
                 1, current, inputs, states, Config, SimulationStep.Step50Hz, FixedFlatGroundCollisionWorld.Instance);
-            Assert.That(result.Status, Is.EqualTo(ReconciliationStatus.Corrected));
+            Assert.That(result.Status, Is.EqualTo(MovementReconciliationStatus.Corrected));
             Assert.That(result.State.RawEquals(Step(Step(authority, Input(0)), Input(1))), Is.True);
         }
 
@@ -198,7 +198,7 @@ namespace AFPS.Tests.EditMode
                 original.DrainPerSecond + (field == 1 ? Fix.Epsilon : Fix.Zero),
                 original.RecoveryPerSecond + (field == 2 ? Fix.Epsilon : Fix.Zero),
                 original.RestartStamina + (field == 3 ? Fix.Epsilon : Fix.Zero));
-            var config = new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(20),
+            var config = new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(20),
                 Fix.FromInt(20), Fix.FromInt(8), sprint: changed);
             var world = new FixedWorld(null);
             Assert.That(new SimulationWorldContext(world, config, SimulationStep.Step50Hz).Identity.ConfigurationHash,

@@ -17,7 +17,7 @@ if ($taskFiles.Count -eq 0 -or $taskFiles.Count -gt 1024)
 New-Item -ItemType Directory -Force -Path $taskOutput | Out-Null
 . (Join-Path $PSScriptRoot 'PureSimulationSources.ps1')
 $taskSources = @(Get-AfpsPureSimulationSources -ProjectRoot $taskRoot)
-$taskSources += @('AuthoritativePlayerState.cs','AuthoritativePlayerStateCodec.cs') | ForEach-Object {
+$taskSources += @('AuthoritativeMovementState.cs','AuthoritativeMovementStateCodec.cs') | ForEach-Object {
     Join-Path $taskRoot ('Assets/_Game/Scripts/NetCode/Messages/' + $_)
 }
 $taskSources += @((Get-ChildItem (Join-Path $taskRoot 'Assets/_Game/Scripts/NetCode/Replay') -Filter '*.cs').FullName)

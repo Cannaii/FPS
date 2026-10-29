@@ -218,7 +218,7 @@ namespace AFPS.Presentation.Weapons
             }
         }
 
-        private void AdvancePresentation(float elapsed, in PlayerState state)
+        private void AdvancePresentation(float elapsed, in PlayerMovementState state)
         {
             FlashRemaining = Mathf.Max(0f, FlashRemaining - elapsed);
             if (weaponCamera != null && worldCamera != null)

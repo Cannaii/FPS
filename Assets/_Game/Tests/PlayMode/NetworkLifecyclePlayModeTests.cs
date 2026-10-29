@@ -68,7 +68,7 @@ namespace AFPS.Tests.PlayMode
             yield return Until(() => rig.Clients[0].CanEnterMatch && rig.Clients[1].CanEnterMatch, "权威开局");
         }
 
-        private ServerAuthoritativeMovementSession Authority(int client)
+        private ServerAuthoritativePlayerSession Authority(int client)
         {
             var connection = rig.FindServerConnection(rig.Clients[client].RemotePlayers.LocalEntityId);
             Assert.That(rig.Server.TryGetServerSession(connection, out var session), Is.True);

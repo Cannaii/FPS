@@ -23,9 +23,9 @@ namespace AFPS.Tests.EditMode
             var root = new GameObject("Diagnostics test");
             try
             {
-                var initial = new PlayerState { IsGrounded = true };
-                var config = new PlayerSimulationConfig(6f, 20f, 20f, 8f);
-                var manager = new NetworkMovementSessionManager(
+                var initial = new PlayerMovementState { IsGrounded = true };
+                var config = new PlayerMovementConfig(6f, 20f, 20f, 8f);
+                var manager = new NetworkSessionCoordinator(
                     server,
                     client,
                     initial,
@@ -37,8 +37,8 @@ namespace AFPS.Tests.EditMode
                     16,
                     2,
                     2,
-                    AuthoritativePlayerStateCodec.RecommendedPositionErrorThreshold,
-                    AuthoritativePlayerStateCodec.RecommendedVelocityErrorThreshold,
+                    AuthoritativeMovementStateCodec.RecommendedPositionErrorThreshold,
+                    AuthoritativeMovementStateCodec.RecommendedVelocityErrorThreshold,
                     isLocalPractice: true,
                     collisionWorld: global::AFPS.Simulation.Characters.Collision.FlatGroundCollisionWorld.Instance
                 );

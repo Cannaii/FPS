@@ -15,9 +15,9 @@ namespace AFPS.Bootstrap
             argument => argument.Equals("-afpsReconnectSmoke", StringComparison.OrdinalIgnoreCase));
 
         private UnityNetworkBootstrap bootstrap;
-        private UnityNetworkMovementController movement;
+        private UnityNetworkGameplayController movement;
         private LocalPlayerInputCollector input;
-        private NetworkMovementSessionManager originalManager;
+        private NetworkSessionCoordinator originalManager;
         private IGameTransport originalTransport;
         private uint entityId;
         private double startedAt;
@@ -31,12 +31,12 @@ namespace AFPS.Bootstrap
         private bool postRecoveryFire;
         private Vector3 origin;
 
-        public void Configure(UnityNetworkBootstrap owner, UnityNetworkMovementController controller)
+        public void Configure(UnityNetworkBootstrap owner, UnityNetworkGameplayController controller)
         {
             bootstrap = owner;
             movement = controller;
             input = FindObjectOfType<LocalPlayerInputCollector>(true);
-            originalManager = controller.SessionManager;
+            originalManager = controller.SessionCoordinator;
             originalTransport = owner.Runtime.ClientTransport;
             startedAt = Time.realtimeSinceStartupAsDouble;
             Application.runInBackground = true;
@@ -47,7 +47,7 @@ namespace AFPS.Bootstrap
         private void Update()
         {
             double now = Time.realtimeSinceStartupAsDouble;
-            var manager = movement.SessionManager;
+            var manager = movement.SessionCoordinator;
             if (manager?.ClientSession != null && !SmokeTestLobby.EnsurePlaying(movement))
             {
                 return;

@@ -89,15 +89,15 @@ namespace AFPS.Tests.EditMode
         public void PlayerSimulation_ReplayAgainstSameCollisionWorldProducesSameState()
         {
             PlaneCollisionWorld world = new PlaneCollisionWorld(new CollisionPlane(Vector3.zero, Vector3.up), new CollisionPlane(new Vector3(0.2f, 0f, 0f), Vector3.left));
-            PlayerSimulationConfig config = new PlayerSimulationConfig(6f, 20f, 20f, 8f, TestConfig());
-            PlayerState first = new PlayerState { IsGrounded = true };
-            PlayerState second = first;
+            PlayerMovementConfig config = new PlayerMovementConfig(6f, 20f, 20f, 8f, TestConfig());
+            PlayerMovementState first = new PlayerMovementState { IsGrounded = true };
+            PlayerMovementState second = first;
 
             for (uint tick = 1; tick <= 20; tick++)
             {
                 PlayerInputCommand input = new PlayerInputCommand { Tick = tick, MoveX = 1f, MoveY = 1f, JumpPressed = tick == 4 };
-                first = PlayerSimulation.Simulate(first, input, config, 0.02f, world);
-                second = PlayerSimulation.Simulate(second, input, config, 0.02f, world);
+                first = PlayerMovementSimulation.Simulate(first, input, config, 0.02f, world);
+                second = PlayerMovementSimulation.Simulate(second, input, config, 0.02f, world);
             }
 
             Assert.That(second.Tick, Is.EqualTo(first.Tick));

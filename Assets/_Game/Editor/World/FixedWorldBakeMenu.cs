@@ -76,7 +76,7 @@ namespace AFPS.Editor.World
                 foreach (GameObject root in preview.GetRootGameObjects())
                 {
                     colliders.AddRange(root.GetComponentsInChildren<Collider>(true));
-                    foreach (PlayerView player in root.GetComponentsInChildren<PlayerView>(true))
+                    foreach (LocalPlayerView player in root.GetComponentsInChildren<LocalPlayerView>(true))
                     {
                         foreach (Collider collider in player.GetComponentsInChildren<Collider>(true))
                         {

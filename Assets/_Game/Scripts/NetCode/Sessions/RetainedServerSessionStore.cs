@@ -13,10 +13,10 @@ namespace AFPS.NetCode.Sessions
     {
         private readonly struct Entry
         {
-            public readonly ServerAuthoritativeMovementSession Session;
+            public readonly ServerAuthoritativePlayerSession Session;
             public readonly uint SuspendedTick;
 
-            public Entry(ServerAuthoritativeMovementSession session, uint suspendedTick)
+            public Entry(ServerAuthoritativePlayerSession session, uint suspendedTick)
             {
                 Session = session;
                 SuspendedTick = suspendedTick;
@@ -47,7 +47,7 @@ namespace AFPS.NetCode.Sessions
             this.retentionTicks = retentionTicks;
         }
 
-        public bool TryRetain(ServerAuthoritativeMovementSession session, uint serverWorldTick)
+        public bool TryRetain(ServerAuthoritativePlayerSession session, uint serverWorldTick)
         {
             if (session == null || session.EntityId == 0 || session.IsRetainedOffline)
             {
@@ -66,7 +66,7 @@ namespace AFPS.NetCode.Sessions
 
         /// <param name="authenticatedEntityId">协议层已完成凭据校验及世界准入的实体ID，不能直接使用客户端自报ID。</param>
         public bool TryRestore(uint authenticatedEntityId, uint serverWorldTick, IGameTransport transport,
-            TransportConnectionId connection, out ServerAuthoritativeMovementSession session)
+            TransportConnectionId connection, out ServerAuthoritativePlayerSession session)
         {
             session = null;
             Expire(serverWorldTick);

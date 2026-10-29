@@ -134,7 +134,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(Weapon(next).Ammo, Is.EqualTo(4));
         }
 
-        [TestCase(NetworkMessageType.AuthoritativePlayerState)]
+        [TestCase(NetworkMessageType.AuthoritativeMovementState)]
         [TestCase(NetworkMessageType.AuthoritativeWeaponState)]
         public void PartialSeedFailure_KeepsSimulationBlockedAndAllowsSameTickRetry(NetworkMessageType failedType)
         {
@@ -286,16 +286,16 @@ namespace AFPS.Tests.EditMode
             Assert.Throws<ArgumentOutOfRangeException>(() => new RetainedServerSessionStore(capacity, ticks));
         }
 
-        private static PlayerState Initial() => new PlayerState { IsGrounded = true };
+        private static PlayerMovementState Initial() => new PlayerMovementState { IsGrounded = true };
 
-        private static ServerAuthoritativeMovementSession Create(RecordingTransport transport, uint entity = 1,
-            PlayerState? initial = null) => new ServerAuthoritativeMovementSession(
+        private static ServerAuthoritativePlayerSession Create(RecordingTransport transport, uint entity = 1,
+            PlayerMovementState? initial = null) => new ServerAuthoritativePlayerSession(
                 transport, new TransportConnectionId(1), initial ?? Initial(),
-                new PlayerSimulationConfig(Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8)),
+                new PlayerMovementConfig(Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8)),
                 0.02f, 16, maxMissingInputWaitTicks: 0, entityId: entity,
                 weaponConfig: WeaponSimulationConfig.DefaultRifle, fixedCollisionWorld: FixedFlatGroundCollisionWorld.Instance);
 
-        private static void Fire(ServerAuthoritativeMovementSession session, uint tick, uint sequence, uint worldTick)
+        private static void Fire(ServerAuthoritativePlayerSession session, uint tick, uint sequence, uint worldTick)
         {
             Feed(session, new PlayerInputCommand
             {
@@ -303,7 +303,7 @@ namespace AFPS.Tests.EditMode
             }, worldTick);
         }
 
-        private static void Feed(ServerAuthoritativeMovementSession session, PlayerInputCommand input, uint worldTick)
+        private static void Feed(ServerAuthoritativePlayerSession session, PlayerInputCommand input, uint worldTick)
         {
             Assert.That(session.TryReceiveInputPacket(Packet(input), out _), Is.True);
             Assert.That(session.TryAdvance(worldTick, out _, out _), Is.True);
@@ -330,11 +330,11 @@ namespace AFPS.Tests.EditMode
             return default;
         }
 
-        private static AuthoritativePlayerState Owner(RecordingTransport transport)
+        private static AuthoritativeMovementState Owner(RecordingTransport transport)
         {
             foreach (var packet in transport.Packets)
             {
-                if (AuthoritativePlayerStateCodec.TryDeserialize(packet.Bytes, out _, out var state))
+                if (AuthoritativeMovementStateCodec.TryDeserialize(packet.Bytes, out _, out var state))
                 {
                     return state;
                 }

@@ -14,7 +14,7 @@ namespace AFPS.Tests.EditMode
             WeaponSimulationConfig config = new WeaponSimulationConfig(3, WeaponFireMode.Hitscan, 2, 5, 25f, 150f, 0f, 1.5f);
             ServerWeaponFireController controller = new ServerWeaponFireController(config);
             PlayerInputCommand command = new PlayerInputCommand { FirePressed = true, ShotSequence = 10 };
-            PlayerState state = new PlayerState { Position = new Vector3(2f, 3f, 4f), Yaw = 90f, Pitch = 0f };
+            PlayerMovementState state = new PlayerMovementState { Position = new Vector3(2f, 3f, 4f), Yaw = 90f, Pitch = 0f };
 
             WeaponFireResult result = controller.Process(100, 7, command, state);
 
@@ -31,7 +31,7 @@ namespace AFPS.Tests.EditMode
         {
             WeaponSimulationConfig config = new WeaponSimulationConfig(1, WeaponFireMode.Hitscan, 1, 5, 20f, 100f, 0f, 1.6f);
             ServerWeaponFireController controller = new ServerWeaponFireController(config);
-            PlayerState state = new PlayerState { Yaw = 0f, Pitch = 0f };
+            PlayerMovementState state = new PlayerMovementState { Yaw = 0f, Pitch = 0f };
 
             Assert.That(controller.Process(10, 1, Fire(1), state).Accepted, Is.True);
             Assert.That(controller.Process(11, 1, Fire(1), state).RejectReason, Is.EqualTo(WeaponFireRejectReason.DuplicateOrOldSequence));
@@ -50,7 +50,7 @@ namespace AFPS.Tests.EditMode
         {
             WeaponSimulationConfig config = new WeaponSimulationConfig(1, WeaponFireMode.Hitscan, 3, 2, 20f, 100f, 0f, 1.6f);
             ServerWeaponFireController controller = new ServerWeaponFireController(config);
-            PlayerState state = new PlayerState { Yaw = 0f, Pitch = 0f };
+            PlayerMovementState state = new PlayerMovementState { Yaw = 0f, Pitch = 0f };
 
             Assert.That(controller.Process(uint.MaxValue - 1, 1, Fire(uint.MaxValue), state).Accepted, Is.True);
             Assert.That(controller.Process(0, 1, Fire(1), state).Accepted, Is.True);
@@ -61,7 +61,7 @@ namespace AFPS.Tests.EditMode
         {
             var config = new WeaponSimulationConfig(1, WeaponFireMode.Hitscan, 2, 5, 20f, 100f, 0f, 1.6f);
             var controller = new ServerWeaponFireController(config);
-            PlayerState state = default;
+            PlayerMovementState state = default;
             Assert.That(controller.Process(100, 1, Fire(1), state).Accepted, Is.True);
             controller.Process(101, 1, new PlayerInputCommand { ReloadPressed = true }, state);
             Assert.That(controller.IsReloading, Is.True);

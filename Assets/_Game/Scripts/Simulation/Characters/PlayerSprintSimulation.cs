@@ -5,11 +5,11 @@ namespace AFPS.Simulation.Characters
     /// <summary>纯数值快跑能力；碰撞由主积分器处理，本能力不查询几何、不持有全局状态。</summary>
     public static class PlayerSprintSimulation
     {
-        public static bool CanSprint(in PlayerState previous, in PlayerInputCommand input, in FixVec3 move) =>
+        public static bool CanSprint(in PlayerMovementState previous, in PlayerInputCommand input, in FixVec3 move) =>
             input.SprintHeld && move.Z > Fix.Zero && previous.IsGrounded && !input.JumpPressed
             && !previous.SprintExhausted && previous.StaminaSpentFixed < Fix.One;
 
-        public static PlayerState Complete(PlayerState next, in PlayerState previous,
+        public static PlayerMovementState Complete(PlayerMovementState next, in PlayerMovementState previous,
             in PlayerInputCommand input, in PlayerSprintConfig config, Fix tickDeltaTime, bool requested,
             bool suppressRecovery = false)
         {

@@ -24,10 +24,10 @@ namespace AFPS.Verification
         private const int WarmupTicks = 150; // 32人正式Playing后的世界Tick，排除连接/准备和首次执行开销。
         private readonly byte[] receiveBuffer = new byte[2048];
         private readonly List<GameNetworkRuntime> runtimes = new List<GameNetworkRuntime>();
-        private readonly List<NetworkMovementSessionManager> managers = new List<NetworkMovementSessionManager>();
+        private readonly List<NetworkSessionCoordinator> managers = new List<NetworkSessionCoordinator>();
         private readonly Stopwatch lifetime = Stopwatch.StartNew();
         private readonly uint[] shotSequences = new uint[PlayerCount];
-        private NetworkMovementSessionManager server;
+        private NetworkSessionCoordinator server;
         private double accumulator;
         private uint worldTick;
         private uint startedMatchTick;
@@ -137,7 +137,7 @@ namespace AFPS.Verification
                     throw new InvalidOperationException("缺少训练场FixedWorld快照。");
                 }
                 context = SimulationWorldContext.Load(new ArraySegment<byte>(snapshot.bytes),
-                    new PlayerSimulationConfig(6f, 20f, 20f, 8f), SimulationStep.Step50Hz, 1 << 8, spatial);
+                    new PlayerMovementConfig(6f, 20f, 20f, 8f), SimulationStep.Step50Hz, 1 << 8, spatial);
                 if (role == "Server")
                 {
                     tickSamples = new double[sampleTicks];
@@ -175,11 +175,11 @@ namespace AFPS.Verification
             return runtime;
         }
 
-        private NetworkMovementSessionManager CreateManager(IGameTransport serverTransport, IGameTransport clientTransport)
+        private NetworkSessionCoordinator CreateManager(IGameTransport serverTransport, IGameTransport clientTransport)
         {
-            var initial = new PlayerState { PositionFixed = context.SessionSpatial.SpawnOrigin, IsGrounded = true };
-            return new NetworkMovementSessionManager(serverTransport, clientTransport, initial, initial,
-                context.Configuration, 0.02f, 128, 3, 64, 2, 2, 0f, 0f,
+            var initial = new PlayerMovementState { PositionFixed = context.SessionSpatial.SpawnOrigin, IsGrounded = true };
+            return new NetworkSessionCoordinator(serverTransport, clientTransport, initial, initial,
+                context.MovementConfiguration, 0.02f, 128, 3, 64, 2, 2, 0f, 0f,
                 serverSpawnSpacing: context.SessionSpatial.SpawnSpacing.ToFloat(),
                 deathmatchKillLimit: 9999, deathmatchDurationSeconds: 300f, simulationWorld: context);
         }
@@ -348,7 +348,7 @@ namespace AFPS.Verification
             }
         }
 
-        private void Drain(IGameTransport transport, NetworkMovementSessionManager manager, NetworkTransportSide side)
+        private void Drain(IGameTransport transport, NetworkSessionCoordinator manager, NetworkTransportSide side)
         {
             while (transport.TryPollEvent(new ArraySegment<byte>(receiveBuffer), out var message))
             {
