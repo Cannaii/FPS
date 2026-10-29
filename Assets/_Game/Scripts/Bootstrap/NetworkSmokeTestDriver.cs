@@ -74,6 +74,10 @@ namespace AFPS.Bootstrap
             double now = Time.realtimeSinceStartupAsDouble;
             double connectionElapsed = now - configuredAt;
             NetworkMovementSessionManager manager = movementController.SessionManager;
+            if (manager?.ClientSession != null && !SmokeTestLobby.EnsurePlaying(movementController))
+            {
+                return;
+            }
             if (manager?.ClientSession == null)
             {
                 if (connectionElapsed >= ConnectionTimeoutSeconds)

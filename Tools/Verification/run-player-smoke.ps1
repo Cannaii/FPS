@@ -1,6 +1,6 @@
 ﻿param(
     [string]$PlayerPath = 'Library/AFPSVerification/Player/AFPSGame.exe',
-    [ValidateSet('Baseline', 'Combat', 'Sprint', 'Dash', 'Jump', 'Wall', 'Stance', 'WallRun', 'Climb', 'Grapple', 'Reconnect', 'Practice', 'RoomMenu', 'RoomDiscovery', 'RoomDiscoveryDedicated')]
+    [ValidateSet('Baseline', 'Combat', 'Sprint', 'Dash', 'Jump', 'Wall', 'Stance', 'WallRun', 'Climb', 'Grapple', 'Reconnect', 'Practice', 'RoomMenu', 'RoomDiscovery', 'RoomDiscoveryDedicated', 'LobbyReady')]
     [string]$Scenario = 'Baseline',
     [string]$OutputDirectory,
     [ValidateRange(1, 65534)][int]$BasePort = 18100,
@@ -21,7 +21,7 @@ if (!(Test-Path -LiteralPath $taskPlayer))
 {
     throw ('Player does not exist: ' + $taskPlayer)
 }
-if ($Capture -and $Scenario -notin @('Practice', 'RoomMenu', 'RoomDiscovery'))
+if ($Capture -and $Scenario -notin @('Practice', 'RoomMenu', 'RoomDiscovery', 'LobbyReady'))
 {
     throw 'Capture is supported only by the Practice and RoomMenu scenarios.'
 }
@@ -34,7 +34,7 @@ if ($GracefulServerExit -and $Scenario -eq 'Reconnect')
     # 重连回归会主动制造暂时空服，不能把这个中间阶段当作最终离开而关闭独服。
     throw 'GracefulServerExit is not supported by the Reconnect scenario.'
 }
-if ($Scenario -in @('RoomMenu', 'RoomDiscovery') -and ($ConcurrentRooms -or $GracefulServerExit))
+if ($Scenario -in @('RoomMenu', 'RoomDiscovery', 'LobbyReady') -and ($ConcurrentRooms -or $GracefulServerExit))
 {
     throw 'RoomMenu validates one graphical Host/Client room.'
 }
@@ -61,6 +61,7 @@ $taskFlags = @{
     Reconnect = @('-afpsReconnectSmoke', 'AFPS_RECONNECT_RESULT')
     Practice = @('-afpsPracticeSmoke', 'AFPS_PRACTICE_RESULT')
     RoomMenu = @('-afpsRoomMenuSmoke', 'AFPS_ROOMMENU_RESULT')
+    LobbyReady = @('-afpsRoomMenuSmoke', 'AFPS_ROOMMENU_RESULT')
     RoomDiscovery = @('-afpsRoomMenuSmoke', 'AFPS_ROOMMENU_RESULT')
     RoomDiscoveryDedicated = @('-afpsRoomMenuSmoke', 'AFPS_ROOMMENU_RESULT')
 }
@@ -70,7 +71,7 @@ $taskFailure = $null
 try
 {
     $taskRooms = if ($Scenario -eq 'Practice') { @('Practice') } else { @('Host', 'Dedicated') }
-    if ($Scenario -in @('RoomMenu', 'RoomDiscovery'))
+    if ($Scenario -in @('RoomMenu', 'RoomDiscovery', 'LobbyReady'))
     {
         $taskRooms = @('Host')
     }
@@ -142,12 +143,16 @@ try
                         $taskArguments += '-afpsPracticeCapture'
                     }
                 }
-                elseif ($Scenario -in @('RoomMenu', 'RoomDiscovery', 'RoomDiscoveryDedicated') -and $taskSpec.Mode -ne 'Server')
+                elseif ($Scenario -in @('RoomMenu', 'RoomDiscovery', 'RoomDiscoveryDedicated', 'LobbyReady') -and $taskSpec.Mode -ne 'Server')
                 {
                     # 不传-afpsMode，必须经过真实启动菜单；共享文件只用于传递Host实际显示的房间码。
                     $taskArguments += @('-force-d3d11', '-screen-width', $ScreenWidth, '-screen-height', $ScreenHeight,
                         '-afpsRoomMenuRole', $taskSpec.Mode, '-afpsRoomMenuPort', $taskSpec.Port,
                         '-afpsRoomMenuCodeFile', ($taskBarrier + '.code'))
+                    if ($Scenario -eq 'LobbyReady')
+                    {
+                        $taskArguments += '-afpsLobbyCancelTest'
+                    }
                     if ($Scenario -in @('RoomDiscovery', 'RoomDiscoveryDedicated'))
                     {
                         $taskArguments += '-afpsRoomDiscoveryJoin'

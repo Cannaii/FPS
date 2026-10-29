@@ -12,8 +12,8 @@ namespace AFPS.NetCode.Protocol
         /// <summary>
         /// 当前协议版本；产生不兼容的二进制布局变化时必须递增。
         /// </summary>
-        // v26的对局玩家标志增加在线位；掉线保留名单与实际在线人数分开，旧端不得误读。
-        public const byte CurrentProtocolVersion = 26;
+        // v27接入独立大厅准备命令和权威快照，旧自动开局客户端不得混入准备房间。
+        public const byte CurrentProtocolVersion = 27;
         /// <summary>
         /// 固定包头占用的字节数。
         /// </summary>

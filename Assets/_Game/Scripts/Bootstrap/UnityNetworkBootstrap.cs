@@ -131,6 +131,7 @@ namespace AFPS.Bootstrap
         /// </summary>
         public GameNetworkRuntime Runtime { get; private set; }
         public ClientReconnectController Reconnect { get; private set; }
+        internal NetworkLaunchOptions ActiveOptions => activeOptions;
 
         /// <summary>
         /// 当前成功启动的实际模式，供运行时 UI 和后续会话组装读取。

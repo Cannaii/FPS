@@ -264,6 +264,9 @@ namespace AFPS.NetCode.Sessions
             this.tickDeltaTime = tickDeltaTime;
             timeSyncClock = monotonicMicroseconds ?? ReadMonotonicMicroseconds;
             tickDeltaTimeFixed = SimulationStep.FromSeconds(tickDeltaTime);
+            // 固定3秒对局规则，按已规范化步长向上取整；不是新增可调模拟配置。
+            long stepRaw = System.Math.Max(1, tickDeltaTimeFixed.Raw);
+            lobby = new LobbyStartGate((uint)((3L * Fix.One.Raw + stepRaw - 1) / stepRaw));
             this.predictionHistoryCapacity = predictionHistoryCapacity;
             this.inputRedundancyCount = inputRedundancyCount;
             this.serverInputWindowCapacity = serverInputWindowCapacity;
@@ -379,6 +382,7 @@ namespace AFPS.NetCode.Sessions
                     serverInputWindowCapacity, maxMissingInputWaitTicks, maxRepeatedMovementTicks,
                     collisionWorld, entityId, weaponConfig, WorldContext?.CollisionWorld));
                 serverEntityIds.Add(connectionId, entityId);
+                RegisterLobbyMember(entityId);
                 allServerSessions.Add(entityId, serverSessions[connectionId]);
                 serverSessions[connectionId].EnableAdaptiveInputWindow(serverTickRate);
                 serverSessions[connectionId].StateDrift.Compared += OnStateHashCompared;
@@ -414,6 +418,7 @@ namespace AFPS.NetCode.Sessions
             RemotePlayers?.Clear();
             clientSnapshotBaselines.Clear();
             ClientDeathmatchState = null;
+            ResetClientLobby();
             DeathmatchStateVersion = 0;
             hasReceivedDeathmatchSequence = false;
             return true;
@@ -434,6 +439,8 @@ namespace AFPS.NetCode.Sessions
                 }
 
                 bool retained = admission != null && retainedSessions.TryRetain(session, latestServerWorldTick);
+                lobby.Disconnect(entityId);
+                lobbyDirty = true;
                 serverSessions.Remove(connectionId);
                 serverEntityIds.Remove(connectionId);
                 timeSyncResponders.Remove(connectionId);
@@ -465,6 +472,7 @@ namespace AFPS.NetCode.Sessions
             RemotePlayers?.Clear();
             clientSnapshotBaselines.Clear();
             ClientDeathmatchState = null;
+            ResetClientLobby();
             DeathmatchStateVersion = 0;
             hasReceivedDeathmatchSequence = false;
             return true;
@@ -483,6 +491,10 @@ namespace AFPS.NetCode.Sessions
 
             if (side == NetworkTransportSide.Server)
             {
+                if (header.MessageType == NetworkMessageType.LobbyReady)
+                {
+                    return ReceiveLobbyReady(connectionId, packet);
+                }
                 if (header.MessageType == NetworkMessageType.ClientStateHashReport)
                 {
                     return ReceiveClientStateHash(connectionId, packet);
@@ -586,6 +598,8 @@ namespace AFPS.NetCode.Sessions
                     ClientDeathmatchState = matchState;
                     DeathmatchStateVersion = unchecked(DeathmatchStateVersion + 1);
                     return true;
+                case NetworkMessageType.LobbySnapshot:
+                    return ReceiveLobbySnapshot(packet);
                 default:
                     return false;
             }
@@ -618,6 +632,7 @@ namespace AFPS.NetCode.Sessions
             // 普通 Client 也调用此入口推进准入时钟；等待握手时不存在预测会话。
             admission?.Advance(serverWorldTick);
             latestServerWorldTick = serverWorldTick;
+            FlushLobbyReady();
             AdvanceClientRecovery();
             ExpireRetainedSessions();
             AdvanceRecoveringConnections();
@@ -632,7 +647,7 @@ namespace AFPS.NetCode.Sessions
                 {
                     continue;
                 }
-                pair.Value.GameplayEnabled = deathmatchPhase != DeathmatchPhase.Finished && IsServerPlayerAlive(entityId);
+                pair.Value.GameplayEnabled = deathmatchPhase == DeathmatchPhase.Playing && IsServerPlayerAlive(entityId);
                 pair.Value.WeaponEnabled = deathmatchPhase == DeathmatchPhase.Playing && IsServerPlayerAlive(entityId);
                 if (!timeSyncResponders.TryGetValue(pair.Key, out var responder)
                     || !responder.RoundTrip.HasFreshSample(networkQualityNow))
@@ -668,6 +683,7 @@ namespace AFPS.NetCode.Sessions
             RecordCurrentHitboxes(serverWorldTick);
             ResolveCombatTick(serverWorldTick);
             ReplicateDeathmatchState(serverWorldTick);
+            ReplicateLobby(serverWorldTick);
 
             Metrics.LastServerTickMicroseconds = ElapsedMicroseconds(tickStarted);
             if (Metrics.LastServerTickMicroseconds > Metrics.MaximumServerTickMicroseconds) Metrics.MaximumServerTickMicroseconds = Metrics.LastServerTickMicroseconds;
@@ -834,6 +850,12 @@ namespace AFPS.NetCode.Sessions
 
         private void ResetEmptyDeathmatch()
         {
+            if (lobby.Phase == LobbyPhase.Playing)
+            {
+                lobby.Finish();
+            }
+            lobby.BeginNextRound();
+            lobbyDirty = true;
             // 一人离开不打断当前比赛；最后一人离开才恢复等待，供常驻服务器开启下一局。
             deathmatchPhase = DeathmatchPhase.WaitingForPlayers;
             deathmatchStartTick = 0;
@@ -849,7 +871,14 @@ namespace AFPS.NetCode.Sessions
 
         private void UpdateDeathmatchBeforeSimulation(uint serverWorldTick)
         {
-            if (deathmatchPhase == DeathmatchPhase.WaitingForPlayers && serverSessions.Count >= (IsLocalPractice ? 1 : 2))
+            if (!IsLocalPractice)
+            {
+                var previous = lobby.Phase;
+                lobby.Advance(serverWorldTick);
+                lobbyDirty |= previous != lobby.Phase;
+            }
+            if (deathmatchPhase == DeathmatchPhase.WaitingForPlayers
+                && (IsLocalPractice ? serverSessions.Count >= 1 : lobby.Phase == LobbyPhase.Playing))
             {
                 deathmatchPhase = DeathmatchPhase.Playing;
                 deathmatchStartTick = serverWorldTick;
@@ -934,6 +963,8 @@ namespace AFPS.NetCode.Sessions
 
         private void FinishDeathmatch(uint winnerEntityId)
         {
+            lobby.Finish();
+            lobbyDirty = true;
             deathmatchPhase = DeathmatchPhase.Finished;
             deathmatchWinnerEntityId = winnerEntityId;
             deathmatchStateDirty = true;

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using AFPS.Input;
 using AFPS.NetCode.Runtime;
+using AFPS.NetCode.Match;
 using AFPS.NetCode.Sessions;
 using TMPro;
 using UnityEngine;
@@ -58,7 +59,25 @@ namespace AFPS.Bootstrap
             Cursor.visible = true;
             EnsureEventSystem();
             BuildMenu();
-            StartBrowsing();
+            if (bootstrap.Runtime == null)
+            {
+                StartBrowsing();
+            }
+            else
+            {
+                SetButtonsInteractable(false);
+                portInput.text = bootstrap.ActiveOptions.Port.ToString();
+                addressInput.text = bootstrap.ActiveOptions.ServerAddress;
+                discoveryPanel.gameObject.SetActive(false);
+                mainPanel.anchoredPosition = Vector2.zero;
+                if (bootstrap.ActiveMode == NetworkLaunchMode.Host
+                    && RoomCode.TryEncode(localAddress, bootstrap.ActiveOptions.Port, out string code, out _))
+                {
+                    CurrentRoomCode = code;
+                    roomCodeText.text = "房间码：" + code;
+                    copyRoomCodeButton.interactable = true;
+                }
+            }
         }
 
         private void Update()
@@ -94,9 +113,20 @@ namespace AFPS.Bootstrap
                     EnterGame();
                     return;
                 }
-                string message = bootstrap.ActiveMode == NetworkLaunchMode.Host
-                    ? $"房间地址：{localAddress}:{portInput.text}\n地图验证通过，可以进入游戏。"
-                    : "地图验证通过，可以进入游戏。";
+                var manager = movement.SessionManager;
+                bool hasPlayer = manager.TryGetLocalLobbyPlayer(out var player);
+                var phase = manager.ClientLobby?.Phase;
+                enterButton.GetComponentInChildren<TextMeshProUGUI>().text = phase == LobbyPhase.Playing ? "进入游戏"
+                    : phase == LobbyPhase.Finished ? "查看结果" : manager.LobbyReadyPending ? "等待服务器确认…"
+                    : hasPlayer && player.Ready ? "取消准备" : "准备";
+                enterButton.interactable = phase == LobbyPhase.Playing || phase == LobbyPhase.Finished
+                    || (hasPlayer && player.Connected && !player.Recovering && !manager.ClientRecoveryPending
+                        && !manager.LobbyReadyPending);
+                string message = phase == LobbyPhase.Playing ? "对局已开始，可以进入游戏。"
+                    : phase == LobbyPhase.Finished ? "本局已结束，可以查看结果。"
+                    : phase == LobbyPhase.Countdown ? $"全部玩家已准备，{manager.LobbyCountdownSeconds} 秒后开局。"
+                    : hasPlayer ? player.Ready ? "已准备，等待其他在线玩家。" : "地图验证通过，请点击准备。"
+                    : "正在同步大厅状态…";
                 SetStatus(message, false);
             }
             else if (!string.IsNullOrEmpty(movement.ConnectionStatusMessage))
@@ -156,6 +186,15 @@ namespace AFPS.Bootstrap
             UnityNetworkMovementController movement = bootstrap.GetComponent<UnityNetworkMovementController>();
             if (movement == null || !movement.CanEnterGame)
             {
+                return;
+            }
+            var manager = movement.SessionManager;
+            if (!manager.IsLocalPractice && !manager.CanEnterMatch && manager.ClientLobby?.Phase != LobbyPhase.Finished)
+            {
+                if (manager.TryGetLocalLobbyPlayer(out var player))
+                {
+                    manager.TrySetLobbyReady(!player.Ready);
+                }
                 return;
             }
 

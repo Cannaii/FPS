@@ -26,7 +26,7 @@ namespace AFPS.Tests.EditMode
             pair.Flush();
             Assert.That(pair.Client.RemotePlayers.LocalEntityId, Is.EqualTo(1));
             Assert.That(pair.Client.ClientResumeCredential.IsValid, Is.False);
-            pair.Client.AdvanceServerSessions(2);
+            RunningMatchFixture.Advance(pair.Client, 2);
             pair.Flush();
             Assert.That(pair.Client.ClientResumeCredential.IsValid, Is.True);
             var original = pair.Client.ClientResumeCredential;
@@ -43,18 +43,18 @@ namespace AFPS.Tests.EditMode
             var pair = Connected();
             pair.Server.TryGetServerSession(ServerId, out var original);
             var state = original.CurrentState;
-            pair.Server.AdvanceServerSessions(100);
+            RunningMatchFixture.Advance(pair.Server, 100);
             state = original.CurrentState;
             Assert.That(pair.Server.HandleDisconnected(NetworkTransportSide.Server, ServerId), Is.True);
             Assert.That(pair.Server.HandleDisconnected(NetworkTransportSide.Server, ServerId), Is.False);
             Assert.That(pair.Server.ServerSessionCount, Is.Zero);
             Assert.That(pair.Server.RetainedServerSessionCount, Is.EqualTo(1));
             Assert.That(original.IsRetainedOffline, Is.True);
-            pair.Server.AdvanceServerSessions(1599);
+            RunningMatchFixture.Advance(pair.Server, 1599);
             Assert.That(original.CurrentState.RawEquals(state), Is.True);
             Assert.That(pair.Server.TryGetServerHealth(1, out float health), Is.True);
             Assert.That(health, Is.EqualTo(100));
-            pair.Server.AdvanceServerSessions(1600);
+            RunningMatchFixture.Advance(pair.Server, 1600);
             Assert.That(pair.Server.RetainedServerSessionCount, Is.Zero);
             Assert.That(pair.Server.TryGetServerHealth(1, out _), Is.False);
             Assert.That(pair.Server.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.WaitingForPlayers));
@@ -68,7 +68,7 @@ namespace AFPS.Tests.EditMode
             pair.Server.TryGetServerSession(ServerId, out var original);
             pair.Server.TryHandleData(NetworkTransportSide.Server, ServerId,
                 InputPacket(new PlayerInputCommand { Tick = 1, MoveY = 1f }), out _);
-            pair.Server.AdvanceServerSessions(100);
+            RunningMatchFixture.Advance(pair.Server, 100);
             var before = original.CurrentState;
             pair.Server.HandleDisconnected(NetworkTransportSide.Server, ServerId);
             Assert.That(Resume(pair, Replacement, pair.Client.ClientResumeCredential), Is.True);
@@ -80,7 +80,7 @@ namespace AFPS.Tests.EditMode
             var input = InputPacket(new PlayerInputCommand { Tick = 2, MoveY = 1f });
             Assert.That(pair.Server.TryHandleData(NetworkTransportSide.Server, ServerId, input, out _), Is.False);
             Assert.That(pair.Server.TryHandleData(NetworkTransportSide.Server, Replacement, input, out _), Is.False);
-            pair.Server.AdvanceServerSessions(101);
+            RunningMatchFixture.Advance(pair.Server, 101);
             Assert.That(restored.CurrentState.RawEquals(before), Is.True);
             foreach (var packet in pair.ServerTransport.Sent.FindAll(p => p.Connection.Equals(Replacement)))
             {
@@ -111,7 +111,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(Resume(pair, Replacement, pair.Client.ClientResumeCredential), Is.True);
             Assert.That(original.RecoverySnapshotPending, Is.True);
             var before = original.CurrentState;
-            pair.Server.AdvanceServerSessions(1);
+            RunningMatchFixture.Advance(pair.Server, 1);
             Assert.That(original.RecoverySnapshotPending, Is.False);
             Assert.That(original.CurrentState.RawEquals(before), Is.True);
             Assert.That(pair.Server.IsServerRecoveryPending(Replacement), Is.True);
@@ -124,11 +124,11 @@ namespace AFPS.Tests.EditMode
             pair.Server.HandleDisconnected(NetworkTransportSide.Server, ServerId);
             Assert.That(Resume(pair, Replacement, pair.Client.ClientResumeCredential), Is.True);
             pair.Server.TryGetServerSession(Replacement, out var original);
-            pair.Server.AdvanceServerSessions(249);
+            RunningMatchFixture.Advance(pair.Server, 249);
             Assert.That(Ready(pair, Replacement, 2), Is.True);
             Assert.That(pair.Server.TryGetServerSession(Replacement, out var same), Is.True);
             Assert.That(same, Is.SameAs(original));
-            pair.Server.AdvanceServerSessions(250);
+            RunningMatchFixture.Advance(pair.Server, 250);
             Assert.That(pair.Server.ServerSessionCount, Is.Zero);
             Assert.That(pair.Server.RetainedServerSessionCount, Is.EqualTo(1));
             Assert.That(pair.ServerTransport.Disconnected, Does.Contain(Replacement));
@@ -196,7 +196,7 @@ namespace AFPS.Tests.EditMode
             var pair = Connected();
             var shooter = new TransportConnectionId(40);
             Admit(pair, shooter, 3);
-            pair.Server.AdvanceServerSessions(100);
+            RunningMatchFixture.Advance(pair.Server, 100);
             pair.Server.HandleDisconnected(NetworkTransportSide.Server, ServerId);
             for (uint shot = 1; shot <= 5; shot++)
             {
@@ -204,7 +204,7 @@ namespace AFPS.Tests.EditMode
                 {
                     Tick = shot, LookYaw = -90f, FirePressed = true, ShotSequence = shot
                 }), out _), Is.True);
-                pair.Server.AdvanceServerSessions(100 + shot * 5);
+                RunningMatchFixture.Advance(pair.Server, 100 + shot * 5);
             }
             Assert.That(pair.Server.TryGetServerDeathmatchPlayer(1, out var victim), Is.True);
             Assert.That(victim.Health, Is.Zero);
@@ -213,10 +213,10 @@ namespace AFPS.Tests.EditMode
             Assert.That(attacker.Kills, Is.EqualTo(1));
             Assert.That(pair.ServerTransport.Sent.Exists(p => p.Connection.Equals(shooter)
                 && p.Type == NetworkMessageType.RemotePlayerSnapshot), Is.True);
-            pair.Server.AdvanceServerSessions(274);
+            RunningMatchFixture.Advance(pair.Server, 274);
             Assert.That(pair.Server.TryGetServerHealth(1, out float health), Is.True);
             Assert.That(health, Is.Zero);
-            pair.Server.AdvanceServerSessions(275);
+            RunningMatchFixture.Advance(pair.Server, 275);
             Assert.That(pair.Server.TryGetServerHealth(1, out health), Is.True);
             Assert.That(health, Is.EqualTo(100));
             Assert.That(Resume(pair, Replacement, pair.Client.ClientResumeCredential), Is.True);
@@ -231,13 +231,13 @@ namespace AFPS.Tests.EditMode
             var pair = Connected();
             var second = new TransportConnectionId(40);
             Admit(pair, second, 3);
-            pair.Server.AdvanceServerSessions(100);
+            RunningMatchFixture.Advance(pair.Server, 100);
             pair.Server.HandleDisconnected(NetworkTransportSide.Server, ServerId);
             pair.Server.HandleDisconnected(NetworkTransportSide.Server, second);
             Assert.That(pair.Server.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.Playing));
-            pair.Server.AdvanceServerSessions(1599);
+            RunningMatchFixture.Advance(pair.Server, 1599);
             Assert.That(pair.Server.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.Playing));
-            pair.Server.AdvanceServerSessions(1600);
+            RunningMatchFixture.Advance(pair.Server, 1600);
             Assert.That(pair.Server.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.WaitingForPlayers));
             Assert.That(pair.Server.RetainedServerSessionCount, Is.Zero);
         }
@@ -246,11 +246,11 @@ namespace AFPS.Tests.EditMode
         public void RetentionDeadline_SupportsWorldTickWrap()
         {
             var pair = Connected();
-            pair.Server.AdvanceServerSessions(uint.MaxValue - 5);
+            RunningMatchFixture.Advance(pair.Server, uint.MaxValue - 5);
             pair.Server.HandleDisconnected(NetworkTransportSide.Server, ServerId);
-            pair.Server.AdvanceServerSessions(1493);
+            RunningMatchFixture.Advance(pair.Server, 1493);
             Assert.That(pair.Server.RetainedServerSessionCount, Is.EqualTo(1));
-            pair.Server.AdvanceServerSessions(1494);
+            RunningMatchFixture.Advance(pair.Server, 1494);
             Assert.That(pair.Server.RetainedServerSessionCount, Is.Zero);
         }
 
@@ -269,13 +269,13 @@ namespace AFPS.Tests.EditMode
             var pair = Connected();
             var observer = new TransportConnectionId(40);
             Admit(pair, observer, 3);
-            pair.Server.AdvanceServerSessions(100);
+            RunningMatchFixture.Advance(pair.Server, 100);
             AssertPresence(pair, observer, 2, 2, true);
             pair.Server.HandleDisconnected(NetworkTransportSide.Server, ServerId);
-            pair.Server.AdvanceServerSessions(101);
+            RunningMatchFixture.Advance(pair.Server, 101);
             AssertPresence(pair, observer, 2, 1, false);
             Assert.That(Resume(pair, Replacement, pair.Client.ClientResumeCredential), Is.True);
-            pair.Server.AdvanceServerSessions(102);
+            RunningMatchFixture.Advance(pair.Server, 102);
             AssertPresence(pair, observer, 2, 2, true);
         }
 
@@ -347,10 +347,10 @@ namespace AFPS.Tests.EditMode
             pair.Flush();
             var second = new TransportConnectionId(40);
             Admit(pair, second, 3);
-            pair.Server.AdvanceServerSessions(100);
+            RunningMatchFixture.Advance(pair.Server, 100);
             pair.Server.HandleDisconnected(NetworkTransportSide.Server, ServerId);
             pair.Server.HandleDisconnected(NetworkTransportSide.Server, second);
-            pair.Server.AdvanceServerSessions(105);
+            RunningMatchFixture.Advance(pair.Server, 105);
             Assert.That(pair.Server.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.Finished));
             Assert.That(Resume(pair, Replacement, pair.Client.ClientResumeCredential), Is.True);
             Assert.That(pair.Server.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.Finished));
@@ -362,11 +362,11 @@ namespace AFPS.Tests.EditMode
             var pair = Connected();
             var observer = new TransportConnectionId(40);
             Admit(pair, observer, 3);
-            pair.Server.AdvanceServerSessions(100);
+            RunningMatchFixture.Advance(pair.Server, 100);
             pair.Server.HandleDisconnected(NetworkTransportSide.Server, ServerId);
             pair.ServerTransport.Sent.Clear();
             pair.ServerTransport.FailType = NetworkMessageType.PlayerDespawn;
-            pair.Server.AdvanceServerSessions(1600);
+            RunningMatchFixture.Advance(pair.Server, 1600);
             Assert.That(pair.Server.TryGetServerHealth(1, out _), Is.False);
             Assert.That(pair.ServerTransport.Sent.Exists(p => p.Connection.Equals(observer)
                 && p.Type == NetworkMessageType.PlayerDespawn), Is.True);

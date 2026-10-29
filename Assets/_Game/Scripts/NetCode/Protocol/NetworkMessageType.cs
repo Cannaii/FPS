@@ -27,6 +27,8 @@ namespace AFPS.NetCode.Protocol
         SessionRecoveryAck = 19,
         SessionRecoveryConfirmed = 20,
         ClientStateHashReport = 21,
-        TimeSyncAcknowledgement = 22
+        TimeSyncAcknowledgement = 22,
+        LobbyReady = 23,
+        LobbySnapshot = 24
     }
 }

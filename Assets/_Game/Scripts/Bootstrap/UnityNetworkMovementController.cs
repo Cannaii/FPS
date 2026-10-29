@@ -343,6 +343,11 @@ namespace AFPS.Bootstrap
 
             Debug.Log($"AFPS 定点世界已装配：{preparedWorld.Identity.WorldHash}，配置={preparedWorld.Identity.ConfigurationHash}。", this);
             initialized = true;
+            // 显式CLI启动也需要玩家确认准备，不能因绕过连接菜单而静默自动开局。
+            if (hasLocalClient && !sessionManager.IsLocalPractice && GetComponent<NetworkConnectionMenu>() == null)
+            {
+                gameObject.AddComponent<NetworkConnectionMenu>().Initialize(networkBootstrap);
+            }
             var debugPanel = GetComponent<NetworkDebugPanel>();
             if (debugPanel == null)
             {
@@ -762,7 +767,7 @@ namespace AFPS.Bootstrap
 
         private bool IsLocalGameplayActive()
         {
-            if (!CanEnterGame || !sessionManager.CanPredictClientInput)
+            if (!CanEnterGame || !sessionManager.CanPredictClientInput || !sessionManager.CanEnterMatch)
             {
                 return false;
             }

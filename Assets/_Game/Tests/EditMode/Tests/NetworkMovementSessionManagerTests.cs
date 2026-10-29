@@ -222,7 +222,7 @@ namespace AFPS.Tests.EditMode
             }
             transport.SentPackets.Clear();
             transport.SentConnectionIds.Clear();
-            manager.AdvanceServerSessions(100);
+            RunningMatchFixture.Advance(manager, 100);
             Assert.That(ContainsFullSnapshotFor(transport, observer, 2), Is.True);
             Assert.That(ContainsFullSnapshotFor(transport, observer, 3), Is.False);
             Assert.That(manager.Metrics.SnapshotPacketsSent, Is.EqualTo(24));
@@ -243,10 +243,10 @@ namespace AFPS.Tests.EditMode
             targetSession.Teleport(new FixVec3(Fix.FromRaw(655425537), Fix.Zero, Fix.Zero));
             transport.SentPackets.Clear();
             transport.SentConnectionIds.Clear();
-            manager.AdvanceServerSessions(100);
+            RunningMatchFixture.Advance(manager, 100);
             Assert.That(ContainsFullSnapshotFor(transport, observer, 2), Is.False);
             targetSession.Teleport(new FixVec3(Fix.FromRaw(655425536), Fix.Zero, Fix.Zero));
-            manager.AdvanceServerSessions(101);
+            RunningMatchFixture.Advance(manager, 101);
             Assert.That(ContainsFullSnapshotFor(transport, observer, 2), Is.True);
         }
 
@@ -333,6 +333,7 @@ namespace AFPS.Tests.EditMode
             TransportConnectionId clientConnection = new TransportConnectionId(20);
             manager.HandleConnected(NetworkTransportSide.Server, serverConnection);
             manager.HandleConnected(NetworkTransportSide.Client, clientConnection);
+            RunningMatchFixture.Start(manager, 100);
             serverTransport.SentPackets.Clear();
             serverTransport.SentConnectionIds.Clear();
 
@@ -342,7 +343,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(predictedState.Tick, Is.EqualTo(1));
             Assert.That(manager.TryHandleData(NetworkTransportSide.Server, serverConnection, clientTransport.SentPackets[0], out _), Is.True);
 
-            Assert.That(manager.AdvanceServerSessions(100), Is.EqualTo(1));
+            Assert.That(RunningMatchFixture.Advance(manager, 100), Is.EqualTo(1));
             ArraySegment<byte> authoritativePacket = FindPacket(serverTransport, NetworkMessageType.AuthoritativePlayerState);
             Assert.That(authoritativePacket.Array, Is.Not.Null);
             Assert.That(manager.TryHandleData(NetworkTransportSide.Client, clientConnection, authoritativePacket, out ReconciliationResult reconciliation), Is.True);
@@ -368,7 +369,7 @@ namespace AFPS.Tests.EditMode
 
             Assert.That(manager.TryHandleData(NetworkTransportSide.Server, firstConnection, CreateInputPacket(1, 0f), out _), Is.True);
             Assert.That(manager.TryHandleData(NetworkTransportSide.Server, secondConnection, CreateInputPacket(1, 90f), out _), Is.True);
-            Assert.That(manager.AdvanceServerSessions(100), Is.EqualTo(2));
+            Assert.That(RunningMatchFixture.Advance(manager, 100), Is.EqualTo(2));
 
             int remoteSnapshotCount = 0;
             for (int i = 0; i < serverTransport.SentPackets.Count; i++)
@@ -426,7 +427,7 @@ namespace AFPS.Tests.EditMode
 
             Assert.That(manager.TryHandleData(NetworkTransportSide.Server, shooterConnection, CreateInputPacket(new PlayerInputCommand { Tick = 1, LookYaw = 90f, FirePressed = true, ShotSequence = 1 }), out _), Is.True);
             Assert.That(manager.TryHandleData(NetworkTransportSide.Server, targetConnection, CreateInputPacket(new PlayerInputCommand { Tick = 1 }), out _), Is.True);
-            Assert.That(manager.AdvanceServerSessions(100), Is.EqualTo(2));
+            Assert.That(RunningMatchFixture.Advance(manager, 100), Is.EqualTo(2));
 
             int resultPackets = 0;
             for (int i = 0; i < serverTransport.SentPackets.Count; i++)
@@ -667,7 +668,7 @@ namespace AFPS.Tests.EditMode
                 Assert.That(manager.TryHandleData(NetworkTransportSide.Server, connections[i], CreateInputPacket(new PlayerInputCommand { Tick = 1 }), out _), Is.True);
             }
 
-            Assert.That(manager.AdvanceServerSessions(100), Is.EqualTo(6));
+            Assert.That(RunningMatchFixture.Advance(manager, 100), Is.EqualTo(6));
             Dictionary<TransportConnectionId, int> snapshotsPerClient = new Dictionary<TransportConnectionId, int>();
             for (int i = 0; i < serverTransport.SentPackets.Count; i++)
             {
@@ -761,7 +762,7 @@ namespace AFPS.Tests.EditMode
                     Assert.That(manager.TryHandleData(NetworkTransportSide.Server, connection,
                         CreateInputPacket(new PlayerInputCommand { Tick = tick }), out _), Is.True);
                 }
-                Assert.That(manager.AdvanceServerSessions(99 + tick), Is.EqualTo(3));
+                Assert.That(RunningMatchFixture.Advance(manager, 99 + tick), Is.EqualTo(3));
             }
             Assert.That(manager.Metrics.SnapshotPacketsSent, Is.EqualTo(6));
         }
@@ -880,7 +881,7 @@ namespace AFPS.Tests.EditMode
                 Assert.That(manager.TryHandleData(NetworkTransportSide.Server, connections[i], CreateInputPacket(new PlayerInputCommand { Tick = 1 }), out _), Is.True);
             }
 
-            Assert.That(manager.AdvanceServerSessions(100), Is.EqualTo(playerCount));
+            Assert.That(RunningMatchFixture.Advance(manager, 100), Is.EqualTo(playerCount));
             Assert.That(manager.Metrics.SnapshotPacketsSent, Is.EqualTo((ulong)(playerCount * perClientBudget)));
             Assert.That(manager.Metrics.LastServerTickMicroseconds, Is.LessThan(1000000), "64 玩家测试 Tick 不应超过一秒的安全上限。");
         }
@@ -898,7 +899,7 @@ namespace AFPS.Tests.EditMode
                 CreateInputPacket(new PlayerInputCommand { Tick = 1, MoveY = 1f, GrappleHeld = true }), out _);
             for (uint tick = 100; tick <= 105; tick++)
             {
-                manager.AdvanceServerSessions(tick);
+                RunningMatchFixture.Advance(manager, tick);
             }
             Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.NeutralFallback));
             var request = new byte[TimeSyncCodec.RequestPacketSize];
@@ -912,7 +913,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(session.RepeatedMovementLimitTicks, Is.EqualTo(5));
             for (uint tick = 106; tick <= 109; tick++)
             {
-                manager.AdvanceServerSessions(tick);
+                RunningMatchFixture.Advance(manager, tick);
             }
             Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.NeutralFallback));
             Assert.That(session.LastAppliedInput.MoveY, Is.Zero);
@@ -958,6 +959,7 @@ namespace AFPS.Tests.EditMode
                 }
 
                 // 真实UTP收发，应用层故障释放时间/RTT采用可控微秒时钟；不冒充实际广域网耗时。
+                RunningMatchFixture.Start(server, 1);
                 for (uint tick = 1; tick <= 800; tick++)
                 {
                     now += 20000;
@@ -974,7 +976,7 @@ namespace AFPS.Tests.EditMode
                             Tick = unchecked(client.ClientSession.CurrentState.Tick + 1), MoveY = 1f
                         }, out _, out _);
                     }
-                    server.AdvanceServerSessions(tick);
+                    RunningMatchFixture.Advance(server, tick);
                     if (owner.IsValid && server.TryGetServerSession(owner, out var session))
                     {
                         maximumWait = System.Math.Max(maximumWait, session.InputWaitLimitTicks);
@@ -1032,17 +1034,17 @@ namespace AFPS.Tests.EditMode
             var first = CreateInputPacket(new PlayerInputCommand { Tick = 1, MoveY = 1f });
             manager.TryHandleData(NetworkTransportSide.Server, connection, first, out _);
             fixedWait.TryReceiveInputPacket(first, out _);
-            manager.AdvanceServerSessions(100);
+            RunningMatchFixture.Advance(manager, 100);
             fixedWait.TryAdvance(100, out _, out _);
             for (uint tick = 101; tick <= 103; tick++)
             {
-                manager.AdvanceServerSessions(tick);
+                RunningMatchFixture.Advance(manager, tick);
                 fixedWait.TryAdvance(tick, out _, out _);
             }
             var delayed = CreateInputPacket(new PlayerInputCommand { Tick = 2, MoveX = 1f });
             manager.TryHandleData(NetworkTransportSide.Server, connection, delayed, out _);
             fixedWait.TryReceiveInputPacket(delayed, out _);
-            manager.AdvanceServerSessions(104);
+            RunningMatchFixture.Advance(manager, 104);
             fixedWait.TryAdvance(104, out _, out _);
             Assert.That(adaptive.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.ReceivedInput));
             Assert.That(fixedWait.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.RepeatedContinuousInput));
@@ -1087,34 +1089,34 @@ namespace AFPS.Tests.EditMode
 
             manager.TryHandleData(NetworkTransportSide.Server, owner,
                 CreateInputPacket(new PlayerInputCommand { Tick = 1, MoveY = 1f, FirePressed = true, ShotSequence = 1 }), out _);
-            manager.AdvanceServerSessions(100);
+            RunningMatchFixture.Advance(manager, 100);
             // Tick2丢失、Tick3已到：只等待一次有界窗口，然后跳过缺口，不为每个替代Tick重新等待。
             manager.TryHandleData(NetworkTransportSide.Server, owner,
                 CreateInputPacket(new PlayerInputCommand { Tick = 3, MoveX = 1f }), out _);
             for (uint tick = 101; tick <= 105; tick++)
             {
-                manager.AdvanceServerSessions(tick);
+                RunningMatchFixture.Advance(manager, tick);
                 Assert.That(session.CurrentState.Tick, Is.EqualTo(1));
             }
-            manager.AdvanceServerSessions(106);
+            RunningMatchFixture.Advance(manager, 106);
             Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.RepeatedContinuousInput));
             Assert.That(session.LastAppliedInput.FirePressed, Is.False);
             Assert.That(session.LastAppliedInput.ShotSequence, Is.Zero);
             Assert.That(session.LastAppliedInput.MoveY, Is.EqualTo(1f));
             Assert.That(session.TryReceiveInputPacket(CreateInputPacket(new PlayerInputCommand { Tick = 2 }), out var late), Is.True);
             Assert.That(late.DuplicateCommandCount, Is.EqualTo(1));
-            manager.AdvanceServerSessions(107);
+            RunningMatchFixture.Advance(manager, 107);
             Assert.That(session.CurrentState.Tick, Is.EqualTo(3));
             Assert.That(session.MissingInputWaitTicks, Is.Zero);
             for (uint tick = 108; tick <= 118; tick++)
             {
-                manager.AdvanceServerSessions(tick);
+                RunningMatchFixture.Advance(manager, tick);
             }
             Assert.That(session.LastAdvanceStatus, Is.EqualTo(ServerInputAdvanceStatus.NeutralFallback));
             Assert.That(session.LastAppliedInput.MoveX, Is.Zero);
             Assert.That(manager.Metrics.ServerRepeatedInputTicks, Is.GreaterThanOrEqualTo(6));
             now += 3000001;
-            manager.AdvanceServerSessions(119);
+            RunningMatchFixture.Advance(manager, 119);
             Assert.That(manager.TryGetServerNetworkQuality(owner, out _, out _), Is.False);
             Assert.That(session.InputWaitLimitTicks, Is.EqualTo(2));
             Assert.That(session.RepeatedMovementLimitTicks, Is.EqualTo(2));
@@ -1307,7 +1309,7 @@ namespace AFPS.Tests.EditMode
                     clientTransport.SentPackets[clientTransport.SentPackets.Count - 1], out _), Is.True);
                 manager.TryHandleData(NetworkTransportSide.Server, other,
                     CreateInputPacket(new PlayerInputCommand { Tick = tick }), out _);
-                manager.AdvanceServerSessions(99 + tick);
+                RunningMatchFixture.Advance(manager, 99 + tick);
                 for (int index = 0; index < serverTransport.SentPackets.Count; index++)
                 {
                     var packet = serverTransport.SentPackets[index];
@@ -1459,21 +1461,21 @@ namespace AFPS.Tests.EditMode
             Assert.That(manager.ServerDeathmatchPhase, Is.EqualTo(previousPhase));
             Assert.That(manager.HandleDisconnected(NetworkTransportSide.Server, second), Is.True);
             Assert.That(manager.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.WaitingForPlayers));
-            Assert.That(manager.AdvanceServerSessions(500), Is.Zero);
+            Assert.That(RunningMatchFixture.Advance(manager, 500), Is.Zero);
 
             manager.HandleConnected(NetworkTransportSide.Server, first);
             manager.TryGetServerEntityId(first, out uint newEntity);
             Assert.That(newEntity, Is.GreaterThan(previousEntity));
             manager.TryHandleData(NetworkTransportSide.Server, first,
                 CreateInputPacket(new PlayerInputCommand { Tick = 1 }), out _);
-            Assert.That(manager.AdvanceServerSessions(600), Is.EqualTo(1));
+            Assert.That(RunningMatchFixture.Advance(manager, 600), Is.EqualTo(1));
             Assert.That(manager.ServerDeathmatchPhase, Is.EqualTo(DeathmatchPhase.WaitingForPlayers));
             manager.HandleConnected(NetworkTransportSide.Server, second);
             manager.TryHandleData(NetworkTransportSide.Server, first,
                 CreateInputPacket(new PlayerInputCommand { Tick = 2 }), out _);
             manager.TryHandleData(NetworkTransportSide.Server, second,
                 CreateInputPacket(new PlayerInputCommand { Tick = 1 }), out _);
-            Assert.That(manager.AdvanceServerSessions(700), Is.EqualTo(2));
+            Assert.That(RunningMatchFixture.Advance(manager, 700), Is.EqualTo(2));
             Assert.That(DeathmatchStateCodec.TryDeserialize(
                 FindPacket(transport, NetworkMessageType.DeathmatchState, true), out var newHeader, out var state), Is.True);
             Assert.That(newHeader.Sequence, Is.GreaterThan(previousHeader.Sequence));
@@ -1547,7 +1549,7 @@ namespace AFPS.Tests.EditMode
                 CreateInputPacket(new PlayerInputCommand { Tick = inputTick }), out _);
             manager.TryHandleData(NetworkTransportSide.Server, late,
                 CreateInputPacket(new PlayerInputCommand { Tick = 1 }), out _);
-            Assert.That(manager.AdvanceServerSessions(serverTick), Is.EqualTo(3));
+            Assert.That(RunningMatchFixture.Advance(manager, serverTick), Is.EqualTo(3));
             bool receivedRound = false;
             bool receivedWeapon = false;
             for (int i = 0; i < transport.SentPackets.Count; i++)
@@ -1632,7 +1634,7 @@ namespace AFPS.Tests.EditMode
             manager.HandleDisconnected(NetworkTransportSide.Server, second);
             manager.TryHandleData(NetworkTransportSide.Server, first,
                 CreateInputPacket(new PlayerInputCommand { Tick = 2 }), out _);
-            Assert.That(manager.AdvanceServerSessions(105), Is.EqualTo(1));
+            Assert.That(RunningMatchFixture.Advance(manager, 105), Is.EqualTo(1));
             Assert.That(DeathmatchStateCodec.TryDeserialize(
                 FindPacket(transport, NetworkMessageType.DeathmatchState, true), out _, out var state), Is.True);
             Assert.That(state.Phase, Is.EqualTo(DeathmatchPhase.Playing));
@@ -1641,7 +1643,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(state.TryGetPlayer(departedEntity, out _), Is.False);
             manager.TryHandleData(NetworkTransportSide.Server, first,
                 CreateInputPacket(new PlayerInputCommand { Tick = 3 }), out _);
-            manager.AdvanceServerSessions(110);
+            RunningMatchFixture.Advance(manager, 110);
             Assert.That(DeathmatchStateCodec.TryDeserialize(
                 FindPacket(transport, NetworkMessageType.DeathmatchState, true), out _, out state), Is.True);
             Assert.That(state.WinnerEntityId, Is.EqualTo(remainingEntity));
@@ -1667,7 +1669,7 @@ namespace AFPS.Tests.EditMode
                 CreateInputPacket(new PlayerInputCommand { Tick = 2 }), out _);
             manager.TryHandleData(NetworkTransportSide.Server, late,
                 CreateInputPacket(new PlayerInputCommand { Tick = 1 }), out _);
-            Assert.That(manager.AdvanceServerSessions(105), Is.EqualTo(2));
+            Assert.That(RunningMatchFixture.Advance(manager, 105), Is.EqualTo(2));
             Assert.That(DeathmatchStateCodec.TryDeserialize(
                 FindPacket(transport, NetworkMessageType.DeathmatchState, true), out _, out var state), Is.True);
             Assert.That(state.Phase, Is.EqualTo(DeathmatchPhase.Finished));
@@ -1961,7 +1963,7 @@ namespace AFPS.Tests.EditMode
             targetCommand.Tick = inputTick;
             Assert.That(manager.TryHandleData(NetworkTransportSide.Server, shooter, CreateInputPacket(shooterCommand), out _), Is.True);
             Assert.That(manager.TryHandleData(NetworkTransportSide.Server, target, CreateInputPacket(targetCommand), out _), Is.True);
-            Assert.That(manager.AdvanceServerSessions(serverTick), Is.EqualTo(2));
+            Assert.That(RunningMatchFixture.Advance(manager, serverTick), Is.EqualTo(2));
         }
 
         private static bool FindLastShotResult(FakeTransport transport, out AFPS.NetCode.Weapons.AuthoritativeShotResult result)

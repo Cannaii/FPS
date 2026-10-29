@@ -58,6 +58,10 @@ namespace AFPS.Bootstrap
         {
             double now = Time.realtimeSinceStartupAsDouble;
             var manager = movement.SessionManager;
+            if (manager?.ClientSession != null && !SmokeTestLobby.EnsurePlaying(movement))
+            {
+                return;
+            }
             if (manager?.ClientSession == null || manager.RemotePlayers == null || manager.RemotePlayers.Count == 0
                 || manager.ClientDeathmatchState == null || manager.ClientDeathmatchState.Phase != DeathmatchPhase.Playing)
             {

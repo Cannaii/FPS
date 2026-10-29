@@ -87,6 +87,7 @@ namespace AFPS.NetCode.Sessions
             }
             serverSessions.Add(connectionId, session);
             serverEntityIds.Add(connectionId, entityId);
+            RegisterLobbyMember(entityId, recovering: true);
             serverSnapshotStates.Add(connectionId, new Dictionary<uint, RemoteSnapshotSendState>());
             serverVisibleEntities.Add(connectionId, new HashSet<uint>());
             timeSyncResponders.Add(connectionId, new ServerTimeSyncResponder(serverTransport, connectionId));
@@ -166,6 +167,17 @@ namespace AFPS.NetCode.Sessions
                 }
                 recoveringConnections.Remove(connectionId);
                 recoveringEntityIds.Remove(entityId);
+                var snapshot = lobby.Snapshot();
+                for (int index = 0; index < snapshot.PlayerCount; index++)
+                {
+                    var member = snapshot.GetPlayer(index);
+                    if (member.EntityId == entityId)
+                    {
+                        lobby.ConfirmRecovery(entityId, member.MembershipEpoch);
+                        lobbyDirty = true;
+                        break;
+                    }
+                }
             }
             // 已放行后的重复ACK只重发确认；不能再次创建、重置或补发旧种子。
             SendRecoveryReceipt(serverTransport, connectionId, NetworkMessageType.SessionRecoveryConfirmed,
@@ -233,6 +245,8 @@ namespace AFPS.NetCode.Sessions
 
         private void RemoveServerEntity(uint entityId)
         {
+            lobby.Remove(entityId);
+            lobbyDirty = true;
             if (allServerSessions.TryGetValue(entityId, out var removedSession))
             {
                 removedSession.StateDrift.Compared -= OnStateHashCompared;

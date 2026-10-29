@@ -48,6 +48,10 @@ namespace AFPS.Bootstrap
         {
             double now = Time.realtimeSinceStartupAsDouble;
             var manager = movement.SessionManager;
+            if (manager?.ClientSession != null && !SmokeTestLobby.EnsurePlaying(movement))
+            {
+                return;
+            }
             if (now - startedAt >= 25)
             {
                 Finish(false, "自动重连回归超时。" + bootstrap.Reconnect.Message);

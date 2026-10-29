@@ -52,7 +52,7 @@ namespace AFPS.Tests.EditMode
             Confirm(pair);
             Assert.That(pair.Client.CanPredictClientInput, Is.False);
             var original = pair.Client.ClientSession;
-            pair.Client.AdvanceServerSessions(126);
+            RunningMatchFixture.Advance(pair.Client, 126);
             FlushOwnPackets(pair);
             Assert.That(pair.Client.CanPredictClientInput, Is.True);
             Assert.That(pair.Client.ClientSession, Is.SameAs(original));
@@ -118,11 +118,11 @@ namespace AFPS.Tests.EditMode
             Assert.That(pair.Client.ClientShotSequenceFloor, Is.EqualTo(17));
             Confirm(pair);
             Assert.That(pair.Client.CanPredictClientInput, Is.False);
-            pair.Client.AdvanceServerSessions(102);
+            RunningMatchFixture.Advance(pair.Client, 102);
             Assert.That(pair.Client.ClientSession.CurrentState.Tick, Is.EqualTo(4));
             Assert.That(pair.Client.PendingRecoveryInputCount, Is.EqualTo(4));
             FlushOwnPackets(pair);
-            pair.Client.AdvanceServerSessions(103);
+            RunningMatchFixture.Advance(pair.Client, 103);
             Assert.That(pair.Client.ClientSession.CurrentState.Tick, Is.EqualTo(8));
             Assert.That(pair.Client.PendingRecoveryInputCount, Is.Zero);
             Assert.That(pair.Client.CanPredictClientInput, Is.True);
@@ -148,12 +148,12 @@ namespace AFPS.Tests.EditMode
             PredictUnsent(pair, 8);
             pair.Server.HandleDisconnected(NetworkTransportSide.Server, ServerId);
             pair.Client.HandleDisconnected(NetworkTransportSide.Client, ClientId);
-            pair.Server.AdvanceServerSessions(105);
+            RunningMatchFixture.Advance(pair.Server, 105);
             ConnectReplacement(pair);
             FlushOwnPackets(pair);
-            pair.Server.AdvanceServerSessions(106);
+            RunningMatchFixture.Advance(pair.Server, 106);
             FlushOwnPackets(pair);
-            pair.Client.AdvanceServerSessions(106);
+            RunningMatchFixture.Advance(pair.Client, 106);
             FlushOwnPackets(pair);
             Assert.That(pair.Client.PendingRecoveryInputCount, Is.Zero);
             Assert.That(pair.Client.CanPredictClientInput, Is.True);
@@ -173,7 +173,7 @@ namespace AFPS.Tests.EditMode
                 Handshake(NetworkMessageType.SimulationReady, 1, pair.Server.WorldContext.Identity), out _);
             // 第二个服务器测试连接没有客户端，不能把其分配包路由给本地玩家。
             pair.ServerTransport.Pending.Clear();
-            pair.Server.AdvanceServerSessions(100);
+            RunningMatchFixture.Advance(pair.Server, 100);
             FlushOwnPackets(pair);
             return pair;
         }
@@ -195,7 +195,7 @@ namespace AFPS.Tests.EditMode
                         FirePressed = true,
                         ShotSequence = shot
                     }), out _), Is.True);
-                pair.Server.AdvanceServerSessions(100 + shot * 5);
+                RunningMatchFixture.Advance(pair.Server, 100 + shot * 5);
             }
             Assert.That(authority.CurrentState.RawEquals(seed.Movement.State), Is.True);
             Assert.That(pair.Server.TryGetServerDeathmatchPlayer(seed.EntityId, out var player), Is.True);
@@ -214,7 +214,7 @@ namespace AFPS.Tests.EditMode
             var pair = Playing(0.1f);
             Reconnect(pair);
             SessionRecoveryCodec.TryReadSeed(SeedPacket(pair), out uint epoch, out var seed);
-            pair.Server.AdvanceServerSessions(105);
+            RunningMatchFixture.Advance(pair.Server, 105);
             byte[] bytes = new byte[SessionRecoveryCodec.ReceiptPacketSize];
             SessionRecoveryCodec.TryWriteReceipt(NetworkMessageType.SessionRecoveryAck,
                 seed.Attempt, epoch, seed.EntityId, new ArraySegment<byte>(bytes), out _);
@@ -258,9 +258,9 @@ namespace AFPS.Tests.EditMode
 
         private static void Confirm(Pair pair)
         {
-            pair.Server.AdvanceServerSessions(101);
+            RunningMatchFixture.Advance(pair.Server, 101);
             FlushOwnPackets(pair);
-            pair.Client.AdvanceServerSessions(101);
+            RunningMatchFixture.Advance(pair.Client, 101);
             FlushOwnPackets(pair);
         }
 

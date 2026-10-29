@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using AFPS.Input;
 using AFPS.NetCode.Runtime;
+using AFPS.NetCode.Match;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,6 +28,13 @@ namespace AFPS.Bootstrap
         private bool invalidRejected;
         private bool discoveryJoin;
         private bool discovered;
+        private bool capturedCountdown;
+        private bool sawCountdown;
+        private bool cancelMode;
+        private bool canceled;
+        private bool cancelConfirmed;
+        private bool restartedCountdown;
+        private double reReadyAt;
 
         public void Configure(UnityNetworkBootstrap owner)
         {
@@ -36,6 +44,7 @@ namespace AFPS.Bootstrap
             started = Time.realtimeSinceStartupAsDouble;
             string[] arguments = Environment.GetCommandLineArgs();
             discoveryJoin = Array.Exists(arguments, argument => argument == "-afpsRoomDiscoveryJoin");
+            cancelMode = Array.Exists(arguments, argument => argument == "-afpsLobbyCancelTest");
             for (int index = 0; index + 1 < arguments.Length; index++)
             {
                 if (arguments[index] == "-afpsRoomMenuRole")
@@ -155,6 +164,59 @@ namespace AFPS.Bootstrap
                 return;
             }
             var enter = Button("Enter Button");
+            var manager = movement.SessionManager;
+            // 菜单可能比测试驱动晚一帧刷新，等实际文字更新后再截图和取消准备。
+            bool countdownVisible = FindObjectsOfType<TextMeshProUGUI>()
+                .Any(text => text.text.Contains("秒后开局"))
+                && enter != null
+                && enter.GetComponentInChildren<TextMeshProUGUI>().text == "取消准备";
+            if (manager.ClientLobby?.Phase == LobbyPhase.Countdown)
+            {
+                sawCountdown = true;
+                restartedCountdown |= cancelConfirmed;
+                if (!capturedCountdown && countdownVisible
+                    && Array.Exists(Environment.GetCommandLineArgs(), value => value == "-afpsRoomMenuCapture"))
+                {
+                    PracticeSmokeTestDriver.CaptureCameras(
+                        Path.Combine(Path.GetDirectoryName(codePath), "countdown-" + role.ToLowerInvariant() + ".png"), true);
+                    capturedCountdown = true;
+                }
+            }
+            if (cancelMode && role == "Host" && manager.TryGetLocalLobbyPlayer(out var current))
+            {
+                if (!canceled && manager.ClientLobby.Phase == LobbyPhase.Countdown
+                    && countdownVisible && current.Ready && !manager.LobbyReadyPending
+                    && enter != null && enter.interactable)
+                {
+                    enter.onClick.Invoke();
+                    canceled = true;
+                    return;
+                }
+                if (canceled && !cancelConfirmed && manager.ClientLobby.Phase == LobbyPhase.Waiting
+                    && !current.Ready && !manager.LobbyReadyPending)
+                {
+                    cancelConfirmed = true;
+                    reReadyAt = Time.realtimeSinceStartupAsDouble + 0.5;
+                }
+                if (canceled && (!cancelConfirmed || Time.realtimeSinceStartupAsDouble < reReadyAt))
+                {
+                    return;
+                }
+            }
+            if (!manager.CanEnterMatch)
+            {
+                if (input != null && input.enabled)
+                {
+                    Finish(false, "inputEnabledBeforePlaying=True");
+                    return;
+                }
+                if (manager.TryGetLocalLobbyPlayer(out var local) && !local.Ready && !manager.LobbyReadyPending
+                    && enter != null && enter.interactable)
+                {
+                    enter.onClick.Invoke();
+                }
+                return;
+            }
             bool chineseCount = FindObjectsOfType<TextMeshProUGUI>()
                 .Any(text => text.text.Contains("在线玩家：2") && text.text.Contains("暂离玩家：0"));
             if (enter == null || !chineseCount)
@@ -175,10 +237,12 @@ namespace AFPS.Bootstrap
             }
             enter.onClick.Invoke();
             bool passed = input != null && input.enabled && match.PlayerCount == 2
-                && (role == "Host" ? codePublished : discoveryJoin ? discovered : invalidRejected);
+                && sawCountdown && (role == "Host" ? codePublished : discoveryJoin ? discovered : invalidRejected)
+                && (!cancelMode || role != "Host" || (cancelConfirmed && restartedCountdown));
             Finish(passed, $"role={role} codeJoin=True online={match.OnlinePlayerCount}"
                 + $" total={match.PlayerCount} entered={input != null && input.enabled} invalidRejected={invalidRejected}"
-                + $" discovered={discovered} hudHidden=True");
+                + $" discovered={discovered} countdown={sawCountdown} canceled={cancelConfirmed}"
+                + $" restarted={restartedCountdown} hudHidden=True");
         }
 
         private static Button Button(string name)

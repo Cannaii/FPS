@@ -40,6 +40,10 @@ namespace AFPS.Bootstrap
         {
             double now = Time.realtimeSinceStartupAsDouble;
             var manager = movement.SessionManager;
+            if (manager?.ClientSession != null && !SmokeTestLobby.EnsurePlaying(movement))
+            {
+                return;
+            }
             if (manager?.ClientSession == null)
             {
                 if (Passed || now - configuredAt > 25d)
