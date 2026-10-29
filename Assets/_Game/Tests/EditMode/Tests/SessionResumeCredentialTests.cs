@@ -24,7 +24,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(length, Is.EqualTo(48));
             CollectionAssert.AreEqual(new byte[]
             {
-                0x41, 0x46, 0x50, 0x53, 25, 16, 36, 0, 0x11, 0x12, 0x13, 0x14,
+                0x41, 0x46, 0x50, 0x53, 26, 16, 36, 0, 0x11, 0x12, 0x13, 0x14,
                 1, 2, 3, 4
             }, new ArraySegment<byte>(bytes, 3, 16));
             for (int i = 0; i < 32; i++)

@@ -9,7 +9,7 @@ namespace AFPS.NetCode.Messages
     public static class DeathmatchStateCodec
     {
         public const int FixedPayloadSize = 14;
-        // 每玩家 15B：实体 4B、Q16.16 血量 4B、击杀/死亡/重生 Tick 各 2B、存活标志 1B。
+        // 每玩家15B：实体4B、Q16.16血量4B、击杀/死亡/重生Tick各2B、标志1B（bit0存活，bit1在线）。
         public const int PlayerPayloadSize = 15;
         public const int MaximumPlayerCount = 64;
         public const int MaximumPacketSize = PacketHeader.Size + FixedPayloadSize + MaximumPlayerCount * PlayerPayloadSize;
@@ -54,7 +54,7 @@ namespace AFPS.NetCode.Messages
                     || !writer.TryWriteUInt16(player.Kills)
                     || !writer.TryWriteUInt16(player.Deaths)
                     || !writer.TryWriteUInt16(player.RespawnTicksRemaining)
-                    || !writer.TryWriteByte(player.IsAlive ? (byte)1 : (byte)0))
+                    || !writer.TryWriteByte((byte)((player.IsAlive ? 1 : 0) | (player.IsConnected ? 2 : 0))))
                 {
                     return false;
                 }
@@ -100,12 +100,13 @@ namespace AFPS.NetCode.Messages
                     || !reader.TryReadUInt16(out ushort deaths)
                     || !reader.TryReadUInt16(out ushort respawnTicks)
                     || !reader.TryReadByte(out byte flags)
-                    || flags > 1)
+                    || flags > 3)
                 {
                     return false;
                 }
 
-                players[i] = new DeathmatchPlayerState(entityId, Fix.FromRaw(health), kills, deaths, respawnTicks, flags == 1);
+                players[i] = new DeathmatchPlayerState(entityId, Fix.FromRaw(health), kills, deaths,
+                    respawnTicks, (flags & 1) != 0, (flags & 2) != 0);
             }
 
             if (reader.BytesRemaining != 0)

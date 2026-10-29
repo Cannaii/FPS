@@ -1,0 +1,171 @@
+using System;
+using System.IO;
+using System.Linq;
+using AFPS.Input;
+using AFPS.NetCode.Runtime;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace AFPS.Bootstrap
+{
+    /// <summary>仅显式启动：通过真实菜单创建房间、复制房间码及加入，验证权威人数后进入游戏。</summary>
+    public sealed class RoomMenuSmokeTestDriver : MonoBehaviour
+    {
+        public static bool IsRequested => Array.Exists(Environment.GetCommandLineArgs(),
+            argument => argument.Equals("-afpsRoomMenuSmoke", StringComparison.OrdinalIgnoreCase));
+
+        private UnityNetworkBootstrap bootstrap;
+        private UnityNetworkMovementController movement;
+        private LocalPlayerInputCollector input;
+        private double started;
+        private string role;
+        private string codePath;
+        private ushort port;
+        private bool clicked;
+        private bool codePublished;
+        private bool invalidRejected;
+
+        public void Configure(UnityNetworkBootstrap owner)
+        {
+            bootstrap = owner;
+            movement = owner.GetComponent<UnityNetworkMovementController>();
+            input = FindObjectOfType<LocalPlayerInputCollector>(true);
+            started = Time.realtimeSinceStartupAsDouble;
+            string[] arguments = Environment.GetCommandLineArgs();
+            for (int index = 0; index + 1 < arguments.Length; index++)
+            {
+                if (arguments[index] == "-afpsRoomMenuRole")
+                {
+                    role = arguments[index + 1];
+                }
+                else if (arguments[index] == "-afpsRoomMenuCodeFile")
+                {
+                    codePath = arguments[index + 1];
+                }
+                else if (arguments[index] == "-afpsRoomMenuPort")
+                {
+                    ushort.TryParse(arguments[index + 1], out port);
+                }
+            }
+            Application.runInBackground = true;
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = 60;
+        }
+
+        private void Update()
+        {
+            if ((role != "Host" && role != "Client") || port == 0 || string.IsNullOrEmpty(codePath))
+            {
+                Finish(false, "invalidArguments=True");
+                return;
+            }
+            // 秒，单调实时时间；测试不延长协议准入超时，也不自动重建失败的会话。
+            if (Time.realtimeSinceStartupAsDouble - started > 25)
+            {
+                Finish(false, $"timeout=True clicked={clicked}");
+                return;
+            }
+            var menu = bootstrap.GetComponent<NetworkConnectionMenu>();
+            if (menu == null)
+            {
+                return;
+            }
+            if (!clicked)
+            {
+                var fields = FindObjectsOfType<TMP_InputField>();
+                var portField = fields.FirstOrDefault(field => field.name == "Port");
+                var addressField = fields.FirstOrDefault(field => field.name == "Server Address");
+                if (portField == null || addressField == null)
+                {
+                    return;
+                }
+                if (role == "Host")
+                {
+                    portField.text = port.ToString();
+                    Button("Host Button").onClick.Invoke();
+                }
+                else
+                {
+                    if (!File.Exists(codePath))
+                    {
+                        return;
+                    }
+                    addressField.text = "AF1-R2M0-250Y-C4PRC";
+                    Button("Join Button").onClick.Invoke();
+                    invalidRejected = bootstrap.Runtime == null;
+                    addressField.text = File.ReadAllText(codePath);
+                    // 故意填写另一个有效端口，证明菜单确实使用房间码内的端口。
+                    portField.text = "1";
+                    Button("Join Button").onClick.Invoke();
+                }
+                clicked = true;
+            }
+            if (role == "Host" && !codePublished && !string.IsNullOrEmpty(menu.CurrentRoomCode))
+            {
+                string previousClipboard = GUIUtility.systemCopyBuffer;
+                bool copied;
+                try
+                {
+                    Button("Copy Room Code Button").onClick.Invoke();
+                    copied = GUIUtility.systemCopyBuffer == menu.CurrentRoomCode;
+                }
+                finally
+                {
+                    GUIUtility.systemCopyBuffer = previousClipboard;
+                }
+                if (!copied || !RoomCode.TryDecode(menu.CurrentRoomCode, out _, out ushort decoded, out _)
+                    || decoded != port)
+                {
+                    Finish(false, "copyOrPortMismatch=True");
+                    return;
+                }
+                // 先写临时文件再原子改名，客户端不能读到房间码写入一半的中间态。
+                File.WriteAllText(codePath + ".tmp", menu.CurrentRoomCode);
+                File.Move(codePath + ".tmp", codePath);
+                codePublished = true;
+            }
+            var match = movement.SessionManager?.ClientDeathmatchState;
+            if (!movement.CanEnterGame || match == null || match.OnlinePlayerCount != 2)
+            {
+                return;
+            }
+            var enter = Button("Enter Button");
+            bool chineseCount = FindObjectsOfType<TextMeshProUGUI>()
+                .Any(text => text.text.Contains("在线玩家：2") && text.text.Contains("暂离玩家：0"));
+            if (enter == null || !chineseCount)
+            {
+                return;
+            }
+            var combatHud = FindObjectsOfType<Canvas>(true).FirstOrDefault(canvas => canvas.name == "Deathmatch HUD");
+            if (combatHud == null || combatHud.enabled)
+            {
+                return;
+            }
+            bool capture = Array.Exists(Environment.GetCommandLineArgs(),
+                argument => argument == "-afpsRoomMenuCapture");
+            if (capture)
+            {
+                PracticeSmokeTestDriver.CaptureCameras(
+                    Path.Combine(Path.GetDirectoryName(codePath), "menu-" + role.ToLowerInvariant() + ".png"), true);
+            }
+            enter.onClick.Invoke();
+            bool passed = input != null && input.enabled && match.PlayerCount == 2
+                && (role == "Host" ? codePublished : invalidRejected);
+            Finish(passed, $"role={role} codeJoin=True online={match.OnlinePlayerCount}"
+                + $" total={match.PlayerCount} entered={input != null && input.enabled} invalidRejected={invalidRejected} hudHidden=True");
+        }
+
+        private static Button Button(string name)
+        {
+            return FindObjectsOfType<Button>().FirstOrDefault(button => button.name == name);
+        }
+
+        private void Finish(bool passed, string details)
+        {
+            enabled = false;
+            Debug.Log($"[AFPS_ROOMMENU_RESULT] {(passed ? "PASS" : "FAIL")} {details}");
+            SmokeTestExit.Quit(this, passed ? 0 : 2);
+        }
+    }
+}

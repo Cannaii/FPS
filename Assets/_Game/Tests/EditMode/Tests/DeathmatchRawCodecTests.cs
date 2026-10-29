@@ -9,6 +9,29 @@ namespace AFPS.Tests.EditMode
 {
     public sealed class DeathmatchRawCodecTests
     {
+        [TestCase(false, false, 0)]
+        [TestCase(true, false, 1)]
+        [TestCase(false, true, 2)]
+        [TestCase(true, true, 3)]
+        public void PresenceFlagIsIndependentOfLifeAndOlderProtocolIsRejected(bool alive, bool connected, int flags)
+        {
+            var state = new DeathmatchState(DeathmatchPhase.Playing, 1, 1, 0,
+                new[] { new DeathmatchPlayerState(1, Fix.One, 0, 0, 0, alive, connected) });
+            var bytes = new byte[DeathmatchStateCodec.GetPacketSize(1)];
+            Assert.That(DeathmatchStateCodec.TrySerialize(state, 1, new ArraySegment<byte>(bytes), out _), Is.True);
+            Assert.That(bytes[bytes.Length - 1], Is.EqualTo(flags));
+            Assert.That(DeathmatchStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out var decoded), Is.True);
+            Assert.That(decoded.GetPlayer(0).IsAlive, Is.EqualTo(alive));
+            Assert.That(decoded.GetPlayer(0).IsConnected, Is.EqualTo(connected));
+            Assert.That(decoded.OnlinePlayerCount, Is.EqualTo(connected ? 1 : 0));
+            bytes[bytes.Length - 1] = 4;
+            Assert.That(DeathmatchStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out decoded), Is.False);
+            Assert.That(decoded, Is.Null);
+            bytes[bytes.Length - 1] = (byte)flags;
+            bytes[4] = 25;
+            Assert.That(DeathmatchStateCodec.TryDeserialize(new ArraySegment<byte>(bytes), out _, out _), Is.False);
+        }
+
         [TestCase(0)]
         [TestCase(1)]
         [TestCase(6553599)]

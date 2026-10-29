@@ -1,6 +1,6 @@
 ﻿param(
     [string]$PlayerPath = 'Library/AFPSVerification/Player/AFPSGame.exe',
-    [ValidateSet('Baseline', 'Combat', 'Sprint', 'Dash', 'Jump', 'Wall', 'Stance', 'WallRun', 'Climb', 'Grapple', 'Reconnect', 'Practice')]
+    [ValidateSet('Baseline', 'Combat', 'Sprint', 'Dash', 'Jump', 'Wall', 'Stance', 'WallRun', 'Climb', 'Grapple', 'Reconnect', 'Practice', 'RoomMenu')]
     [string]$Scenario = 'Baseline',
     [string]$OutputDirectory,
     [ValidateRange(1, 65534)][int]$BasePort = 18100,
@@ -10,6 +10,8 @@
     [switch]$ConcurrentRooms,
     [switch]$GracefulServerExit,
     [ValidateRange(0, 64)][int]$JobWorkerCount = 2,
+    [ValidateRange(640, 3840)][int]$ScreenWidth = 1280,
+    [ValidateRange(360, 2160)][int]$ScreenHeight = 720,
     [switch]$Capture
 )
 $ErrorActionPreference = 'Stop'
@@ -19,9 +21,9 @@ if (!(Test-Path -LiteralPath $taskPlayer))
 {
     throw ('Player does not exist: ' + $taskPlayer)
 }
-if ($Capture -and $Scenario -ne 'Practice')
+if ($Capture -and $Scenario -notin @('Practice', 'RoomMenu'))
 {
-    throw 'Capture is supported only by the Practice scenario.'
+    throw 'Capture is supported only by the Practice and RoomMenu scenarios.'
 }
 if ($Scenario -eq 'Practice' -and ($ConcurrentRooms -or $GracefulServerExit))
 {
@@ -31,6 +33,10 @@ if ($GracefulServerExit -and $Scenario -eq 'Reconnect')
 {
     # 重连回归会主动制造暂时空服，不能把这个中间阶段当作最终离开而关闭独服。
     throw 'GracefulServerExit is not supported by the Reconnect scenario.'
+}
+if ($Scenario -eq 'RoomMenu' -and ($ConcurrentRooms -or $GracefulServerExit))
+{
+    throw 'RoomMenu validates one graphical Host/Client room.'
 }
 if (!$OutputDirectory)
 {
@@ -54,6 +60,7 @@ $taskFlags = @{
     Grapple = @('-afpsGrappleSmoke', 'AFPS_GRAPPLE_RESULT')
     Reconnect = @('-afpsReconnectSmoke', 'AFPS_RECONNECT_RESULT')
     Practice = @('-afpsPracticeSmoke', 'AFPS_PRACTICE_RESULT')
+    RoomMenu = @('-afpsRoomMenuSmoke', 'AFPS_ROOMMENU_RESULT')
 }
 $taskResults = @()
 $taskSuccess = $false
@@ -61,6 +68,10 @@ $taskFailure = $null
 try
 {
     $taskRooms = if ($Scenario -eq 'Practice') { @('Practice') } else { @('Host', 'Dedicated') }
+    if ($Scenario -eq 'RoomMenu')
+    {
+        $taskRooms = @('Host')
+    }
     if ($ConcurrentRooms)
     {
         $taskRooms = @('Concurrent')
@@ -119,10 +130,21 @@ try
                 }
                 if ($taskRoom -eq 'Practice')
                 {
-                    $taskArguments += @('-force-d3d11', '-screen-width', '1280', '-screen-height', '720')
+                    $taskArguments += @('-force-d3d11', '-screen-width', $ScreenWidth, '-screen-height', $ScreenHeight)
                     if ($Capture)
                     {
                         $taskArguments += '-afpsPracticeCapture'
+                    }
+                }
+                elseif ($Scenario -eq 'RoomMenu')
+                {
+                    # 不传-afpsMode，必须经过真实启动菜单；共享文件只用于传递Host实际显示的房间码。
+                    $taskArguments += @('-force-d3d11', '-screen-width', $ScreenWidth, '-screen-height', $ScreenHeight,
+                        '-afpsRoomMenuRole', $taskSpec.Mode, '-afpsRoomMenuPort', $taskSpec.Port,
+                        '-afpsRoomMenuCodeFile', ($taskBarrier + '.code'))
+                    if ($Capture)
+                    {
+                        $taskArguments += '-afpsRoomMenuCapture'
                     }
                 }
                 else

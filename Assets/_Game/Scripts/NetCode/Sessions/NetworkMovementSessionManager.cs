@@ -1022,7 +1022,8 @@ namespace AFPS.NetCode.Sessions
                 serverKills[entityId],
                 serverDeaths[entityId],
                 (ushort)Mathf.Min(ushort.MaxValue, respawnTicks),
-                IsServerPlayerAlive(entityId));
+                IsServerPlayerAlive(entityId),
+                serverEntityIds.ContainsValue(entityId));
         }
 
         private static bool HasReached(uint current, uint target)

@@ -100,6 +100,8 @@ $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/De
 }
 if ($IncludeReplication) {
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/InputReplication/AdaptiveInputWindow.cs'
+    $taskSources += @('RoomCode.cs', 'NetworkConnectionInput.cs', 'NetworkLaunchMode.cs', 'NetworkLaunchOptions.cs') | ForEach-Object { Join-Path $taskProjectRoot ('Assets/_Game/Scripts/NetCode/Runtime/' + $_) }
+    $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/RoomCodeTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/Metrics/NetworkMetricsRateSampler.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Tests/EditMode/Tests/NetworkMetricsRateSamplerTests.cs'
     $taskSources += Join-Path $taskProjectRoot 'Assets/_Game/Scripts/NetCode/TimeSync/ServerRoundTripTracker.cs'

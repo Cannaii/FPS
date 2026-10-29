@@ -263,6 +263,35 @@ namespace AFPS.Tests.EditMode
             return pair;
         }
 
+        [Test]
+        public void ReplicatedPresenceExcludesRetainedPlayerAndRestoresSameEntityOnResume()
+        {
+            var pair = Connected();
+            var observer = new TransportConnectionId(40);
+            Admit(pair, observer, 3);
+            pair.Server.AdvanceServerSessions(100);
+            AssertPresence(pair, observer, 2, 2, true);
+            pair.Server.HandleDisconnected(NetworkTransportSide.Server, ServerId);
+            pair.Server.AdvanceServerSessions(101);
+            AssertPresence(pair, observer, 2, 1, false);
+            Assert.That(Resume(pair, Replacement, pair.Client.ClientResumeCredential), Is.True);
+            pair.Server.AdvanceServerSessions(102);
+            AssertPresence(pair, observer, 2, 2, true);
+        }
+
+        private static void AssertPresence(Pair pair, TransportConnectionId observer,
+            int total, int online, bool originalConnected)
+        {
+            var packet = pair.ServerTransport.Sent.FindLast(value => value.Connection == observer
+                && value.Type == NetworkMessageType.DeathmatchState);
+            Assert.That(packet, Is.Not.Null);
+            Assert.That(DeathmatchStateCodec.TryDeserialize(packet.Data, out _, out var state), Is.True);
+            Assert.That(state.PlayerCount, Is.EqualTo(total));
+            Assert.That(state.OnlinePlayerCount, Is.EqualTo(online));
+            Assert.That(state.TryGetPlayer(1, out var original), Is.True);
+            Assert.That(original.IsConnected, Is.EqualTo(originalConnected));
+        }
+
         [TestCase(0)]
         [TestCase(1)]
         [TestCase(2)]

@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
@@ -28,6 +29,24 @@ namespace AFPS.NetCode.Runtime
                 return false;
             }
 
+            if (mode == NetworkLaunchMode.Client && addressText != null
+                && addressText.TrimStart().StartsWith("AF", StringComparison.OrdinalIgnoreCase))
+            {
+                options = default;
+                if (!RoomCode.TryDecode(addressText, out string roomAddress, out ushort roomPort, out error))
+                {
+                    return false;
+                }
+                if (maxConnections <= 0)
+                {
+                    error = "最大连接人数必须大于零。";
+                    return false;
+                }
+                // 房间码包含端口；旧端口输入框内容不得覆盖已经校验的端点。
+                options = new NetworkLaunchOptions(mode, roomAddress, roomPort, maxConnections);
+                return true;
+            }
+
             if (!ushort.TryParse(portText?.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out ushort port) || port == 0)
             {
                 options = default;
@@ -49,7 +68,7 @@ namespace AFPS.NetCode.Runtime
                 if (!IPAddress.TryParse(address, out IPAddress parsedAddress) || parsedAddress.AddressFamily != AddressFamily.InterNetwork)
                 {
                     options = default;
-                    error = "请输入有效的 IPv4 地址，例如 192.168.1.20。";
+                    error = "请输入有效的 IPv4 地址或完整房间码。";
                     return false;
                 }
 

@@ -45,7 +45,9 @@ namespace AFPS.Bootstrap
             DeathmatchState match = sessionManager.ClientDeathmatchState;
             // 诊断展开时使用独立阅读层，避免只遮住半块生命/弹药HUD；关闭后按当前对局状态恢复。
             var diagnostics = GetComponent<NetworkDebugPanel>();
-            bool visible = match != null && (diagnostics == null || !diagnostics.IsVisible);
+            // 连接菜单仍在前景时暂隐战斗HUD，避免人数、比分和枪械提示透在大厅背景里。
+            bool visible = match != null && GetComponent<NetworkConnectionMenu>() == null
+                && (diagnostics == null || !diagnostics.IsVisible);
             if (canvas != null)
             {
                 canvas.enabled = visible;

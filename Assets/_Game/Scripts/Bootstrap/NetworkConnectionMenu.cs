@@ -11,7 +11,7 @@ using UnityEngine.UI;
 
 namespace AFPS.Bootstrap
 {
-    /// <summary>Runtime-created LAN host/join menu for normal player launches.</summary>
+    /// <summary>中文局域网菜单：地址/房间码直连，并显示服务器复制的在线人数。</summary>
     public sealed class NetworkConnectionMenu : MonoBehaviour
     {
         private static readonly Color BackdropColor = new Color(0.025f, 0.035f, 0.055f, 0.96f);
@@ -25,12 +25,18 @@ namespace AFPS.Bootstrap
         private TMP_InputField addressInput;
         private TMP_InputField portInput;
         private TextMeshProUGUI statusText;
+        private TextMeshProUGUI roomCodeText;
+        private TextMeshProUGUI roomPlayersText;
+        private Button copyRoomCodeButton;
         private Button hostButton;
         private Button joinButton;
         private Button practiceButton;
         private Button enterButton;
         private bool initialized;
         private string localAddress;
+        private double copiedUntil;
+
+        public string CurrentRoomCode { get; private set; }
 
         public void Initialize(UnityNetworkBootstrap owner)
         {
@@ -69,6 +75,12 @@ namespace AFPS.Bootstrap
 
             bool ready = movement.CanEnterGame;
             enterButton.gameObject.SetActive(ready);
+            var match = movement.SessionManager.ClientDeathmatchState;
+            roomPlayersText.text = match != null
+                ? $"在线玩家：{match.OnlinePlayerCount}    暂离玩家：{match.PlayerCount - match.OnlinePlayerCount}"
+                : "正在同步房间人数…";
+            copyRoomCodeButton.GetComponentInChildren<TextMeshProUGUI>().text =
+                Time.realtimeSinceStartupAsDouble < copiedUntil ? "房间码已复制" : "复制房间码";
             if (ready)
             {
                 if (bootstrap.ActiveMode == NetworkLaunchMode.Practice)
@@ -77,7 +89,7 @@ namespace AFPS.Bootstrap
                     return;
                 }
                 string message = bootstrap.ActiveMode == NetworkLaunchMode.Host
-                    ? $"房间地址：{localAddress}:{portInput.text}，地图验证通过。"
+                    ? $"房间地址：{localAddress}:{portInput.text}\n地图验证通过，可以进入游戏。"
                     : "地图验证通过，可以进入游戏。";
                 SetStatus(message, false);
             }
@@ -107,6 +119,27 @@ namespace AFPS.Bootstrap
                 SetButtonsInteractable(true);
                 return;
             }
+            if (mode == NetworkLaunchMode.Host
+                && RoomCode.TryEncode(localAddress, options.Port, out string code, out _))
+            {
+                CurrentRoomCode = code;
+                roomCodeText.text = "房间码：" + code;
+                copyRoomCodeButton.interactable = true;
+            }
+            else if (mode == NetworkLaunchMode.Client)
+            {
+                roomCodeText.text = $"目标服务器：{options.ServerAddress}:{options.Port}";
+            }
+        }
+
+        private void CopyRoomCode()
+        {
+            if (string.IsNullOrEmpty(CurrentRoomCode))
+            {
+                return;
+            }
+            GUIUtility.systemCopyBuffer = CurrentRoomCode;
+            copiedUntil = Time.realtimeSinceStartupAsDouble + 2;
         }
 
         private void EnterGame()
@@ -144,25 +177,35 @@ namespace AFPS.Bootstrap
 
             RectTransform backdrop = CreateRect("Backdrop", canvasRoot.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             backdrop.gameObject.AddComponent<Image>().color = BackdropColor;
-            RectTransform panel = CreateRect("Panel", backdrop, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(660f, 700f), Vector2.zero);
+            RectTransform panel = CreateRect("Panel", backdrop, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(760f, 900f), Vector2.zero);
             panel.gameObject.AddComponent<Image>().color = PanelColor;
 
-            CreateText(panel, "AFPS 局域网", 38f, FontStyles.Bold, TextAlignmentOptions.Center, new Vector2(0f, 224f), new Vector2(560f, 54f), Color.white);
-            CreateText(panel, "创建房间，或输入服务器 IPv4 地址加入。", 20f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, 178f), new Vector2(560f, 36f), new Color(0.72f, 0.78f, 0.86f));
-            CreateText(panel, "服务器地址", 16f, FontStyles.Bold, TextAlignmentOptions.Left, new Vector2(-190f, 116f), new Vector2(180f, 30f), new Color(0.72f, 0.78f, 0.86f));
-            addressInput = CreateInputField(panel, "Server Address", bootstrap.DefaultServerAddress, "192.168.1.20", new Vector2(0f, 77f), new Vector2(520f, 52f));
-            CreateText(panel, "端口", 16f, FontStyles.Bold, TextAlignmentOptions.Left, new Vector2(-220f, 27f), new Vector2(120f, 30f), new Color(0.72f, 0.78f, 0.86f));
-            portInput = CreateInputField(panel, "Port", bootstrap.DefaultPort.ToString(), "7777", new Vector2(0f, -12f), new Vector2(520f, 52f));
+            CreateText(panel, "AFPS 局域网", 38f, FontStyles.Bold, TextAlignmentOptions.Center, new Vector2(0f, 370f), new Vector2(620f, 54f), Color.white);
+            CreateText(panel, "创建房间，或使用房间码 / IPv4 地址加入。", 20f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, 320f), new Vector2(620f, 36f), new Color(0.72f, 0.78f, 0.86f));
+            CreateText(panel, "服务器地址 / 房间码", 16f, FontStyles.Bold, TextAlignmentOptions.Left, new Vector2(0f, 270f), new Vector2(520f, 30f), new Color(0.72f, 0.78f, 0.86f));
+            addressInput = CreateInputField(panel, "Server Address", bootstrap.DefaultServerAddress, "IPv4 地址或 AF1 开头的房间码", new Vector2(0f, 230f), new Vector2(520f, 52f));
+            addressInput.characterLimit = 64;
+            CreateText(panel, "端口（使用房间码时自动读取）", 16f, FontStyles.Bold, TextAlignmentOptions.Left, new Vector2(0f, 180f), new Vector2(520f, 30f), new Color(0.72f, 0.78f, 0.86f));
+            portInput = CreateInputField(panel, "Port", bootstrap.DefaultPort.ToString(), "7777", new Vector2(0f, 140f), new Vector2(520f, 52f));
             portInput.contentType = TMP_InputField.ContentType.IntegerNumber;
 
-            hostButton = CreateButton(panel, "Host Button", "创建房间", new Vector2(-135f, -91f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Host));
-            joinButton = CreateButton(panel, "Join Button", "加入房间", new Vector2(135f, -91f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Client));
-            practiceButton = CreateButton(panel, "Practice Button", "单人练习", new Vector2(0f, -162f),
+            hostButton = CreateButton(panel, "Host Button", "创建房间", new Vector2(-135f, 60f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Host));
+            joinButton = CreateButton(panel, "Join Button", "加入房间", new Vector2(135f, 60f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Client));
+            practiceButton = CreateButton(panel, "Practice Button", "单人练习", new Vector2(0f, -10f),
                 new Vector2(520f, 58f), () => StartNetwork(NetworkLaunchMode.Practice));
-            statusText = CreateText(panel, $"本机地址：{localAddress}", 18f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, -229f), new Vector2(560f, 54f), new Color(0.66f, 0.75f, 0.84f));
+            roomCodeText = CreateText(panel, "房间码：创建房间后显示", 22f, FontStyles.Bold,
+                TextAlignmentOptions.Center, new Vector2(0f, -78f), new Vector2(640f, 34f), Color.white);
+            copyRoomCodeButton = CreateButton(panel, "Copy Room Code Button", "复制房间码",
+                new Vector2(0f, -128f), new Vector2(520f, 44f), CopyRoomCode);
+            copyRoomCodeButton.interactable = false;
+            roomPlayersText = CreateText(panel, "房间人数：尚未连接", 20f, FontStyles.Normal,
+                TextAlignmentOptions.Center, new Vector2(0f, -183f), new Vector2(640f, 34f), Color.white);
+            statusText = CreateText(panel, $"本机地址：{localAddress}", 18f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, -250f), new Vector2(640f, 84f), new Color(0.66f, 0.75f, 0.84f));
             statusText.enableWordWrapping = true;
-            enterButton = CreateButton(panel, "Enter Button", "进入游戏", new Vector2(0f, -294f), new Vector2(520f, 58f), EnterGame);
+            enterButton = CreateButton(panel, "Enter Button", "进入游戏", new Vector2(0f, -340f), new Vector2(520f, 58f), EnterGame);
             enterButton.gameObject.SetActive(false);
+            CreateText(panel, "房间码包含地址与端口，同一局域网内使用。", 17f, FontStyles.Normal,
+                TextAlignmentOptions.Center, new Vector2(0f, -400f), new Vector2(640f, 30f), new Color(0.72f, 0.78f, 0.86f));
         }
 
         private void SetButtonsInteractable(bool interactable)

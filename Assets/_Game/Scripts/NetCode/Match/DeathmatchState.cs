@@ -21,14 +21,18 @@ namespace AFPS.NetCode.Match
         public readonly ushort Deaths;
         public readonly ushort RespawnTicksRemaining;
         public readonly bool IsAlive;
+        /// <summary>权威连接是否在线；掉线保留角色仍在名单中，不能把名单总数当在线人数。</summary>
+        public readonly bool IsConnected;
 
         public DeathmatchPlayerState(
-            uint entityId, ushort health, ushort kills, ushort deaths, ushort respawnTicksRemaining, bool isAlive)
-            : this(entityId, Fix.FromInt(health), kills, deaths, respawnTicksRemaining, isAlive)
+            uint entityId, ushort health, ushort kills, ushort deaths, ushort respawnTicksRemaining,
+            bool isAlive, bool isConnected = true)
+            : this(entityId, Fix.FromInt(health), kills, deaths, respawnTicksRemaining, isAlive, isConnected)
         {
         }
         public DeathmatchPlayerState(
-            uint entityId, Fix health, ushort kills, ushort deaths, ushort respawnTicksRemaining, bool isAlive)
+            uint entityId, Fix health, ushort kills, ushort deaths, ushort respawnTicksRemaining,
+            bool isAlive, bool isConnected = true)
         {
             EntityId = entityId;
             HealthFixed = health;
@@ -36,6 +40,7 @@ namespace AFPS.NetCode.Match
             Deaths = deaths;
             RespawnTicksRemaining = respawnTicksRemaining;
             IsAlive = isAlive;
+            IsConnected = isConnected;
         }
     }
 
@@ -48,6 +53,21 @@ namespace AFPS.NetCode.Match
         public uint RemainingTicks { get; }
         public uint WinnerEntityId { get; }
         public int PlayerCount => players.Length;
+        public int OnlinePlayerCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (var player in players)
+                {
+                    if (player.IsConnected)
+                    {
+                        count++;
+                    }
+                }
+                return count;
+            }
+        }
 
         public DeathmatchState(DeathmatchPhase phase, uint serverTick, uint remainingTicks, uint winnerEntityId, DeathmatchPlayerState[] players)
         {

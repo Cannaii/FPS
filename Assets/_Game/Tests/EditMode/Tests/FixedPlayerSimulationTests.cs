@@ -134,7 +134,7 @@ namespace AFPS.Tests.EditMode
             };
             byte[] packet = new byte[AuthoritativePlayerStateCodec.PacketSize];
             Assert.That(AuthoritativePlayerStateCodec.PacketSize, Is.EqualTo(152));
-            Assert.That(PacketHeader.CurrentProtocolVersion, Is.EqualTo(25));
+            Assert.That(PacketHeader.CurrentProtocolVersion, Is.EqualTo(26));
             Assert.That(AuthoritativePlayerStateCodec.TrySerialize(new AuthoritativePlayerState(0, state.Tick, state), 1, new ArraySegment<byte>(packet), out _), Is.True);
             Assert.That(AuthoritativePlayerStateCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out AuthoritativePlayerState decoded), Is.True);
             Assert.That(decoded.State.RawEquals(state), Is.True);

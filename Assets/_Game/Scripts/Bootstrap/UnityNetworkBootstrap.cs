@@ -149,6 +149,11 @@ namespace AFPS.Bootstrap
 
         private void Awake()
         {
+            if (RoomMenuSmokeTestDriver.IsRequested)
+            {
+                gameObject.AddComponent<RoomMenuSmokeTestDriver>().Configure(this);
+            }
+
             if (ServerShutdownSmokeTestDriver.IsRequested)
             {
                 gameObject.AddComponent<ServerShutdownSmokeTestDriver>().Configure(this);
