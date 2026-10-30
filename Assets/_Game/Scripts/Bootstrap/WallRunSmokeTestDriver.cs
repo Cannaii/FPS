@@ -41,6 +41,11 @@ namespace AFPS.Bootstrap
         private bool noRefresh;
         private bool landingReset;
         private bool restarted;
+        private float baseFieldOfView;
+        private bool cameraFeedback;
+        private bool cameraRecovered;
+        private bool cameraAimStable = true;
+        private bool captured;
 
         public void Configure(UnityNetworkGameplayController controller, LocalPlayerInputCollector collector)
         {
@@ -48,6 +53,12 @@ namespace AFPS.Bootstrap
             input = collector;
             configuredAt = Time.realtimeSinceStartupAsDouble;
             Application.runInBackground = true;
+            baseFieldOfView = Camera.main != null ? Camera.main.fieldOfView : 0f;
+            if (SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null)
+            {
+                QualitySettings.vSyncCount = 0;
+                Application.targetFrameRate = 60;
+            }
         }
 
         private void Update()
@@ -82,6 +93,7 @@ namespace AFPS.Bootstrap
             bool jump = false;
             predictedRun |= predicted.IsWallRunning && predicted.VelocityFixed.Z > Fix.FromInt(8);
             authorityRun |= authority.IsWallRunning && authority.VelocityFixed.Z > Fix.FromInt(8);
+            ObserveCamera(predicted.IsWallRunning);
             spent |= authority.IsWallRunning && authority.StaminaSpentFixed > Fix.FromRatio(1, 10);
             if (phase == 0 && now - phaseAt > 0.1d)
             {
@@ -126,7 +138,8 @@ namespace AFPS.Bootstrap
                 phase = 7;
             }
             input.SetAutomationInput(0f, 1f, 0f, 0f, jump, sprintHeld: phase != 3);
-            bool passed = predictedRun && authorityRun && spent && expired && noRefresh && landingReset && restarted && manager.HasTimeSync;
+            bool passed = predictedRun && authorityRun && spent && expired && noRefresh && landingReset && restarted
+                && cameraFeedback && cameraRecovered && cameraAimStable && manager.HasTimeSync;
             if (passed && completedAt < 0d)
             {
                 completedAt = now;
@@ -141,13 +154,44 @@ namespace AFPS.Bootstrap
             }
         }
 
+        private void ObserveCamera(bool running)
+        {
+            Camera camera = Camera.main;
+            if (camera == null)
+            {
+                cameraAimStable = false;
+                return;
+            }
+            float roll = Mathf.Abs(Mathf.DeltaAngle(0f, camera.transform.eulerAngles.z));
+            cameraFeedback |= running && roll > 3f && camera.fieldOfView > baseFieldOfView + 0.5f;
+            cameraRecovered |= cameraFeedback && !running && roll < 0.5f
+                && Mathf.Abs(camera.fieldOfView - baseFieldOfView) < 0.15f;
+            if (running)
+            {
+                Vector3 aim = Quaternion.Euler(input.LookPitch, input.LookYaw, 0f) * Vector3.forward;
+                cameraAimStable &= Vector3.Distance(camera.transform.forward, aim) < 0.001f;
+            }
+            if (!captured && running && roll > 5f
+                && SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null
+                && Array.Exists(Environment.GetCommandLineArgs(),
+                    argument => argument.Equals("-afpsWallRunCapture", StringComparison.OrdinalIgnoreCase)))
+            {
+                string log = Application.consoleLogPath;
+                string output = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(log),
+                    "wallrun-view-" + System.IO.Path.GetFileNameWithoutExtension(log) + ".png");
+                PracticeSmokeTestDriver.CaptureCameras(output, true);
+                captured = true;
+            }
+        }
+
         private void Finish(bool passed)
         {
             enabled = false;
             input.ClearAutomationInput();
             Debug.Log($"[AFPS_WALLRUN_RESULT] {(passed ? "PASS" : "FAIL")} phase={phase}"
                 + $" predicted={predictedRun} authority={authorityRun} spent={spent} expired={expired}"
-                + $" noRefresh={noRefresh} landingReset={landingReset} restarted={restarted}");
+                + $" noRefresh={noRefresh} landingReset={landingReset} restarted={restarted}"
+                + $" cameraFeedback={cameraFeedback} cameraRecovered={cameraRecovered} cameraAimStable={cameraAimStable}");
             SmokeTestExit.Quit(this, passed ? 0 : 2);
         }
     }

@@ -112,6 +112,33 @@ namespace AFPS.Tests.EditMode
             Assert.That(state.VelocityFixed.Y.Raw, Is.GreaterThan(0));
         }
 
+        [TestCase(-1)]
+        [TestCase(1)]
+        public void LongWall_NaturalGroundJumpAndSideApproachEnterSustainedWallRun(int side)
+        {
+            var state = State(25f + side * 1.8f, 0f, -3f);
+            int runTicks = 0;
+            for (int tick = 0; tick < 90; tick++)
+            {
+                // 从离墙一米的普通站立状态起跳，不预置WallNormal或在途中传送到接触位置。
+                var command = new PlayerInputCommand
+                {
+                    MoveX = tick < 30 ? -side * 0.6f : 0f,
+                    MoveY = 1f,
+                    SprintHeld = true,
+                    JumpPressed = tick == 5
+                };
+                state = Step(state, command);
+                if (state.IsWallRunning)
+                {
+                    runTicks++;
+                    Assert.That(state.WallNormalFixed.X.ToFloat() * side, Is.GreaterThan(0.9f));
+                }
+            }
+            Assert.That(runTicks, Is.GreaterThan(25), "自然靠墙后应维持至少半秒墙跑，不是瞬时触发。");
+            Assert.That(state.PositionFixed.Z.ToFloat(), Is.GreaterThan(5f));
+        }
+
         [Test]
         public void Ladder_ReachesTopWithoutHittingDeckUnderside()
         {

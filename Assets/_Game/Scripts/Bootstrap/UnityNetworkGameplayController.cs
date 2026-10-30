@@ -474,6 +474,10 @@ namespace AFPS.Bootstrap
                 }
                 if (firstPersonCameraRig != null && firstPersonCameraRig.isActiveAndEnabled)
                 {
+                    var wallRunState = sessionCoordinator.ClientSession.CurrentState;
+                    firstPersonCameraRig.SetWallRun(IsLocalGameplayActive() && wallRunState.IsWallRunning,
+                        new Vector3(wallRunState.WallNormalFixed.X.ToFloat(), 0f,
+                            wallRunState.WallNormalFixed.Z.ToFloat()));
                     float lateralSpeed = playerView.TryGetLatestState(out PlayerMovementState cameraState)
                         ? Vector3.Dot(cameraState.Velocity, firstPersonCameraRig.transform.right) : 0f;
                     firstPersonCameraRig.RenderCombat(firstPersonWeaponView != null && firstPersonWeaponView.isActiveAndEnabled

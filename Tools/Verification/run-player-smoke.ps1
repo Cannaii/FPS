@@ -21,9 +21,9 @@ if (!(Test-Path -LiteralPath $taskPlayer))
 {
     throw ('Player does not exist: ' + $taskPlayer)
 }
-if ($Capture -and $Scenario -notin @('Practice', 'RoomMenu', 'RoomDiscovery', 'LobbyReady'))
+if ($Capture -and $Scenario -notin @('Practice', 'RoomMenu', 'RoomDiscovery', 'LobbyReady', 'WallRun'))
 {
-    throw 'Capture is supported only by the Practice and RoomMenu scenarios.'
+    throw 'Capture is supported only by Practice, RoomMenu and WallRun scenarios.'
 }
 if ($Scenario -eq 'Practice' -and ($ConcurrentRooms -or $GracefulServerExit))
 {
@@ -161,6 +161,12 @@ try
                     {
                         $taskArguments += '-afpsRoomMenuCapture'
                     }
+                }
+                elseif ($Capture -and $Scenario -eq 'WallRun' -and $taskSpec.Mode -ne 'Server')
+                {
+                    $taskArguments += @('-force-d3d11', '-screen-width', $ScreenWidth, '-screen-height', $ScreenHeight,
+                        '-afpsMode', $taskSpec.Mode, '-afpsAddress', '127.0.0.1', '-afpsPort', $taskSpec.Port,
+                        '-afpsWallRunCapture')
                 }
                 else
                 {

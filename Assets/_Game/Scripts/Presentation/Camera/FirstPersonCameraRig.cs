@@ -15,6 +15,10 @@ namespace AFPS.Presentation.Camera
         [SerializeField, Min(0.001f)] private float nearClipPlane = 0.01f;
         [Tooltip("FOV与横移倾斜的指数响应时间，单位秒；约三倍此值到达95%。")]
         [SerializeField, Min(0.001f)] private float combatResponseSeconds = 0.06f;
+        [Tooltip("墙跑时朝远离墙面方向的镜头倾斜上限，单位度；只绕观察轴旋转。")]
+        [SerializeField, Range(0f, 15f)] private float wallRunRollDegrees = 8f;
+        [Tooltip("墙跑时额外垂直FOV，单位度；不改变模拟速度或瞄准方向。")]
+        [SerializeField, Range(0f, 10f)] private float wallRunFieldOfView = 3f;
 
         private UnityEngine.Camera targetCamera;
         private float baseFieldOfView;
@@ -23,6 +27,17 @@ namespace AFPS.Presentation.Camera
         private float combatFieldOfView;
         private float combatRoll;
         private float appliedRoll;
+        private bool wallRunning;
+        private Vector3 wallNormal;
+
+        /// <summary>消费预测墙跑状态及世界空间墙面外法线；失活、无有效水平法线时恢复普通镜头。</summary>
+        public void SetWallRun(bool active, Vector3 normal)
+        {
+            Vector3 horizontal = new Vector3(normal.x, 0f, normal.z);
+            float lengthSquared = horizontal.sqrMagnitude;
+            wallRunning = active && IsFinite(lengthSquared) && lengthSquared > 0.000001f;
+            wallNormal = wallRunning ? horizontal.normalized : Vector3.zero;
+        }
 
         /// <summary>只消费模拟姿态；缩放站立眼高，不改变瞄准轴或反写模拟坐标。</summary>
         public void SetStance(float heightRatio)
@@ -43,10 +58,18 @@ namespace AFPS.Presentation.Camera
             float blend = 1f - Mathf.Exp(-deltaTime / response);
             float targetFov = IsFinite(recoilWeight) ? Mathf.Clamp01(recoilWeight) * 1.5f : 0f;
             float targetRoll = IsFinite(lateralSpeed) ? Mathf.Clamp(-lateralSpeed * 0.35f, -2f, 2f) : 0f;
+            if (wallRunning)
+            {
+                float roll = IsFinite(wallRunRollDegrees) ? Mathf.Clamp(wallRunRollDegrees, 0f, 15f) : 8f;
+                float boost = IsFinite(wallRunFieldOfView) ? Mathf.Clamp(wallRunFieldOfView, 0f, 10f) : 3f;
+                // 外法线决定墙的左右；墙跑倾斜覆盖普通横移，避免吸墙速度把反馈抵消或方向反转。
+                targetRoll = -Vector3.Dot(wallNormal, aimRotation * Vector3.right) * roll;
+                targetFov += boost;
+            }
             combatFieldOfView = Smooth(combatFieldOfView, targetFov, blend);
             combatRoll = Smooth(combatRoll, targetRoll, blend);
             targetCamera.fieldOfView = baseFieldOfView + combatFieldOfView;
-            // 最大2度，只绕观察轴旋转，forward保持不变，不偏移准星射线。
+            // 仅绕观察轴旋转，墙跑倾斜也不改变forward，不偏移准星射线。
             targetCamera.transform.rotation = aimRotation * Quaternion.Euler(0f, 0f, combatRoll);
             appliedRoll = combatRoll;
         }
@@ -80,6 +103,8 @@ namespace AFPS.Presentation.Camera
             RemoveCombatRoll();
             combatFieldOfView = 0f;
             combatRoll = 0f;
+            wallRunning = false;
+            wallNormal = Vector3.zero;
             if (targetCamera != null)
             {
                 targetCamera.fieldOfView = baseFieldOfView;
