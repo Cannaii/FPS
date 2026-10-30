@@ -1,4 +1,6 @@
 using AFPS.NetCode.SnapshotInterpolation;
+using AFPS.NetCode.Weapons;
+using AFPS.Presentation.Weapons;
 using UnityEngine;
 
 namespace AFPS.Presentation.Characters
@@ -18,6 +20,8 @@ namespace AFPS.Presentation.Characters
         private MaterialPropertyBlock colorProperties;
         private GrappleRopeView grappleRope;
         private RemoteCharacterPoseView characterPose;
+        private RemoteWeaponView weaponView;
+        public RemoteWeaponView WeaponView => weaponView;
         private bool initialized;
         public bool HasCharacterVisual => characterPose != null && characterPose.IsConfigured;
         public bool IsCrouchPresented => HasCharacterVisual
@@ -44,6 +48,7 @@ namespace AFPS.Presentation.Characters
 
             initialScale = presentationTransform.localScale;
             characterPose = GetComponentInChildren<RemoteCharacterPoseView>(true);
+            weaponView = GetComponentInChildren<RemoteWeaponView>(true);
             if (renderers == null || renderers.Length == 0)
             {
                 renderers = GetComponentsInChildren<Renderer>(true);
@@ -119,6 +124,26 @@ namespace AFPS.Presentation.Characters
                     colorProperties.SetColor("_BaseColor", color);
                     renderers[i].SetPropertyBlock(colorProperties);
                 }
+            }
+        }
+
+        public void RenderWeapon(RemoteWeaponReplicas replicas, in RemotePlayerRenderState renderState,
+            uint entityId, bool active, ushort projectileWeaponId)
+        {
+            Initialize();
+            if (weaponView == null)
+            {
+                return;
+            }
+            if (active && replicas != null
+                && renderState.Status != RemotePlayerSamplingStatus.ExtrapolationLimitReached
+                && replicas.TrySample(entityId, renderState.ServerTickTime, out var state))
+            {
+                weaponView.Render(state, state.WeaponId == projectileWeaponId, renderState.ServerTickTime);
+            }
+            else
+            {
+                weaponView.Hide();
             }
         }
 

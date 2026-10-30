@@ -134,7 +134,7 @@ namespace AFPS.Tests.EditMode
             };
             byte[] packet = new byte[AuthoritativeMovementStateCodec.PacketSize];
             Assert.That(AuthoritativeMovementStateCodec.PacketSize, Is.EqualTo(152));
-            Assert.That(PacketHeader.CurrentProtocolVersion, Is.EqualTo(28));
+            Assert.That(PacketHeader.CurrentProtocolVersion, Is.EqualTo(29));
             Assert.That(AuthoritativeMovementStateCodec.TrySerialize(new AuthoritativeMovementState(0, state.Tick, state), 1, new ArraySegment<byte>(packet), out _), Is.True);
             Assert.That(AuthoritativeMovementStateCodec.TryDeserialize(new ArraySegment<byte>(packet), out _, out AuthoritativeMovementState decoded), Is.True);
             Assert.That(decoded.State.RawEquals(state), Is.True);

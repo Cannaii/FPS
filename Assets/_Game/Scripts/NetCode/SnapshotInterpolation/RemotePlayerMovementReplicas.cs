@@ -31,6 +31,7 @@ namespace AFPS.NetCode.SnapshotInterpolation
         public uint SnapshotVersion { get; private set; }
 
         public int Count => timelines.Count;
+        public bool ContainsEntity(uint entityId) => timelines.ContainsKey(entityId);
         public bool HasAdaptiveInterpolation => adaptiveClock != null;
         public double InterpolationDelayTicks => adaptiveClock?.CurrentDelayTicks ?? interpolationDelayTicks;
         public double TargetInterpolationDelayTicks => adaptiveClock?.TargetDelayTicks ?? interpolationDelayTicks;

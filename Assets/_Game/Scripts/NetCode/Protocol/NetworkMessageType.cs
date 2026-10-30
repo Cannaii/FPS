@@ -29,6 +29,7 @@ namespace AFPS.NetCode.Protocol
         ClientMovementHashReport = 21,
         TimeSyncAcknowledgement = 22,
         LobbyReady = 23,
-        LobbySnapshot = 24
+        LobbySnapshot = 24,
+        RemoteWeaponState = 25
     }
 }

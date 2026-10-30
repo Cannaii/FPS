@@ -46,6 +46,10 @@ namespace AFPS.Bootstrap
         private bool explosionView;
         private bool remoteMuzzle;
         private bool damageCaptured;
+        private bool remoteRifleView;
+        private bool remoteLauncherView;
+        private bool remoteReloadView;
+        private bool remoteRecoilView;
 
         public void Configure(UnityNetworkGameplayController controller, LocalPlayerInputCollector collector)
         {
@@ -63,7 +67,8 @@ namespace AFPS.Bootstrap
         private bool Passed => sawLaunch && sawImpact && sawDeath && sawRespawn && synced && explosionView
             && (localEntity == 1
                 ? rifleAmmo && launcherAmmo && reloadCompleted && rejected && rifleView && launcherView && reloadView
-                : damage && remoteMuzzle && rifleView);
+                : damage && remoteMuzzle && rifleView
+                    && remoteRifleView && remoteLauncherView && remoteReloadView && remoteRecoilView);
 
         private void Update()
         {
@@ -109,6 +114,18 @@ namespace AFPS.Bootstrap
             reloadView |= movement.PresentedReloading;
             explosionView |= movement.ExplosionEffectCount > 0;
             remoteMuzzle |= movement.RemoteMuzzleCount > 0;
+            foreach (var remote in FindObjectsOfType<AFPS.Presentation.Characters.RemotePlayerView>())
+            {
+                var weaponView = remote.WeaponView;
+                if (weaponView == null)
+                {
+                    continue;
+                }
+                remoteRifleView |= weaponView.WeaponId == WeaponSimulationConfig.DefaultRifle.WeaponId;
+                remoteLauncherView |= weaponView.IsLauncherVisible;
+                remoteReloadView |= weaponView.IsReloading;
+                remoteRecoilView |= weaponView.PresentedShotCount > 0;
+            }
             if (!damageCaptured && SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null
                 && Array.Exists(Environment.GetCommandLineArgs(), value => value.Equals("-afpsUiCapture", StringComparison.OrdinalIgnoreCase)))
             {
@@ -205,7 +222,9 @@ namespace AFPS.Bootstrap
                 + $" launch={sawLaunch} impact={sawImpact} death={sawDeath} respawn={sawRespawn}"
                 + $" rifleAmmo={rifleAmmo} launcherAmmo={launcherAmmo} reload={reloadCompleted}"
                 + $" rejected={rejected} damage={damage} synced={synced} rifleView={rifleView}"
-                + $" launcherView={launcherView} reloadView={reloadView} explosionView={explosionView} remoteMuzzle={remoteMuzzle}");
+                + $" launcherView={launcherView} reloadView={reloadView} explosionView={explosionView} remoteMuzzle={remoteMuzzle}"
+                + $" remoteRifle={remoteRifleView} remoteLauncher={remoteLauncherView}"
+                + $" remoteReload={remoteReloadView} remoteRecoil={remoteRecoilView}");
             SmokeTestExit.Quit(this, success ? 0 : 2);
         }
     }

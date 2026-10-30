@@ -16,8 +16,8 @@ namespace AFPS.Tests.EditMode
             using (var sha = SHA256.Create())
             {
                 string hash = BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "");
-                // 同一输入包才有跨平台比较意义；协议或套件变更必须显式更新该黄金值。
-                Assert.That(hash, Is.EqualTo("344B6321BD2A4219F02895C032A3A87014A2E08F382C0E1BE5E53509ADF824CF"));
+                // v29仅更新轨迹头与输入包的协议字节；世界、输入及预期模拟哈希保持原语义。
+                Assert.That(hash, Is.EqualTo("70F851BACA366663E324190BD4947D70052F65B1654A9A6F9FFF6EFF86403AB6"));
             }
             using (var stream = new MemoryStream(bytes, false))
             {

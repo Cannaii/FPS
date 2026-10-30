@@ -12,8 +12,8 @@ namespace AFPS.NetCode.Protocol
         /// <summary>
         /// 当前协议版本；产生不兼容的二进制布局变化时必须递增。
         /// </summary>
-        // v28为大厅命令和成员快照增加出生点编号；旧布局客户端必须重新构建。
-        public const byte CurrentProtocolVersion = 28;
+        // v29增加独立远端装备状态；双端必须同版本重建才能消费完整表现流。
+        public const byte CurrentProtocolVersion = 29;
         /// <summary>
         /// 固定包头占用的字节数。
         /// </summary>

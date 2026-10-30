@@ -1915,6 +1915,49 @@ namespace AFPS.Tests.EditMode
             Assert.That(owner.HealthFixed.Raw, Is.GreaterThan(0));
         }
 
+        [Test]
+        public void RemoteWeapons_AuthoritativeSwitchReloadAndFailedSendRecovery()
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var server = CreateManager(transport, null);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            server.HandleConnected(NetworkTransportSide.Server, first);
+            server.HandleConnected(NetworkTransportSide.Server, second);
+            var clientTransport = new FakeTransport(TransportRole.Client);
+            var client = CreateManager(null, clientTransport);
+            client.HandleConnected(NetworkTransportSide.Client, second);
+            SendTick(server, first, second, 1, 100,
+                new PlayerInputCommand { SwitchWeaponPressed = true }, default);
+            SendTick(server, first, second, 2, 110,
+                new PlayerInputCommand { FirePressed = true, ShotSequence = 1 }, default);
+            transport.FailNextMessageType = NetworkMessageType.RemoteWeaponState;
+            SendTick(server, first, second, 3, 113,
+                new PlayerInputCommand { ReloadPressed = true }, default);
+            SendTick(server, first, second, 4, 116, default, default);
+            bool accepted = false;
+            foreach (var packet in transport.SentPackets)
+            {
+                if (RemotePlayerMovementSnapshotCodec.TryDeserialize(packet, out _, out var snapshot)
+                    && snapshot.EntityId == 1)
+                {
+                    client.RemotePlayers.TryInsertSnapshot(packet, out _);
+                }
+                if (RemoteWeaponStateCodec.TryDeserialize(packet, out _, out var state)
+                    && state.EntityId == 1)
+                {
+                    accepted |= client.TryHandleData(NetworkTransportSide.Client, second, packet, out _);
+                }
+            }
+            Assert.That(accepted, Is.True);
+            Assert.That(client.RemoteWeapons.TrySample(1, 116d, out var received), Is.True);
+            Assert.That(received.WeaponId, Is.EqualTo(2));
+            Assert.That(received.ReloadTicksRemaining, Is.GreaterThan(0));
+            Assert.That(transport.FailedReliableSendCount, Is.EqualTo(1));
+            client.HandleDisconnected(NetworkTransportSide.Client, second);
+            Assert.That(client.RemoteWeapons.Count, Is.Zero);
+        }
+
         private static NetworkSessionCoordinator CreateManager(
             IGameTransport serverTransport,
             IGameTransport clientTransport,

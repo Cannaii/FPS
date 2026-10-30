@@ -444,6 +444,7 @@ namespace AFPS.NetCode.Sessions
                 lobby.Disconnect(entityId);
                 lobbyDirty = true;
                 serverSessions.Remove(connectionId);
+                RemoveRemoteWeaponSends(connectionId);
                 serverEntityIds.Remove(connectionId);
                 timeSyncResponders.Remove(connectionId);
                 serverSnapshotStates.Remove(connectionId);
@@ -574,9 +575,15 @@ namespace AFPS.NetCode.Sessions
                     if (RemotePlayers == null || !TryReadDeltaEntityId(packet, out uint deltaEntityId) || !clientSnapshotBaselines.TryGetValue(deltaEntityId, out RemotePlayerMovementSnapshot baseline) || !RemotePlayerMovementSnapshotDeltaCodec.TryDeserialize(packet, baseline, out PacketHeader deltaHeader, out RemotePlayerMovementSnapshot deltaSnapshot)) return false;
                     return RemotePlayers.TryInsertSnapshot(deltaSnapshot, deltaHeader.Sequence, out _);
                 case NetworkMessageType.PlayerDespawn:
-                    if (RemotePlayers == null || !RemotePlayers.TryApplyDespawn(packet, out uint despawnedEntityId)) return false;
+                    if (RemotePlayers == null || !RemotePlayers.TryApplyDespawn(packet, out uint despawnedEntityId))
+                    {
+                        return false;
+                    }
                     clientSnapshotBaselines.Remove(despawnedEntityId);
+                    RemoteWeapons.Remove(despawnedEntityId);
                     return true;
+                case NetworkMessageType.RemoteWeaponState:
+                    return ReceiveRemoteWeapon(packet);
                 case NetworkMessageType.AuthoritativeShotResult:
                     if (!AuthoritativeShotResultCodec.TryDeserialize(packet, out PacketHeader shotHeader, out AuthoritativeShotResult shotResult) || (hasReceivedShotResultSequence && !SequenceMath.IsNewer(shotHeader.Sequence, lastReceivedShotResultSequence)))
                     {
@@ -1137,6 +1144,7 @@ namespace AFPS.NetCode.Sessions
                     {
                         visibleEntities.Remove(entityId);
                         serverSnapshotStates[targetPair.Key].Remove(entityId);
+                        sentRemoteWeapons.Remove((targetPair.Key, entityId));
                     }
                 }
 
@@ -1213,6 +1221,7 @@ namespace AFPS.NetCode.Sessions
                 sendState.RecordSuccessfulSend(snapshot, sendFull);
                 Metrics.SnapshotPacketsSent++;
                 Metrics.SnapshotBytesSent += (ulong)packetBytes;
+                SendRemoteWeapon(targetConnectionId, candidate.EntityId, serverWorldTick);
                 return true;
             }
 

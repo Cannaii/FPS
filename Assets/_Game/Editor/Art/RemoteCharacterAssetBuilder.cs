@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using AFPS.Presentation.Characters;
+using AFPS.Presentation.Weapons;
 using UnityEditor;
 using UnityEngine;
 
@@ -41,6 +42,7 @@ namespace AFPS.Editor.Art
                 Transform weapon = Node("DevelopmentRifle", upper, new Vector3(0.12f, 0.2f, 0.35f));
                 Part("Receiver", weapon, Vector3.zero, new Vector3(0.12f, 0.13f, 0.35f), dark);
                 Part("Barrel", weapon, Vector3.forward * 0.26f, new Vector3(0.055f, 0.055f, 0.24f), dark);
+                AddWeapons(upper, weapon, dark);
                 Transform leftThigh = Leg("Left", hips, -0.13f, armor, dark, out Transform leftKnee, out Transform leftFoot);
                 Transform rightThigh = Leg("Right", hips, 0.13f, armor, dark, out Transform rightKnee, out Transform rightFoot);
                 var pose = visual.gameObject.AddComponent<RemoteCharacterPoseView>();
@@ -83,6 +85,41 @@ namespace AFPS.Editor.Art
             material = new Material(Shader.Find("Standard")) { color = color };
             AssetDatabase.CreateAsset(material, assetPath);
             return material;
+        }
+
+        [MenuItem("AFPS/Characters/Add Development Weapon Presentation")]
+        public static void UpgradeWeapons()
+        {
+            GameObject actor = PrefabUtility.LoadPrefabContents(PrefabPath);
+            try
+            {
+                if (actor.GetComponentInChildren<RemoteWeaponView>(true) != null)
+                {
+                    return;
+                }
+                Transform upper = actor.transform.Find("CharacterVisual/Hips/UpperBody");
+                Transform rifle = upper != null ? upper.Find("DevelopmentRifle") : null;
+                if (rifle == null)
+                {
+                    throw new InvalidOperationException("只支持已知自有开发模型；自定义角色请手动配置武器表现节点。");
+                }
+                AddWeapons(upper, rifle, MaterialAsset("Joints", new Color(0.08f, 0.11f, 0.15f)));
+                // 原Prefab根和全部既有节点不变，沿用GUID，不重建角色或覆盖材质/姿态人工修改。
+                PrefabUtility.SaveAsPrefabAsset(actor, PrefabPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(actor);
+            }
+        }
+
+        private static void AddWeapons(Transform upper, Transform rifle, Material material)
+        {
+            Transform launcher = Node("DevelopmentLauncher", upper, new Vector3(0.12f, 0.25f, 0.35f));
+            Part("LauncherTube", launcher, Vector3.zero, new Vector3(0.2f, 0.2f, 0.75f), material);
+            Part("LauncherSight", launcher, new Vector3(0f, 0.18f, 0.12f), new Vector3(0.06f, 0.18f, 0.06f), material);
+            upper.gameObject.AddComponent<RemoteWeaponView>().Configure(rifle, launcher, upper.Find("LeftArm"));
+            launcher.gameObject.SetActive(false);
         }
 
         private static Transform Node(string name, Transform parent, Vector3 position)

@@ -260,6 +260,7 @@ namespace AFPS.NetCode.Sessions
             rewindHistories.Remove(entityId);
             recoveringEntityIds.Remove(entityId);
             snapshotSequences.Remove(entityId);
+            RemoveRemoteWeaponSends(entityId: entityId);
             foreach (var states in serverSnapshotStates.Values)
             {
                 states.Remove(entityId);

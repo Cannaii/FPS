@@ -517,6 +517,10 @@ namespace AFPS.Bootstrap
             while (sessionCoordinator.TryDequeueShotPresentation(out var result))
             {
                 shotResultView.Consume(result, localEntityId, estimatedTick, preparedWorld.TickDeltaTime.ToFloat());
+                if (result.Shot.EntityId != localEntityId)
+                {
+                    remotePlayerWorldView?.PresentShot(result.Shot);
+                }
             }
         }
 
@@ -768,7 +772,8 @@ namespace AFPS.Bootstrap
             var remoteConfig = preparedWorld.MovementConfiguration;
             remotePlayerWorldView.Render(sessionCoordinator.RemotePlayers, renderTick, sessionCoordinator.ClientDeathmatchState,
                 (remoteConfig.Stance.Height / remoteConfig.Collision.HeightFixed).ToFloat(),
-                FixMath.Min(remoteConfig.Grapple.OriginHeight, remoteConfig.Collision.HeightFixed).ToFloat());
+                FixMath.Min(remoteConfig.Grapple.OriginHeight, remoteConfig.Collision.HeightFixed).ToFloat(),
+                sessionCoordinator.RemoteWeapons, WeaponCatalog.SecondaryFor(preparedWorld.WeaponConfiguration).WeaponId);
         }
 
         private bool IsLocalGameplayActive()

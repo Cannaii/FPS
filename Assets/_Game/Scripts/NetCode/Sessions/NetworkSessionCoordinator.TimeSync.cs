@@ -148,6 +148,7 @@ namespace AFPS.NetCode.Sessions
             Metrics.RoundTripJitterMilliseconds = 0;
             // 新连接/恢复连接从基础延迟与新显示世代开始，不继承旧链路的缓冲和播放时钟。
             RemotePlayers?.Clear();
+            RemoteWeapons.Clear();
             UpdateRemoteInterpolation(timeSyncClock());
         }
 

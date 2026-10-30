@@ -14,6 +14,18 @@ namespace AFPS.NetCode.Sessions
         private bool hasObservedGlobalShot;
         private uint lastGlobalShotSequence;
 
+        internal RemoteWeaponState CreateRemoteWeaponState(uint serverTick, bool active)
+        {
+            if (weaponFireController == null)
+            {
+                return default;
+            }
+            bool equipped = active && weaponFireController.IsEquipped;
+            return new RemoteWeaponState(entityId, serverTick, weaponFireController.WeaponId,
+                equipped ? weaponFireController.RemainingReloadTicks(serverTick) : 0,
+                equipped ? RemainingEquipTicks(serverTick) : 0, equipped);
+        }
+
         private uint RemainingEquipTicks(uint tick) => hasSwitchedWeapon
             ? WeaponCatalog.EquipDurationTicks - System.Math.Min(WeaponCatalog.EquipDurationTicks, unchecked(tick - switchedWeaponTick))
             : 0;

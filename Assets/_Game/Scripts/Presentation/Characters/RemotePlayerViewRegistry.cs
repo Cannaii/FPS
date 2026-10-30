@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using AFPS.NetCode.SnapshotInterpolation;
 using AFPS.NetCode.Match;
+using AFPS.NetCode.Weapons;
 using UnityEngine;
 
 namespace AFPS.Presentation.Characters
@@ -67,7 +68,8 @@ namespace AFPS.Presentation.Characters
 
         /// <summary>按照客户端估算的服务器时间渲染所有远端玩家。</summary>
         public void Render(RemotePlayerMovementReplicas replicas, double estimatedServerTick,
-            DeathmatchState deathmatchState = null, float crouchedHeightRatio = 0.6f, float grappleOriginHeight = 1.6f)
+            DeathmatchState deathmatchState = null, float crouchedHeightRatio = 0.6f, float grappleOriginHeight = 1.6f,
+            RemoteWeaponReplicas weapons = null, ushort projectileWeaponId = 2)
         {
             if (replicas == null)
             {
@@ -95,6 +97,9 @@ namespace AFPS.Presentation.Characters
                 view.ApplyRenderState(state, isAlive,
                     deathmatchState == null || deathmatchState.Phase == DeathmatchPhase.Playing,
                     crouchedHeightRatio, grappleOriginHeight);
+                view.RenderWeapon(weapons, state, entityId, isAlive
+                    && (deathmatchState == null || deathmatchState.Phase == DeathmatchPhase.Playing),
+                    projectileWeaponId);
             }
 
             staleEntityIds.Clear();
@@ -111,6 +116,14 @@ namespace AFPS.Presentation.Characters
                 uint entityId = staleEntityIds[i];
                 RemoveView(views[entityId]);
                 views.Remove(entityId);
+            }
+        }
+
+        public void PresentShot(in AuthoritativeShot shot)
+        {
+            if (views.TryGetValue(shot.EntityId, out var view) && view.WeaponView != null)
+            {
+                view.WeaponView.PlayShot(shot);
             }
         }
 
@@ -131,6 +144,7 @@ namespace AFPS.Presentation.Characters
         {
             // 运行时Destroy延迟到帧末，先隐藏绳线，不能让已移出同步范围的实体再画一帧。
             view.HideGrappleRope();
+            view.WeaponView?.Hide();
             if (Application.isPlaying)
             {
                 Destroy(view.gameObject);
