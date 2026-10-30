@@ -3,7 +3,8 @@
     [Parameter(Mandatory = $true)][string]$ProjectPath,
     [string]$OutputDirectory = 'Library/AFPSVerification/Results/PlayMode',
     [ValidateRange(30, 1800)][int]$TimeoutSeconds = 300,
-    [ValidateRange(1, 16)][int]$JobWorkerCount = 2
+    [ValidateRange(1, 16)][int]$JobWorkerCount = 2,
+    [switch]$Graphics
 )
 $ErrorActionPreference = 'Stop'
 $taskRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -30,11 +31,15 @@ $taskLog = Join-Path $taskOutput ($taskRun + '-unity.log')
 $taskSummary = Join-Path $taskOutput ($taskRun + '-summary.json')
 # Start-Process会重新拼接参数；Windows合法路径不能含双引号，显式引用保护含空格的路径。
 $taskArguments = @(
-    '-batchmode', '-nographics', '-job-worker-count', $JobWorkerCount.ToString(),
+    '-batchmode', '-job-worker-count', $JobWorkerCount.ToString(),
     '-projectPath', ('"' + $taskProject + '"'), '-runTests', '-testPlatform', 'PlayMode',
     '-assemblyNames', 'AFPS.Tests.PlayMode',
     '-testResults', ('"' + $taskXml + '"'), '-logFile', ('"' + $taskLog + '"')
 )
+if (!$Graphics)
+{
+    $taskArguments = @('-nographics') + $taskArguments
+}
 $taskProcess = $null
 $taskPassed = $false
 $taskFailure = $null
@@ -80,6 +85,7 @@ finally
     $taskExitCode = if ($taskProcess -and $taskProcess.HasExited) { $taskProcess.ExitCode } else { $null }
     [ordered]@{
         Passed = $taskPassed
+        Graphics = [bool]$Graphics
         Total = $taskTotal
         Failed = $taskFailed
         Skipped = $taskSkipped

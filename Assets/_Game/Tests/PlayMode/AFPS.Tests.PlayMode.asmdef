@@ -6,6 +6,7 @@
         "AFPS.Math",
         "AFPS.Simulation",
         "AFPS.NetCode",
+        "AFPS.Presentation",
         "AFPS.Transport.Unity"
     ],
     "includePlatforms": [],

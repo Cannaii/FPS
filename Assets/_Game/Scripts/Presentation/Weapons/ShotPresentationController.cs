@@ -34,6 +34,10 @@ namespace AFPS.Presentation.Weapons
             double estimatedServerTick = double.NaN,
             float tickDeltaSeconds = 0.02f)
         {
+            if (!isActiveAndEnabled)
+            {
+                return;
+            }
             ConsumedResultCount++;
             ConsumeEffects(result, localEntityId);
             ConsumeProjectile(result, estimatedServerTick, tickDeltaSeconds);
@@ -153,6 +157,12 @@ namespace AFPS.Presentation.Weapons
                 lineMaterial = new Material(shader);
             }
             return true;
+        }
+
+        private void OnDisable()
+        {
+            // 只停用Behaviour不会自动停掉子节点AudioSource；同时清理旧世代的线和弹丸。
+            Clear();
         }
 
         private void OnDestroy()

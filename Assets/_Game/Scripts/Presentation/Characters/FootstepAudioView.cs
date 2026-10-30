@@ -17,6 +17,11 @@ namespace AFPS.Presentation.Characters
 
         public void Render(Vector3 position, bool grounded, bool alive, bool discontinuity = false)
         {
+            if (!isActiveAndEnabled)
+            {
+                // 上层可在同一帧继续采样；停用后不能被显式Render重新播放脚步。
+                return;
+            }
             if (!alive || discontinuity || !hasPosition
                 || Vector3.Distance(position, previousPosition) > TeleportDistance)
             {

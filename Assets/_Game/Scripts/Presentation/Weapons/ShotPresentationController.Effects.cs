@@ -74,8 +74,8 @@ namespace AFPS.Presentation.Weapons
             {
                 return;
             }
-            int index = nextAudio;
-            nextAudio = (nextAudio + 1) % MaximumAudioSources;
+            int index = FindAudioSource();
+            nextAudio = (index + 1) % MaximumAudioSources;
             AudioSource source = audioSources[index];
             if (source == null)
             {
@@ -97,12 +97,36 @@ namespace AFPS.Presentation.Weapons
             source.Play();
         }
 
+        private int FindAudioSource()
+        {
+            // 先复用已经结束的声源，再扩容；不能仅因环形游标遇到忙碌声源就截断仍在播放的爆炸。
+            for (int offset = 0; offset < MaximumAudioSources; offset++)
+            {
+                int index = (nextAudio + offset) % MaximumAudioSources;
+                if (audioSources[index] != null && !audioSources[index].isPlaying)
+                {
+                    return index;
+                }
+            }
+            for (int offset = 0; offset < MaximumAudioSources; offset++)
+            {
+                int index = (nextAudio + offset) % MaximumAudioSources;
+                if (audioSources[index] == null)
+                {
+                    return index;
+                }
+            }
+            // 并发全部占用时保持固定24声源上限，按游标轮换，不让连发无限分配对象。
+            return nextAudio;
+        }
+
         private void ClearEffects()
         {
             effects.Clear();
             effectOrder.Clear();
             RemoteMuzzleCount = 0;
             ExplosionEffectCount = 0;
+            nextAudio = 0;
             foreach (var source in audioSources)
             {
                 if (source != null)
