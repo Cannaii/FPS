@@ -448,7 +448,7 @@ namespace AFPS.Bootstrap
                 }
                 grappleRopeView.Render(sessionCoordinator.ClientSession.CurrentState,
                     playerView.SimulationTransform.position, preparedWorld.MovementConfiguration, IsLocalGameplayActive());
-                if (firstPersonCameraRig != null)
+                if (firstPersonCameraRig != null && firstPersonCameraRig.isActiveAndEnabled)
                 {
                     PlayerMovementState cameraState = sessionCoordinator.ClientSession.CurrentState;
                     var cameraConfig = preparedWorld.MovementConfiguration;
@@ -472,12 +472,13 @@ namespace AFPS.Bootstrap
                         firstPersonWeaponView.Render(localState, Time.unscaledDeltaTime);
                     }
                 }
-                if (firstPersonCameraRig != null)
+                if (firstPersonCameraRig != null && firstPersonCameraRig.isActiveAndEnabled)
                 {
                     float lateralSpeed = playerView.TryGetLatestState(out PlayerMovementState cameraState)
                         ? Vector3.Dot(cameraState.Velocity, firstPersonCameraRig.transform.right) : 0f;
                     firstPersonCameraRig.RenderCombat(firstPersonWeaponView != null && firstPersonWeaponView.isActiveAndEnabled
-                        ? firstPersonWeaponView.RecoilWeight : 0f, IsLocalGameplayActive() ? lateralSpeed : 0f);
+                        ? firstPersonWeaponView.RecoilWeight : 0f, IsLocalGameplayActive() ? lateralSpeed : 0f,
+                        Time.unscaledDeltaTime);
                 }
                 if (sessionCoordinator.ClientDeathmatchState != null
                     && sessionCoordinator.ClientDeathmatchState.Phase == DeathmatchPhase.Finished && shotResultView != null)
@@ -673,7 +674,7 @@ namespace AFPS.Bootstrap
                 }
                 if (client == null && firstPersonCameraRig != null)
                 {
-                    firstPersonCameraRig.RenderCombat(0f);
+                    firstPersonCameraRig.ResetCombat();
                 }
                 if (shotResultView != null)
                 {

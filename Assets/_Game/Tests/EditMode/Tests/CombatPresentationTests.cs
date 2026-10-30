@@ -195,16 +195,16 @@ namespace AFPS.Tests.EditMode
                 rig.Configure(null, root.transform);
                 rig.Render(40f, -10f);
                 Quaternion aim = root.transform.rotation;
-                rig.RenderCombat(1f);
+                rig.RenderCombat(1f, 0f, 1f);
                 Assert.That(camera.fieldOfView, Is.EqualTo(76.5f));
                 Assert.That(root.transform.rotation, Is.EqualTo(aim));
-                rig.RenderCombat(0f);
+                rig.RenderCombat(0f, 0f, 1f);
                 Assert.That(camera.fieldOfView, Is.EqualTo(75f));
-                rig.RenderCombat(0f, 6f);
+                rig.RenderCombat(0f, 6f, 1f);
                 Assert.That(Vector3.Angle(root.transform.forward, aim * Vector3.forward), Is.LessThan(0.001f));
                 Assert.That(Quaternion.Angle(root.transform.rotation, aim), Is.EqualTo(2f).Within(0.001f));
-                rig.RenderCombat(0f);
-                Assert.That(root.transform.rotation, Is.EqualTo(aim));
+                rig.RenderCombat(0f, 0f, 1f);
+                Assert.That(Quaternion.Angle(root.transform.rotation, aim), Is.LessThan(0.001f));
             }
             finally
             {
