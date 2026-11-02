@@ -19,11 +19,6 @@ namespace AFPS.Bootstrap
         sourceClassName: "NetworkConnectionMenu")]
     public sealed partial class NetworkLobbyMenu : MonoBehaviour
     {
-        private static readonly Color BackdropColor = new Color(0.025f, 0.035f, 0.055f, 0.96f);
-        private static readonly Color PanelColor = new Color(0.075f, 0.095f, 0.135f, 0.98f);
-        private static readonly Color FieldColor = new Color(0.12f, 0.15f, 0.20f, 1f);
-        private static readonly Color AccentColor = new Color(0.12f, 0.70f, 0.94f, 1f);
-
         private UnityNetworkBootstrap bootstrap;
         private LocalPlayerInputCollector inputCollector;
         private GameObject canvasRoot;
@@ -267,58 +262,55 @@ namespace AFPS.Bootstrap
 
         private void BuildMenu()
         {
-            canvasRoot = new GameObject("Network Connection UI", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            Canvas canvas = canvasRoot.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 1000;
+            NetworkLobbyView prefab = Resources.Load<NetworkLobbyView>(NetworkLobbyView.ResourcePath);
+            if (prefab == null || !prefab.TryValidate(out _))
+            {
+                throw new System.InvalidOperationException(
+                    "大厅资源缺失或引用不完整，请检查 Resources/UI/NetworkLobby.prefab。");
+            }
 
-            CanvasScaler scaler = canvasRoot.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
+            NetworkLobbyView view = Instantiate(prefab);
+            canvasRoot = view.gameObject;
+            addressInput = view.AddressInput;
+            portInput = view.PortInput;
+            statusText = view.StatusText;
+            roomCodeText = view.RoomCodeText;
+            roomPlayersText = view.RoomPlayersText;
+            copyRoomCodeButton = view.CopyRoomCodeButton;
+            hostButton = view.HostButton;
+            joinButton = view.JoinButton;
+            practiceButton = view.PracticeButton;
+            enterButton = view.EnterButton;
+            previousSpawnButton = view.PreviousSpawnButton;
+            nextSpawnButton = view.NextSpawnButton;
+            spawnText = view.SpawnText;
+            mainPanel = view.MainPanel;
+            discoveryPanel = view.DiscoveryPanel;
+            discoveryStatus = view.DiscoveryStatus;
+            refreshRoomsButton = view.RefreshRoomsButton;
+            previousRoomsButton = view.PreviousRoomsButton;
+            nextRoomsButton = view.NextRoomsButton;
+            for (int index = 0; index < roomButtons.Length; index++)
+            {
+                int row = index;
+                roomButtons[index] = view.RoomButtons[index];
+                roomButtons[index].onClick.AddListener(() => JoinListedRoom(row));
+            }
 
-            RectTransform backdrop = CreateRect("Backdrop", canvasRoot.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            backdrop.gameObject.AddComponent<Image>().color = BackdropColor;
-            RectTransform panel = CreateRect("Panel", backdrop, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(760f, 900f), Vector2.zero);
-            panel.gameObject.AddComponent<Image>().color = PanelColor;
-
-            CreateText(panel, "AFPS 局域网", 38f, FontStyles.Bold, TextAlignmentOptions.Center, new Vector2(0f, 370f), new Vector2(620f, 54f), Color.white);
-            CreateText(panel, "创建房间，或使用房间码 / IPv4 地址加入。", 20f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, 320f), new Vector2(620f, 36f), new Color(0.72f, 0.78f, 0.86f));
-            CreateText(panel, "服务器地址 / 房间码", 16f, FontStyles.Bold, TextAlignmentOptions.Left, new Vector2(0f, 270f), new Vector2(520f, 30f), new Color(0.72f, 0.78f, 0.86f));
-            addressInput = CreateInputField(panel, "Server Address", bootstrap.DefaultServerAddress, "IPv4 地址或 AF1 开头的房间码", new Vector2(0f, 230f), new Vector2(520f, 52f));
-            addressInput.characterLimit = 64;
-            CreateText(panel, "端口（使用房间码时自动读取）", 16f, FontStyles.Bold, TextAlignmentOptions.Left, new Vector2(0f, 180f), new Vector2(520f, 30f), new Color(0.72f, 0.78f, 0.86f));
-            portInput = CreateInputField(panel, "Port", bootstrap.DefaultPort.ToString(), "7777", new Vector2(0f, 140f), new Vector2(520f, 52f));
-            portInput.contentType = TMP_InputField.ContentType.IntegerNumber;
-
-            hostButton = CreateButton(panel, "Host Button", "创建房间", new Vector2(-135f, 60f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Host));
-            joinButton = CreateButton(panel, "Join Button", "加入房间", new Vector2(135f, 60f), new Vector2(250f, 58f), () => StartNetwork(NetworkLaunchMode.Client));
-            practiceButton = CreateButton(panel, "Practice Button", "单人练习", new Vector2(0f, -10f),
-                new Vector2(520f, 58f), () => StartNetwork(NetworkLaunchMode.Practice));
-            roomCodeText = CreateText(panel, "房间码：创建房间后显示", 22f, FontStyles.Bold,
-                TextAlignmentOptions.Center, new Vector2(0f, -78f), new Vector2(640f, 34f), Color.white);
-            copyRoomCodeButton = CreateButton(panel, "Copy Room Code Button", "复制房间码",
-                new Vector2(0f, -128f), new Vector2(520f, 44f), CopyRoomCode);
-            copyRoomCodeButton.interactable = false;
-            roomPlayersText = CreateText(panel, "房间人数：尚未连接", 20f, FontStyles.Normal,
-                TextAlignmentOptions.Center, new Vector2(0f, -183f), new Vector2(640f, 34f), Color.white);
-            previousSpawnButton = CreateButton(panel, "Previous Spawn Button", "上一个",
-                new Vector2(-205f, -230f), new Vector2(110f, 36f), () => SelectAdjacentSpawn(-1));
-            nextSpawnButton = CreateButton(panel, "Next Spawn Button", "下一个",
-                new Vector2(205f, -230f), new Vector2(110f, 36f), () => SelectAdjacentSpawn(1));
-            spawnText = CreateText(panel, "", 17f, FontStyles.Normal, TextAlignmentOptions.Center,
-                new Vector2(0f, -230f), new Vector2(300f, 36f), Color.white);
-            previousSpawnButton.gameObject.SetActive(false);
-            nextSpawnButton.gameObject.SetActive(false);
-            spawnText.gameObject.SetActive(false);
-            statusText = CreateText(panel, $"本机地址：{localAddress}", 18f, FontStyles.Normal, TextAlignmentOptions.Center, new Vector2(0f, -282f), new Vector2(640f, 54f), new Color(0.66f, 0.75f, 0.84f));
-            statusText.enableWordWrapping = true;
-            enterButton = CreateButton(panel, "Enter Button", "进入游戏", new Vector2(0f, -340f), new Vector2(520f, 58f), EnterGame);
-            enterButton.gameObject.SetActive(false);
-            CreateText(panel, "房间码包含地址与端口，同一局域网内使用。", 17f, FontStyles.Normal,
-                TextAlignmentOptions.Center, new Vector2(0f, -400f), new Vector2(640f, 30f), new Color(0.72f, 0.78f, 0.86f));
-            mainPanel = panel;
-            BuildDiscoveryMenu(backdrop);
+            // 只初始化会话数据与事件；位置、字号、颜色和输入控件配置由 Prefab 保存。
+            addressInput.SetTextWithoutNotify(bootstrap.DefaultServerAddress);
+            portInput.SetTextWithoutNotify(bootstrap.DefaultPort.ToString());
+            statusText.text = $"本机地址：{localAddress}";
+            hostButton.onClick.AddListener(() => StartNetwork(NetworkLaunchMode.Host));
+            joinButton.onClick.AddListener(() => StartNetwork(NetworkLaunchMode.Client));
+            practiceButton.onClick.AddListener(() => StartNetwork(NetworkLaunchMode.Practice));
+            copyRoomCodeButton.onClick.AddListener(CopyRoomCode);
+            previousSpawnButton.onClick.AddListener(() => SelectAdjacentSpawn(-1));
+            nextSpawnButton.onClick.AddListener(() => SelectAdjacentSpawn(1));
+            enterButton.onClick.AddListener(EnterGame);
+            refreshRoomsButton.onClick.AddListener(RefreshRooms);
+            previousRoomsButton.onClick.AddListener(() => ChangeRoomPage(-1));
+            nextRoomsButton.onClick.AddListener(() => ChangeRoomPage(1));
         }
 
         private void SetButtonsInteractable(bool interactable)
@@ -367,75 +359,5 @@ namespace AFPS.Bootstrap
             return "127.0.0.1";
         }
 
-        private static RectTransform CreateRect(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, Vector2 size, Vector2 position)
-        {
-            GameObject gameObject = new GameObject(name, typeof(RectTransform));
-            RectTransform rect = gameObject.GetComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.anchorMin = anchorMin;
-            rect.anchorMax = anchorMax;
-            rect.sizeDelta = size;
-            rect.anchoredPosition = position;
-            return rect;
-        }
-
-        private static TextMeshProUGUI CreateText(Transform parent, string text, float fontSize, FontStyles style, TextAlignmentOptions alignment, Vector2 position, Vector2 size, Color color)
-        {
-            RectTransform rect = CreateRect("Text", parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), size, position);
-            TextMeshProUGUI label = rect.gameObject.AddComponent<TextMeshProUGUI>();
-            label.font = ChineseUiFont.Asset;
-            label.text = text;
-            label.fontSize = fontSize;
-            label.fontStyle = style;
-            label.alignment = alignment;
-            label.color = color;
-            label.raycastTarget = false;
-            return label;
-        }
-
-        private static TMP_InputField CreateInputField(Transform parent, string name, string value, string placeholderText, Vector2 position, Vector2 size)
-        {
-            RectTransform root = CreateRect(name, parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), size, position);
-            Image background = root.gameObject.AddComponent<Image>();
-            background.color = FieldColor;
-            TMP_InputField input = root.gameObject.AddComponent<TMP_InputField>();
-            RectTransform viewport = CreateRect("Text Area", root, Vector2.zero, Vector2.one, new Vector2(-32f, -12f), Vector2.zero);
-            viewport.gameObject.AddComponent<RectMask2D>();
-
-            TextMeshProUGUI text = CreateText(viewport, value, 22f, FontStyles.Normal, TextAlignmentOptions.MidlineLeft, Vector2.zero, Vector2.zero, Color.white);
-            Stretch(text.rectTransform);
-            TextMeshProUGUI placeholder = CreateText(viewport, placeholderText, 22f, FontStyles.Italic, TextAlignmentOptions.MidlineLeft, Vector2.zero, Vector2.zero, new Color(0.5f, 0.55f, 0.62f));
-            Stretch(placeholder.rectTransform);
-
-            input.textViewport = viewport;
-            input.textComponent = text;
-            input.placeholder = placeholder;
-            input.text = value;
-            input.pointSize = 22f;
-            input.caretColor = Color.white;
-            input.selectionColor = new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.35f);
-            return input;
-        }
-
-        private static Button CreateButton(Transform parent, string name, string label, Vector2 position, Vector2 size, UnityEngine.Events.UnityAction onClick)
-        {
-            RectTransform root = CreateRect(name, parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), size, position);
-            Image image = root.gameObject.AddComponent<Image>();
-            image.color = AccentColor;
-            Button button = root.gameObject.AddComponent<Button>();
-            button.targetGraphic = image;
-            button.onClick.AddListener(onClick);
-            TextMeshProUGUI text = CreateText(root, label, 19f, FontStyles.Bold, TextAlignmentOptions.Center, Vector2.zero, Vector2.zero, Color.white);
-            Stretch(text.rectTransform);
-            return button;
-        }
-
-        private static void Stretch(RectTransform rect)
-        {
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-        }
     }
 }

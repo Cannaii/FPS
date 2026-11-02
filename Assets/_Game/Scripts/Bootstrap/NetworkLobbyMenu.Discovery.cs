@@ -25,48 +25,22 @@ namespace AFPS.Bootstrap
         private int roomPage;
         private double nextListUpdate;
 
-        private void BuildDiscoveryMenu(Transform backdrop)
+        private void RefreshRooms()
         {
-            mainPanel.anchoredPosition = new Vector2(-330f, 0f);
-            discoveryPanel = CreateRect("LAN Rooms", backdrop, new Vector2(0.5f, 0.5f),
-                new Vector2(0.5f, 0.5f), new Vector2(620f, 900f), new Vector2(410f, 0f));
-            discoveryPanel.gameObject.AddComponent<Image>().color = PanelColor;
-            CreateText(discoveryPanel, "局域网房间", 32f, FontStyles.Bold, TextAlignmentOptions.Center,
-                new Vector2(0f, 370f), new Vector2(540f, 54f), Color.white);
-            CreateText(discoveryPanel, "自动搜索同一局域网内的房间", 19f, FontStyles.Normal,
-                TextAlignmentOptions.Center, new Vector2(0f, 320f), new Vector2(540f, 36f), Color.white);
-            refreshRoomsButton = CreateButton(discoveryPanel, "Refresh Rooms Button", "刷新房间",
-                new Vector2(0f, 260f), new Vector2(540f, 50f), () =>
-                {
-                    roomBrowser?.Refresh();
-                    if (roomBrowser != null && !roomBrowser.IsRunning)
-                    {
-                        roomBrowser.TryStartBrowser(out _);
-                    }
-                    roomPage = 0;
-                    nextListUpdate = 0;
-                });
-            discoveryStatus = CreateText(discoveryPanel, "正在搜索…", 18f, FontStyles.Normal,
-                TextAlignmentOptions.Center, new Vector2(0f, 205f), new Vector2(540f, 42f), Color.white);
-            for (int index = 0; index < roomButtons.Length; index++)
+            roomBrowser?.Refresh();
+            if (roomBrowser != null && !roomBrowser.IsRunning)
             {
-                int row = index;
-                roomButtons[index] = CreateButton(discoveryPanel, "Room Row " + index, "",
-                    new Vector2(0f, 120f - 145f * index), new Vector2(540f, 120f), () => JoinListedRoom(row));
-                roomButtons[index].gameObject.SetActive(false);
+                roomBrowser.TryStartBrowser(out _);
             }
-            previousRoomsButton = CreateButton(discoveryPanel, "Previous Rooms Button", "上一页",
-                new Vector2(-140f, -410f), new Vector2(260f, 36f), () =>
-                {
-                    roomPage--;
-                    nextListUpdate = 0;
-                });
-            nextRoomsButton = CreateButton(discoveryPanel, "Next Rooms Button", "下一页",
-                new Vector2(140f, -410f), new Vector2(260f, 36f), () =>
-                {
-                    roomPage++;
-                    nextListUpdate = 0;
-                });
+
+            roomPage = 0;
+            nextListUpdate = 0;
+        }
+
+        private void ChangeRoomPage(int direction)
+        {
+            roomPage += direction;
+            nextListUpdate = 0;
         }
 
         private void StartBrowsing()

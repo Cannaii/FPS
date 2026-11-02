@@ -4,7 +4,7 @@ using UnityEngine.TextCore.LowLevel;
 
 namespace AFPS.Bootstrap
 {
-    /// <summary>项目自带的中文字体；动态生成实际用到的字形，不依赖操作系统或第三方工程。</summary>
+    /// <summary>优先复用项目持久化的中文字体；按需生成字形，不依赖操作系统字体。</summary>
     public static class ChineseUiFont
     {
         private static TMP_FontAsset asset;
@@ -16,6 +16,12 @@ namespace AFPS.Bootstrap
             {
                 if (asset == null)
                 {
+                    asset = Resources.Load<TMP_FontAsset>("UI/NotoSansSC SDF");
+                    if (asset != null)
+                    {
+                        return asset;
+                    }
+
                     Font source = Source;
                     if (source == null)
                     {

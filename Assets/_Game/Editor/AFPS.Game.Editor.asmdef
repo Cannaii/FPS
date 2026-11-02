@@ -3,7 +3,9 @@
     "references": [
         "_Game.Bootstrap",
         "AFPS.Simulation",
-        "AFPS.Presentation"
+        "AFPS.Presentation",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [
         "Editor"
