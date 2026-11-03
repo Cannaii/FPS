@@ -100,7 +100,13 @@ namespace AFPS.Tests.EditMode
                     view.Consume(result, shot.EntityId);
                     var line = root.GetComponentInChildren<LineRenderer>();
                     Assert.That(line.GetPosition(0), Is.EqualTo(muzzle));
-                    Assert.That(line.GetPosition(1), Is.EqualTo(result.HitPoint));
+                    var lines = root.GetComponentsInChildren<LineRenderer>();
+                    Assert.That(lines.Length, Is.EqualTo(2));
+                    Assert.That(lines[1].GetPosition(0), Is.EqualTo(line.GetPosition(1)));
+                    Assert.That(lines[1].GetPosition(1), Is.EqualTo(result.HitPoint));
+                    Assert.That(line.GetPosition(1).x, Is.Zero);
+                    Assert.That(line.GetPosition(1).y, Is.Zero);
+                    Assert.That(line.GetPosition(1).z, Is.GreaterThan(muzzle.z));
                 }
                 Assert.That(result.Shot.OriginFixed, Is.EqualTo(FixVec3.Zero));
                 Assert.That(result.Shot.DirectionFixed, Is.EqualTo(FixVec3.Forward));

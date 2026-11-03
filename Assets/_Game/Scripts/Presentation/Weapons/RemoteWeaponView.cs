@@ -24,6 +24,10 @@ namespace AFPS.Presentation.Weapons
         private uint lastShotSequence;
         private uint shotTick;
         private RemoteWeaponState current;
+        private AudioSource reloadAudio;
+        private uint lastReloadEnd;
+        private bool hasReloadEnd;
+        public ulong PresentedReloadSoundCount { get; private set; }
 
         public ushort WeaponId => hasState ? current.WeaponId : (ushort)0;
         public bool IsReloading { get; private set; }
@@ -70,13 +74,29 @@ namespace AFPS.Presentation.Weapons
                 Hide();
                 return;
             }
-            if (!hasState || current.WeaponId != state.WeaponId)
+            bool continuousWeapon = hasState && current.WeaponId == state.WeaponId;
+            if (!continuousWeapon)
             {
                 hasShot = false;
             }
             current = state;
             hasState = true;
             IsReloading = state.ReloadTicksRemaining > System.Math.Max(0d, TickDistance(renderTick, state.ServerTick));
+            if (IsReloading)
+            {
+                // 剩余Tick递减而结束Tick不变；重复快照/插值不能重播换弹声音。
+                uint end = unchecked(state.ServerTick + state.ReloadTicksRemaining);
+                if (continuousWeapon && (!hasReloadEnd || SequenceMath.IsNewer(end, lastReloadEnd)))
+                {
+                    PlayReloadSound(projectile);
+                }
+                lastReloadEnd = end;
+                hasReloadEnd = true;
+            }
+            else if (reloadAudio != null)
+            {
+                reloadAudio.Stop();
+            }
             for (int i = pendingShots.Count - 1; i >= 0; i--)
             {
                 AuthoritativeShot shot = pendingShots[i];
@@ -139,6 +159,11 @@ namespace AFPS.Presentation.Weapons
             hasShot = false;
             pendingShots.Clear();
             IsReloading = false;
+            hasReloadEnd = false;
+            if (reloadAudio != null)
+            {
+                reloadAudio.Stop();
+            }
             if (!initialized)
             {
                 return;
@@ -162,6 +187,36 @@ namespace AFPS.Presentation.Weapons
         private void OnDisable()
         {
             Hide();
+        }
+
+        private void PlayReloadSound(bool projectile)
+        {
+            var clip = CombatPresentationAssets.ReloadClip(projectile);
+            if (clip == null)
+            {
+                return;
+            }
+
+            PresentedReloadSoundCount++;
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
+            if (reloadAudio == null)
+            {
+                reloadAudio = gameObject.AddComponent<AudioSource>();
+                reloadAudio.playOnAwake = false;
+                reloadAudio.spatialBlend = 1f;
+                reloadAudio.dopplerLevel = 0f;
+                reloadAudio.rolloffMode = AudioRolloffMode.Linear;
+                reloadAudio.minDistance = 2f; // 米；24米外静音，近距换弹增益0.4。
+                reloadAudio.maxDistance = 24f;
+                reloadAudio.volume = 0.4f;
+            }
+
+            reloadAudio.clip = clip;
+            reloadAudio.Play();
         }
     }
 }

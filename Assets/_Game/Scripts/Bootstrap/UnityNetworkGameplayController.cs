@@ -493,7 +493,9 @@ namespace AFPS.Bootstrap
                 RenderRemotePlayers();
                 if (localFootsteps != null && playerView.TryGetLatestState(out PlayerMovementState footstepState))
                 {
-                    localFootsteps.Render(footstepState.Position, footstepState.IsGrounded, IsLocalGameplayActive());
+                    localFootsteps.Render(footstepState.Position, footstepState.IsGrounded, IsLocalGameplayActive(),
+                        false, footstepState.Velocity.y,
+                        !footstepState.IsClimbing && !footstepState.IsGrappling && !footstepState.IsWallRunning);
                 }
             }
         }
@@ -571,7 +573,7 @@ namespace AFPS.Bootstrap
                 }
                 if (command.FirePressed)
                 {
-                    command.ShotServerTick = sessionCoordinator.RemotePlayers != null && sessionCoordinator.RemotePlayers.LatestServerTick != 0 ? sessionCoordinator.RemotePlayers.LatestServerTick : serverWorldTick;
+                    command.ShotServerTick = SelectShotRewindTick(serverWorldTick);
                 }
 
                 if (sessionCoordinator.TryPredictAndSend(command, out PlayerMovementState predictedState, out _))
@@ -604,6 +606,18 @@ namespace AFPS.Bootstrap
                 playerView.ApplyState(sessionCoordinator.ClientSession.CurrentState);
             }
             RefreshClientAdmission();
+        }
+
+        private uint SelectShotRewindTick(uint serverWorldTick)
+        {
+            if (remotePlayerWorldView != null && remotePlayerWorldView.TryGetDisplayedServerTick(out uint displayed))
+            {
+                // 0在线格式中表示未指定；回绕到0时取前一Tick，避免被误解为服务器当前Tick。
+                return displayed == 0 ? uint.MaxValue : displayed;
+            }
+
+            return sessionCoordinator.RemotePlayers != null && sessionCoordinator.RemotePlayers.LatestServerTick != 0
+                ? sessionCoordinator.RemotePlayers.LatestServerTick : serverWorldTick;
         }
 
         private void PredictProjectileVisual(in PlayerInputCommand command, in PlayerMovementState state, uint serverWorldTick)
@@ -783,6 +797,11 @@ namespace AFPS.Bootstrap
 
         private bool IsLocalGameplayActive()
         {
+            var crosshairSettings = GetComponent<CrosshairSettingsController>();
+            if (crosshairSettings != null && crosshairSettings.IsVisible)
+            {
+                return false;
+            }
             if (!CanEnterGame || !sessionCoordinator.CanPredictClientInput || !sessionCoordinator.CanEnterMatch)
             {
                 return false;

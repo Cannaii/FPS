@@ -155,6 +155,10 @@ namespace AFPS.Bootstrap
 
         private void Awake()
         {
+            if (GetComponent<CrosshairSettingsController>() == null)
+            {
+                gameObject.AddComponent<CrosshairSettingsController>();
+            }
             if (RoomMenuSmokeTestDriver.IsRequested)
             {
                 gameObject.AddComponent<RoomMenuSmokeTestDriver>().Configure(this);

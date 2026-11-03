@@ -23,6 +23,14 @@ namespace AFPS.Presentation.Characters
         private readonly List<uint> entityIds = new List<uint>();
         private readonly List<uint> staleEntityIds = new List<uint>();
         private RemotePlayerView defaultPlayerPrefab;
+        private bool hasDisplayedTick;
+        private uint displayedTick;
+
+        public bool TryGetDisplayedServerTick(out uint tick)
+        {
+            tick = displayedTick;
+            return hasDisplayedTick;
+        }
         public int CharacterVisualCount
         {
             get
@@ -71,6 +79,7 @@ namespace AFPS.Presentation.Characters
             DeathmatchState deathmatchState = null, float crouchedHeightRatio = 0.6f, float grappleOriginHeight = 1.6f,
             RemoteWeaponReplicas weapons = null, ushort projectileWeaponId = 2)
         {
+            hasDisplayedTick = false;
             if (replicas == null)
             {
                 Clear();
@@ -84,6 +93,12 @@ namespace AFPS.Presentation.Characters
                 if (!replicas.TrySample(entityId, estimatedServerTick, out RemotePlayerRenderState state))
                 {
                     continue;
+                }
+                if (!hasDisplayedTick && state.ServerTickTime >= 0d && state.ServerTickTime < long.MaxValue)
+                {
+                    // 所有实体共享显示时钟。射击请求必须引用眼前这一帧，而非最新收包Tick。
+                    displayedTick = unchecked((uint)(long)System.Math.Floor(state.ServerTickTime));
+                    hasDisplayedTick = true;
                 }
 
                 if (!views.TryGetValue(entityId, out RemotePlayerView view))
@@ -129,6 +144,7 @@ namespace AFPS.Presentation.Characters
 
         public void Clear()
         {
+            hasDisplayedTick = false;
             foreach (RemotePlayerView view in views.Values)
             {
                 if (view != null)

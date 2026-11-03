@@ -182,6 +182,54 @@ namespace AFPS.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator Jump_UsesSpatialSourceWithoutMovingOwnerAndStopsOnDisable()
+        {
+            root.transform.position = new Vector3(8f, 0f, 3f);
+            Vector3 ownerPosition = root.transform.position;
+            var audio = root.AddComponent<FootstepAudioView>();
+            audio.Render(Vector3.zero, true, true);
+            audio.Render(Vector3.up * 0.1f, false, true, false, 8f);
+            AudioSource source = root.GetComponentInChildren<AudioSource>();
+            Assert.That(source, Is.Not.Null);
+            Assert.That(source.isPlaying, Is.True);
+            Assert.That(source.clip, Is.SameAs(CombatPresentationAssets.Load<AudioClip>("Jump")));
+            Assert.That(source.spatialBlend, Is.EqualTo(1f));
+            Assert.That(source.volume, Is.EqualTo(0.35f));
+            Assert.That(source.minDistance, Is.EqualTo(2f));
+            Assert.That(source.maxDistance, Is.EqualTo(24f));
+            Assert.That(source.rolloffMode, Is.EqualTo(AudioRolloffMode.Linear));
+            Assert.That(root.transform.position, Is.EqualTo(ownerPosition));
+            audio.Render(Vector3.up * 0.2f, false, true, false, 7f);
+            Assert.That(audio.JumpCount, Is.EqualTo(1));
+            audio.enabled = false;
+            Assert.That(source.isPlaying, Is.False);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator RemoteReload_UsesSpatialSourceOnceAndStopsWhenHidden()
+        {
+            var actor = Object.Instantiate(Resources.Load<RemotePlayerView>("Characters/RemotePlayer"), root.transform);
+            var weapon = actor.GetComponentInChildren<RemoteWeaponView>(true);
+            weapon.Render(new RemoteWeaponState(2, 100, 1, 0, 0, true), false, 100);
+            weapon.Render(new RemoteWeaponState(2, 101, 1, 100, 0, true), false, 101);
+            AudioSource source = weapon.GetComponent<AudioSource>();
+            Assert.That(source, Is.Not.Null);
+            Assert.That(source.isPlaying, Is.True);
+            Assert.That(source.clip, Is.SameAs(CombatPresentationAssets.ReloadClip(false)));
+            Assert.That(source.spatialBlend, Is.EqualTo(1f));
+            Assert.That(source.volume, Is.EqualTo(0.4f));
+            Assert.That(source.minDistance, Is.EqualTo(2f));
+            Assert.That(source.maxDistance, Is.EqualTo(24f));
+            Assert.That(source.rolloffMode, Is.EqualTo(AudioRolloffMode.Linear));
+            weapon.Render(new RemoteWeaponState(2, 102, 1, 99, 0, true), false, 102);
+            Assert.That(weapon.PresentedReloadSoundCount, Is.EqualTo(1));
+            weapon.Hide();
+            Assert.That(source.isPlaying, Is.False);
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator Footstep_UsesShorterRangeAndCannotRestartWhileComponentIsDisabled()
         {
             var footstep = root.AddComponent<FootstepAudioView>();

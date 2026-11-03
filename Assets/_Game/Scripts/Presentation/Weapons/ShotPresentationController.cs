@@ -46,7 +46,20 @@ namespace AFPS.Presentation.Weapons
             if (result.Shot.FireMode == WeaponFireMode.Hitscan)
             {
                 // 只替换表现起点；终点仍是服务器裁决，不能把枪口偏移带回命中查询。
-                DrawLine(VisualOrigin(result.Shot), end, new Color(1f, 0.8f, 0.25f), TracerSeconds);
+                Vector3 origin = VisualOrigin(result.Shot);
+                Vector3 logicalOrigin = result.Shot.Origin;
+                float distance = Vector3.Distance(logicalOrigin, end);
+                // 接点距眼点至少0.5米且在枪口前方；后段严格沿逻辑射线，避免斜曳光穿身的假象。
+                bool needsMerge = distance > 0.5f && (origin - logicalOrigin).sqrMagnitude > 0.000001f;
+                float mergeDistance = Mathf.Min(distance, Mathf.Max(0.5f,
+                    Vector3.Dot(origin - logicalOrigin, (end - logicalOrigin).normalized) + 0.1f));
+                Vector3 merge = needsMerge
+                    ? logicalOrigin + (end - logicalOrigin).normalized * mergeDistance : end;
+                DrawLine(origin, merge, new Color(1f, 0.8f, 0.25f), TracerSeconds);
+                if (needsMerge)
+                {
+                    DrawLine(merge, end, new Color(1f, 0.8f, 0.25f), TracerSeconds);
+                }
             }
 
             if (!result.DidHit && !result.HitEnvironment)

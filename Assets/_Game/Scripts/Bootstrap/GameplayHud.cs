@@ -34,6 +34,7 @@ namespace AFPS.Bootstrap
         private TextMeshProUGUI rejectionText;
         private TextMeshProUGUI damageDirectionText;
         private Image damageFlash;
+        private CrosshairGraphic crosshair;
 
         public void Configure(NetworkSessionCoordinator manager, float tickSeconds, ShotPresentationController results = null)
         {
@@ -74,6 +75,7 @@ namespace AFPS.Bootstrap
 
             uint localEntityId = sessionCoordinator.RemotePlayers != null ? sessionCoordinator.RemotePlayers.LocalEntityId : 0;
             match.TryGetPlayer(localEntityId, out DeathmatchPlayerState local);
+            crosshair.gameObject.SetActive(local.IsAlive && match.Phase == DeathmatchPhase.Playing);
             int seconds = Mathf.CeilToInt(match.RemainingTicks * tickDeltaTime);
             statusText.text = sessionCoordinator.IsLocalPractice
                 ? "单人练习"
@@ -214,6 +216,13 @@ namespace AFPS.Bootstrap
             // 缓存编辑位置/朝向作为动画原点，受击反馈不覆盖美术设定的基准布局。
             damageDirectionOrigin = damageDirectionText.rectTransform.anchoredPosition;
             damageDirectionRotation = damageDirectionText.rectTransform.localRotation;
+            var crosshairPrefab = Resources.Load<CrosshairGraphic>("UI/Crosshair");
+            if (crosshairPrefab == null)
+            {
+                throw new System.InvalidOperationException("缺少UI/Crosshair.prefab。");
+            }
+            crosshair = Instantiate(crosshairPrefab, canvas.transform, false);
+            crosshair.transform.SetSiblingIndex(1);
             canvas.enabled = false;
         }
 

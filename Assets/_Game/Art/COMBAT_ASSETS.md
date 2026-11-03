@@ -23,3 +23,5 @@
 |---|---|---|
 |Footstep1.wav|SFX/Footsteps/wood_Footstep01.wav|8499BB970F214C3B6B5D8C96DC5C76613722F1D4DCCB42A87E9DE316B6E6A46B|
 |Footstep2.wav|SFX/Footsteps/wood_Footstep02.wav|B682197C4A72202D7815B21694AFF161E0CC27A65E20A3222D4A266831C2F97D|
+
+起跳声 `Resources/Combat/Jump.wav` 为本项目程序生成的自有开发音效：使用 `node Tools/Art/generate-jump-audio.cjs`，固定随机种子23719，滤波噪声叠加下降正弦与包络，44100Hz单声道16位PCM、时长0.18秒。生成器拒绝覆盖已有资产，替换正式音效时保留原 `.meta` GUID。

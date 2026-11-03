@@ -86,8 +86,10 @@ namespace AFPS.Presentation.Characters
             {
                 characterPose.Render(state, isAlive, gameplayActive, heightRatio);
             }
+            // 快照没有独立起跳事件；5米/秒门槛排除默认3米/秒爬梯，不改动协议或模拟。
             footsteps.Render(state.Position, state.IsGrounded, isAlive && gameplayActive,
-                state.Status == RemotePlayerSamplingStatus.Teleported);
+                state.Status == RemotePlayerSamplingStatus.Teleported,
+                state.Velocity.y, !state.IsGrappling && state.Velocity.y > 5f);
             if (state.IsGrappling && isAlive && gameplayActive
                 && state.Status != RemotePlayerSamplingStatus.ExtrapolationLimitReached)
             {

@@ -13,14 +13,23 @@ namespace AFPS.Presentation.Characters
         private bool wasGrounded;
         private float distanceSinceStep;
         private AudioSource audioSource;
+        private AudioSource jumpAudioSource;
+        private float lowestAirVelocity;
         public ulong StepCount { get; private set; }
+        public ulong JumpCount { get; private set; }
 
-        public void Render(Vector3 position, bool grounded, bool alive, bool discontinuity = false)
+        public void Render(Vector3 position, bool grounded, bool alive, bool discontinuity = false,
+            float verticalSpeed = 0f, bool jumpAudioAllowed = true)
         {
             if (!isActiveAndEnabled)
             {
                 // 上层可在同一帧继续采样；停用后不能被显式Render重新播放脚步。
                 return;
+            }
+            if (float.IsNaN(verticalSpeed) || float.IsInfinity(verticalSpeed))
+            {
+                // 非有限表现采样不能污染后续最低速度基准。
+                verticalSpeed = 0f;
             }
             if (!alive || discontinuity || !hasPosition
                 || Vector3.Distance(position, previousPosition) > TeleportDistance)
@@ -28,12 +37,30 @@ namespace AFPS.Presentation.Characters
                 previousPosition = position;
                 hasPosition = alive;
                 wasGrounded = grounded;
+                lowestAirVelocity = verticalSpeed;
                 distanceSinceStep = 0f;
                 if (audioSource != null)
                 {
                     audioSource.Stop();
                 }
+                if (jumpAudioSource != null)
+                {
+                    jumpAudioSource.Stop();
+                }
                 return;
+            }
+            // 只读向上速度跃迁：累计增加3米/秒也可识别被插值摊开的空中跳冲量。
+            // 走下边缘不会触发；本机排除攀爬/钩索，远端按现有快照速度过滤默认爬梯，首样本/传送不补播。
+            bool upwardImpulse = verticalSpeed > 1f
+                && (wasGrounded || verticalSpeed > lowestAirVelocity + 3f);
+            if (!grounded && jumpAudioAllowed && upwardImpulse)
+            {
+                PlayJump(position);
+                lowestAirVelocity = verticalSpeed;
+            }
+            else
+            {
+                lowestAirVelocity = grounded ? 0f : Mathf.Min(lowestAirVelocity, verticalSpeed);
             }
             Vector3 displacement = position - previousPosition;
             displacement.y = 0f;
@@ -85,15 +112,53 @@ namespace AFPS.Presentation.Characters
             audioSource.Play();
         }
 
+        private void PlayJump(Vector3 position)
+        {
+            var clip = CombatPresentationAssets.Load<AudioClip>("Jump");
+            if (clip == null)
+            {
+                return;
+            }
+
+            JumpCount++;
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
+            if (jumpAudioSource == null)
+            {
+                var target = new GameObject("Positional Jump Audio");
+                target.transform.SetParent(transform, false);
+                jumpAudioSource = target.AddComponent<AudioSource>();
+                jumpAudioSource.playOnAwake = false;
+                jumpAudioSource.spatialBlend = 1f;
+                jumpAudioSource.dopplerLevel = 0f;
+                jumpAudioSource.rolloffMode = AudioRolloffMode.Linear;
+                jumpAudioSource.minDistance = 2f; // 米，24米外静音；归一化增益0.35。
+                jumpAudioSource.maxDistance = 24f;
+                jumpAudioSource.volume = 0.35f;
+            }
+
+            jumpAudioSource.transform.position = position;
+            jumpAudioSource.clip = clip;
+            jumpAudioSource.Play();
+        }
+
         public void Clear()
         {
             hasPosition = false;
             wasGrounded = false;
             distanceSinceStep = 0f;
             StepCount = 0;
+            JumpCount = 0;
             if (audioSource != null)
             {
                 audioSource.Stop();
+            }
+            if (jumpAudioSource != null)
+            {
+                jumpAudioSource.Stop();
             }
         }
 
