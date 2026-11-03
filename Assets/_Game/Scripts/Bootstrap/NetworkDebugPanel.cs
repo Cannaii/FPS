@@ -9,7 +9,6 @@ using AFPS.NetCode.Sessions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.UI;
 
 namespace AFPS.Bootstrap
 {
@@ -190,52 +189,24 @@ namespace AFPS.Bootstrap
             {
                 return;
             }
-            var root = new GameObject("Network Debug UI", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
-            root.transform.SetParent(transform, false);
-            canvas = root.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 100;
-            var scaler = root.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
-            var panel = new GameObject("Diagnostics Panel", typeof(RectTransform), typeof(Image));
-            panel.transform.SetParent(root.transform, false);
-            var rect = panel.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.06f, 0.17f);
-            rect.anchorMax = new Vector2(0.94f, 0.86f);
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            panel.GetComponent<Image>().color = new Color(0.025f, 0.045f, 0.065f, 0.98f);
-            panel.GetComponent<Image>().raycastTarget = false;
-            Label(rect, "网络诊断    F3 收起    ·    只读，不暂停对局", 27f,
-                new Vector2(0f, 1f), Vector2.one, new Vector2(24f, -64f), new Vector2(-24f, -12f));
-            clientText = Label(rect, "", 20f, new Vector2(0f, 0.36f), new Vector2(0.5f, 1f),
-                new Vector2(24f, 0f), new Vector2(-12f, -72f));
-            serverText = Label(rect, "", 20f, new Vector2(0.5f, 0.36f), Vector2.one,
-                new Vector2(12f, 0f), new Vector2(-24f, -72f));
-            detailText = Label(rect, "", 20f, Vector2.zero, new Vector2(1f, 0.36f),
-                new Vector2(24f, 20f), new Vector2(-24f, -4f));
-        }
 
-        private static TMP_Text Label(Transform parent, string value, float size, Vector2 minimum,
-            Vector2 maximum, Vector2 offsetMinimum, Vector2 offsetMaximum)
-        {
-            var text = new GameObject("Diagnostic Text", typeof(RectTransform)).AddComponent<TextMeshProUGUI>();
-            text.transform.SetParent(parent, false);
-            text.rectTransform.anchorMin = minimum;
-            text.rectTransform.anchorMax = maximum;
-            text.rectTransform.offsetMin = offsetMinimum;
-            text.rectTransform.offsetMax = offsetMaximum;
-            text.font = ChineseUiFont.Asset;
-            text.fontSize = size;
-            text.alignment = TextAlignmentOptions.TopLeft;
-            text.color = new Color(0.87f, 0.94f, 1f);
-            text.raycastTarget = false;
-            text.richText = false;
-            text.enableWordWrapping = true;
-            text.text = value;
-            return text;
+            var prefab = Resources.Load<NetworkDebugView>(NetworkDebugView.ResourcePath);
+            if (prefab == null)
+            {
+                throw new InvalidOperationException("缺少 Resources/UI/NetworkDebug.prefab。");
+            }
+
+            if (!prefab.TryValidate(out string error))
+            {
+                throw new InvalidOperationException(error);
+            }
+
+            var view = Instantiate(prefab, transform, false);
+            view.name = "Network Debug UI";
+            canvas = view.Canvas;
+            clientText = view.ClientText;
+            serverText = view.ServerText;
+            detailText = view.DetailText;
         }
 
         private static string Number(double value) => value.ToString("F1", CultureInfo.InvariantCulture);
