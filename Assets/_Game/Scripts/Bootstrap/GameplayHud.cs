@@ -20,6 +20,9 @@ namespace AFPS.Bootstrap
         private NetworkSessionCoordinator sessionCoordinator;
         private float tickDeltaTime;
         private Canvas canvas;
+        private GameplayHudView view;
+        private Vector2 damageDirectionOrigin;
+        private Quaternion damageDirectionRotation;
         private TextMeshProUGUI statusText;
         private TextMeshProUGUI scoreText;
         private TextMeshProUGUI networkText;
@@ -65,8 +68,8 @@ namespace AFPS.Bootstrap
             bool confirmedHit = shotResults != null && shotResults.HitMarkerVisible;
             hitMarkerText.text = confirmedHit ? "X" : string.Empty;
             hitMarkerText.color = confirmedHit && shotResults.LastHitWasKill
-                ? new Color(1f, 0.25f, 0.2f)
-                : Color.white;
+                ? view.KillColor
+                : view.HitColor;
             UpdateCombatFeedback();
 
             uint localEntityId = sessionCoordinator.RemotePlayers != null ? sessionCoordinator.RemotePlayers.LocalEntityId : 0;
@@ -99,7 +102,9 @@ namespace AFPS.Bootstrap
             {
                 string weapon = sessionCoordinator.ClientWeaponConfiguration.FireMode == AFPS.Simulation.Weapons.WeaponFireMode.Projectile
                     ? "榴弹发射器" : "突击步枪";
-                weaponText.text = $"{weapon}\n<size=38>{sessionCoordinator.ClientWeapon.Ammo:00} / {sessionCoordinator.ClientWeapon.State.Capacity:00}</size>";
+                weaponText.text = $"{weapon}\n<size={view.AmmoFontSize}>"
+                    + $"{sessionCoordinator.ClientWeapon.Ammo:00} / "
+                    + $"{sessionCoordinator.ClientWeapon.State.Capacity:00}</size>";
                 if (sessionCoordinator.ClientWeapon.IsSwitchPending || sessionCoordinator.ClientWeapon.State.IsEquipping)
                 {
                     weaponText.text += "\n正在切换武器…";
@@ -129,7 +134,7 @@ namespace AFPS.Bootstrap
                 scoreBuilder.AppendLine();
             }
             scoreText.text = sessionCoordinator.IsLocalPractice ? "单人练习" : scoreBuilder.ToString();
-            scoreText.transform.parent.gameObject.SetActive(!sessionCoordinator.IsLocalPractice);
+            view.ScorePanel.SetActive(!sessionCoordinator.IsLocalPractice);
 
             switch (match.Phase)
             {
@@ -157,8 +162,10 @@ namespace AFPS.Bootstrap
             if (directed)
             {
                 float angle = Mathf.Atan2(direction.x, direction.y);
-                damageDirectionText.rectTransform.anchoredPosition = direction * 110f;
-                damageDirectionText.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -angle * Mathf.Rad2Deg);
+                damageDirectionText.rectTransform.anchoredPosition = damageDirectionOrigin
+                    + direction * view.DamageDirectionRadius;
+                damageDirectionText.rectTransform.localRotation = damageDirectionRotation
+                    * Quaternion.Euler(0f, 0f, -angle * Mathf.Rad2Deg);
             }
             rejectionText.text = shotResults != null && shotResults.RejectionFeedbackVisible
                 ? shotResults.LastRejectionReason switch
@@ -178,94 +185,61 @@ namespace AFPS.Bootstrap
             {
                 return;
             }
-            GameObject root = new GameObject("Gameplay HUD", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
-            root.transform.SetParent(transform, false);
-            canvas = root.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 20;
-            CanvasScaler scaler = root.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
 
-            var flashRoot = new GameObject("Damage Flash", typeof(RectTransform), typeof(Image));
-            flashRoot.transform.SetParent(root.transform, false);
-            var flashRect = flashRoot.GetComponent<RectTransform>();
-            flashRect.anchorMin = Vector2.zero;
-            flashRect.anchorMax = Vector2.one;
-            flashRect.sizeDelta = Vector2.zero;
-            damageFlash = flashRoot.GetComponent<Image>();
-            damageFlash.color = new Color(1f, 0f, 0f, 0.12f);
-            damageFlash.raycastTarget = false;
-            damageFlash.enabled = false;
+            var prefab = Resources.Load<GameplayHudView>(GameplayHudView.ResourcePath);
+            if (prefab == null)
+            {
+                throw new System.InvalidOperationException("缺少 Resources/UI/GameplayHud.prefab。");
+            }
 
-            // 以1920×1080为参考，面板各占独立区域；底部留出操作提示，不挤入顶部状态长串。
-            scaler.matchWidthOrHeight = 0.5f;
-            statusText = Panel(root.transform, "Match", new Vector2(0.5f, 1f), new Vector2(0f, -24f), new Vector2(360f, 90f), 26f);
-            statusText.alignment = TextAlignmentOptions.Center;
-            networkText = Panel(root.transform, "Network", new Vector2(0f, 1f), new Vector2(28f, -24f), new Vector2(330f, 54f), 20f);
-            scoreText = Panel(root.transform, "Scores", Vector2.one, new Vector2(-28f, -24f), new Vector2(330f, 320f), 22f);
-            healthText = Panel(root.transform, "Health", Vector2.zero, new Vector2(28f, 92f), new Vector2(430f, 145f), 24f);
-            weaponText = Panel(root.transform, "Weapon", Vector2.right, new Vector2(-28f, 92f), new Vector2(360f, 165f), 23f);
-            centerText = CreateText(root.transform, "", 38f, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 180f), new Vector2(850f, 120f));
-            hitMarkerText = CreateText(root.transform, "", 26f, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(50f, 50f));
-            damageDirectionText = CreateText(root.transform, "", 36f, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(50f, 50f));
-            damageDirectionText.color = new Color(1f, 0.25f, 0.18f);
-            rejectionText = CreateText(root.transform, "", 23f, TextAlignmentOptions.Center,
-                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 130f), new Vector2(700f, 50f));
-            CreateText(root.transform, "Shift 冲刺   Alt 突进   空格 跳跃/双跳   Ctrl 下蹲/滑铲   E 蹬墙反弹   右键/F 钩索   F3 网络诊断", 20f,
-                TextAlignmentOptions.Center, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                new Vector2(0f, 24f), new Vector2(1500f, 42f));
+            if (!prefab.TryValidate(out string error))
+            {
+                throw new System.InvalidOperationException(error);
+            }
+
+            view = Instantiate(prefab, transform, false);
+            // 保留既有HUD根名称，供诊断及原生验收识别；资源文件名不作为运行时约定。
+            view.name = "Gameplay HUD";
+            canvas = view.Canvas;
+            damageFlash = view.DamageFlash;
+            statusText = view.StatusText;
+            scoreText = view.ScoreText;
+            networkText = view.NetworkText;
+            healthText = view.HealthText;
+            weaponText = view.WeaponText;
+            centerText = view.CenterText;
+            hitMarkerText = view.HitMarkerText;
+            rejectionText = view.RejectionText;
+            damageDirectionText = view.DamageDirectionText;
+            // 缓存编辑位置/朝向作为动画原点，受击反馈不覆盖美术设定的基准布局。
+            damageDirectionOrigin = damageDirectionText.rectTransform.anchoredPosition;
+            damageDirectionRotation = damageDirectionText.rectTransform.localRotation;
+            canvas.enabled = false;
         }
 
-        private static TextMeshProUGUI Panel(Transform parent, string name, Vector2 anchor, Vector2 position,
-            Vector2 dimensions, float fontSize)
+        private void OnDisable()
         {
-            var target = new GameObject(name, typeof(RectTransform), typeof(Image));
-            var rect = target.GetComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.anchorMin = anchor;
-            rect.anchorMax = anchor;
-            rect.pivot = anchor;
-            rect.anchoredPosition = position;
-            rect.sizeDelta = dimensions;
-            var image = target.GetComponent<Image>();
-            image.color = new Color(0.025f, 0.045f, 0.065f, 0.76f);
-            image.raycastTarget = false;
-            var text = CreateText(rect, "", fontSize, TextAlignmentOptions.TopLeft,
-                Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            text.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-            text.rectTransform.offsetMin = new Vector2(18f, 12f);
-            text.rectTransform.offsetMax = new Vector2(-18f, -12f);
-            text.enableWordWrapping = true;
-            text.overflowMode = TextOverflowModes.Truncate;
-            return text;
+            if (canvas != null)
+            {
+                canvas.enabled = false;
+            }
         }
 
-        private static TextMeshProUGUI CreateText(Transform parent, string value, float size, TextAlignmentOptions alignment, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, Vector2 dimensions)
+        private void OnDestroy()
         {
-            GameObject target = new GameObject("Text", typeof(RectTransform));
-            target.transform.SetParent(parent, false);
-            RectTransform rect = target.GetComponent<RectTransform>();
-            rect.anchorMin = anchorMin;
-            rect.anchorMax = anchorMax;
-            rect.pivot = anchorMin;
-            rect.anchoredPosition = position;
-            rect.sizeDelta = dimensions;
-            TextMeshProUGUI text = target.AddComponent<TextMeshProUGUI>();
-            text.font = ChineseUiFont.Asset;
-            text.text = value;
-            text.fontSize = size;
-            text.fontStyle = FontStyles.Bold;
-            text.alignment = alignment;
-            text.color = Color.white;
-            text.raycastTarget = false;
-            text.enableWordWrapping = false;
-            text.outlineWidth = 0.18f;
-            text.outlineColor = new Color32(0, 0, 0, 220);
-            return text;
+            if (view == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(view.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(view.gameObject);
+            }
         }
     }
 }
