@@ -16,8 +16,8 @@ namespace AFPS.Tests.EditMode
             using (var sha = SHA256.Create())
             {
                 string hash = BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "");
-                // v29仅更新轨迹头与输入包的协议字节；世界、输入及预期模拟哈希保持原语义。
-                Assert.That(hash, Is.EqualTo("70F851BACA366663E324190BD4947D70052F65B1654A9A6F9FFF6EFF86403AB6"));
+                // 算法22/AFCE与世界包v2更新轨迹头；输入字节及预期移动哈希保持原语义。
+                Assert.That(hash, Is.EqualTo("5005C7C0B8A8970C113C48A12801A639FAE4A206BFA2E4F64172BD5422FC3485"));
             }
             using (var stream = new MemoryStream(bytes, false))
             {
@@ -25,7 +25,7 @@ namespace AFPS.Tests.EditMode
                 Assert.That(result.Frames, Is.EqualTo(2048));
                 Assert.That(result.Resets, Is.EqualTo(1));
                 Assert.That(result.EntityId, Is.EqualTo(1));
-                Assert.That(result.Identity.AlgorithmVersion, Is.EqualTo(21));
+                Assert.That(result.Identity.AlgorithmVersion, Is.EqualTo(22));
             }
         }
     }

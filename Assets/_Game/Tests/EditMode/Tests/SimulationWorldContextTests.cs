@@ -28,7 +28,8 @@ namespace AFPS.Tests.EditMode
             SpawnY,
             SpawnZ,
             SpawnSpacing,
-            InterestRadius
+            InterestRadius,
+            RewindTicks
         }
 
         [TestCase(Setting.Speed)]
@@ -49,6 +50,7 @@ namespace AFPS.Tests.EditMode
         [TestCase(Setting.SpawnZ)]
         [TestCase(Setting.SpawnSpacing)]
         [TestCase(Setting.InterestRadius)]
+        [TestCase(Setting.RewindTicks)]
         public void EverySimulationSettingChangesCompatibilityIdentity(Setting changed)
         {
             FixedWorld world = CreateWorld();
@@ -61,7 +63,8 @@ namespace AFPS.Tests.EditMode
                     Fix.FromRaw(changed == Setting.SpawnZ ? 1 : 0)),
                 Fix.FromRaw(163840 + (changed == Setting.SpawnSpacing ? 1 : 0)),
                 Fix.FromRaw(9830400 + (changed == Setting.InterestRadius ? 1 : 0)));
-            var variant = new SimulationWorldContext(world, CreateConfiguration(changed), dt, mask, spatial);
+            var variant = new SimulationWorldContext(world, CreateConfiguration(changed), dt, mask, spatial,
+                maximumRewindTicks: changed == Setting.RewindTicks ? 31u : SimulationWorldContext.DefaultMaximumRewindTicks);
 
             Assert.That(variant.Identity.WorldHash, Is.EqualTo(baseline.Identity.WorldHash));
             Assert.That(variant.Identity.ConfigurationHash, Is.Not.EqualTo(baseline.Identity.ConfigurationHash));
@@ -69,15 +72,29 @@ namespace AFPS.Tests.EditMode
         }
 
         [Test]
-        public void DefaultAndLayerEightMasksHaveAfcdGoldenFingerprints()
+        public void DefaultAndLayerEightMasksHaveAfceGoldenFingerprints()
         {
             var configuration = new PlayerMovementConfig(
                 Fix.FromInt(6), Fix.FromInt(20), Fix.FromInt(20), Fix.FromInt(8));
             var defaultContext = new SimulationWorldContext(CreateWorld(), configuration, SimulationStep.Step50Hz);
             var sceneContext = new SimulationWorldContext(CreateWorld(), configuration, SimulationStep.Step50Hz, 256);
-            Assert.That(defaultContext.Identity.AlgorithmVersion, Is.EqualTo(21));
-            Assert.That(defaultContext.Identity.ConfigurationHash, Is.EqualTo(16262535067992922569UL));
-            Assert.That(sceneContext.Identity.ConfigurationHash, Is.EqualTo(18422898137325476274UL));
+            Assert.That(defaultContext.Identity.AlgorithmVersion, Is.EqualTo(22));
+            Assert.That(defaultContext.Identity.ConfigurationHash, Is.EqualTo(14557342908879232758UL));
+            Assert.That(sceneContext.Identity.ConfigurationHash, Is.EqualTo(14181839113423660437UL));
+        }
+
+        [TestCase(0u)]
+        [TestCase(2048u)]
+        public void RewindBudget_AcceptsInclusiveBoundsAndSurvivesPackageRoundTrip(uint ticks)
+        {
+            var context = new SimulationWorldContext(CreateWorld(), CreateConfiguration(), SimulationStep.Step50Hz,
+                maximumRewindTicks: ticks);
+            byte[] bytes = SimulationWorldPackageCodec.Serialize(context);
+            Assert.That(SimulationWorldPackageCodec.TryDeserialize(new ArraySegment<byte>(bytes),
+                out var loaded, out _), Is.True);
+            Assert.That(loaded.MaximumRewindTicks, Is.EqualTo(ticks));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new SimulationWorldContext(
+                CreateWorld(), CreateConfiguration(), SimulationStep.Step50Hz, maximumRewindTicks: 2049));
         }
 
         [Test]

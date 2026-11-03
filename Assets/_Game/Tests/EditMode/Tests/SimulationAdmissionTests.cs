@@ -333,6 +333,10 @@ namespace AFPS.Tests.EditMode
             var transport = new FakeTransport(TransportRole.Server);
             var context = Context();
             PlayerMovementState initial = InitialState();
+            Assert.That(CreateManager(transport, null, context).MaximumRewindTicks, Is.EqualTo(32));
+            Assert.Throws<ArgumentException>(() => new NetworkSessionCoordinator(transport, null, initial, initial,
+                context.MovementConfiguration, 0.02f, 64, 3, 16, 2, 2, 0, 0,
+                maximumRewindTicks: 10, simulationWorld: context));
             Assert.Throws<ArgumentException>(() => new NetworkSessionCoordinator(transport, null, initial, initial,
                 new PlayerMovementConfig(7f, 20f, 20f, 8f), 0.02f, 64, 3, 16, 2, 2, 0, 0, simulationWorld: context));
             Assert.Throws<ArgumentException>(() => new NetworkSessionCoordinator(transport, null, initial, initial,

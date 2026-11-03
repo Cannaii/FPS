@@ -24,6 +24,7 @@ namespace AFPS.Tests.EditMode
             Assert.That(loaded.MovementConfiguration.Collision.MaxSlopeAngleFixedDegrees,
                 Is.EqualTo(original.MovementConfiguration.Collision.MaxSlopeAngleFixedDegrees));
             Assert.That(loaded.SessionSpatial.SpawnOrigin, Is.EqualTo(original.SessionSpatial.SpawnOrigin));
+            Assert.That(loaded.MaximumRewindTicks, Is.EqualTo(17));
             CollectionAssert.AreEqual(package, SimulationWorldPackageCodec.Serialize(loaded));
             Array.Clear(envelope, 0, envelope.Length);
             Assert.That(loaded.Identity.Equals(original.Identity), Is.True);
@@ -127,7 +128,7 @@ namespace AFPS.Tests.EditMode
                 Fix.FromRaw(170001), Fix.FromRaw(10000001));
             var weapon = new WeaponSimulationConfig(1, WeaponFireMode.Hitscan, 37, uint.MaxValue,
                 Fix.FromRaw(1400001), Fix.FromRaw(14000001), Fix.Zero, Fix.FromRaw(110001));
-            return new SimulationWorldContext(world, configuration, Fix.FromRaw(1311), 1 << 8, spatial, weapon);
+            return new SimulationWorldContext(world, configuration, Fix.FromRaw(1311), 1 << 8, spatial, weapon, 17);
         }
 
         private static void Write(byte[] bytes, int offset, uint value)

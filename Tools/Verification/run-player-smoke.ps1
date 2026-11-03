@@ -1,12 +1,14 @@
 ﻿param(
     [string]$PlayerPath = 'Library/AFPSVerification/Player/AFPSGame.exe',
-    [ValidateSet('Baseline', 'Combat', 'Sprint', 'Dash', 'Jump', 'Wall', 'Stance', 'WallRun', 'Climb', 'Grapple', 'Reconnect', 'Practice', 'RoomMenu', 'RoomDiscovery', 'RoomDiscoveryDedicated', 'LobbyReady')]
+    [ValidateSet('Baseline', 'Combat', 'Hitscan', 'Sprint', 'Dash', 'Jump', 'Wall', 'Stance', 'WallRun', 'Climb', 'Grapple', 'Reconnect', 'Practice', 'RoomMenu', 'RoomDiscovery', 'RoomDiscoveryDedicated', 'LobbyReady')]
     [string]$Scenario = 'Baseline',
     [string]$OutputDirectory,
     [ValidateRange(1, 65534)][int]$BasePort = 18100,
     [ValidateRange(5000, 60000)][int]$TimeoutMilliseconds = 45000,
     [string]$AuthorityTraceDirectory,
     [switch]$NetworkDebug,
+    [switch]$Graphics,
+    [ValidateRange(15, 240)][int]$HitscanFrameRate = 60,
     [switch]$ConcurrentRooms,
     [switch]$GracefulServerExit,
     [ValidateRange(0, 64)][int]$JobWorkerCount = 2,
@@ -50,6 +52,7 @@ New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $taskFlags = @{
     Baseline = @('-afpsSmokeTest', 'AFPS_SMOKE_RESULT')
     Combat = @('-afpsCombatSmoke', 'AFPS_COMBAT_RESULT')
+    Hitscan = @('-afpsHitscanSmoke', 'AFPS_HITSCAN_RESULT')
     Sprint = @('-afpsSprintSmoke', 'AFPS_SPRINT_RESULT')
     Dash = @('-afpsDashSmoke', 'AFPS_DASH_RESULT')
     Jump = @('-afpsJumpSmoke', 'AFPS_JUMP_RESULT')
@@ -135,6 +138,10 @@ try
                 {
                     $taskArguments += '-afpsNetworkDebug'
                 }
+                if ($Scenario -eq 'Hitscan' -and $taskSpec.Mode -ne 'Server')
+                {
+                    $taskArguments += @('-afpsHitscanFrameRate', $HitscanFrameRate)
+                }
                 if ($taskRoom -eq 'Practice')
                 {
                     $taskArguments += @('-force-d3d11', '-screen-width', $ScreenWidth, '-screen-height', $ScreenHeight)
@@ -161,6 +168,11 @@ try
                     {
                         $taskArguments += '-afpsRoomMenuCapture'
                     }
+                }
+                elseif ($Graphics -and !($Capture -and $Scenario -eq 'WallRun') -and $taskSpec.Mode -ne 'Server')
+                {
+                    $taskArguments += @('-force-d3d11', '-screen-width', $ScreenWidth, '-screen-height', $ScreenHeight,
+                        '-afpsMode', $taskSpec.Mode, '-afpsAddress', '127.0.0.1', '-afpsPort', $taskSpec.Port)
                 }
                 elseif ($Capture -and $Scenario -eq 'WallRun' -and $taskSpec.Mode -ne 'Server')
                 {

@@ -404,6 +404,11 @@ namespace AFPS.Bootstrap
                 var sprint = gameObject.AddComponent<SprintSmokeTestDriver>();
                 sprint.Configure(this, inputCollector);
             }
+            else if (hasLocalClient && HitscanSmokeTestDriver.IsRequested)
+            {
+                var hitscan = gameObject.AddComponent<HitscanSmokeTestDriver>();
+                hitscan.Configure(this, inputCollector);
+            }
             else if (hasLocalClient && CombatSmokeTestDriver.IsRequested)
             {
                 var combat = gameObject.AddComponent<CombatSmokeTestDriver>();

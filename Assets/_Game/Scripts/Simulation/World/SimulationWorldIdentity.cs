@@ -6,8 +6,8 @@ namespace AFPS.Simulation.World
     public readonly struct SimulationWorldIdentity : IEquatable<SimulationWorldIdentity>
     {
         // 改变积分顺序、舍入、三角 LUT 或接触裁决时必须升级；代码排版与注释不升级。
-        // v21：Combined钩索锚点/卷绳/径向反馈/切向控制、遮挡与能力互斥。
-        public const uint CurrentAlgorithmVersion = 21;
+        // v22：命中回溯窗口进入世界配置，默认覆盖插值与输入排队，旧10Tick规则不能混用。
+        public const uint CurrentAlgorithmVersion = 22;
 
         /// <summary>模拟和查询的算法语义版本；零保留为未初始化状态。</summary>
         public readonly uint AlgorithmVersion;

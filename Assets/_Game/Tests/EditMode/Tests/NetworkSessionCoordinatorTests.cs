@@ -624,6 +624,35 @@ namespace AFPS.Tests.EditMode
             Assert.That(health, Is.EqualTo(historicalCrouch ? 100f : 80f));
         }
 
+        [TestCase(10u, 11, false)]
+        [TestCase(32u, 11, true)]
+        [TestCase(32u, 32, true)]
+        [TestCase(32u, 33, false)]
+        [TestCase(32u, -1, false)]
+        public void RewindHitscan_BothPlayersRespectInclusiveBudget(uint budget, int age, bool expectedHit)
+        {
+            var transport = new FakeTransport(TransportRole.Server);
+            var manager = CreateManager(transport, null, budget);
+            var first = new TransportConnectionId(10);
+            var second = new TransportConnectionId(20);
+            manager.HandleConnected(NetworkTransportSide.Server, first);
+            manager.HandleConnected(NetworkTransportSide.Server, second);
+            for (uint tick = 100; tick < 140; tick++)
+            {
+                SendTick(manager, first, second, tick - 99, tick, default, default);
+            }
+            uint requested = unchecked((uint)(140 - age));
+            SendTick(manager, first, second, 41, 140,
+                new PlayerInputCommand { LookYaw = 90f, FirePressed = true, ShotSequence = 1, ShotServerTick = requested },
+                new PlayerInputCommand { LookYaw = -90f, FirePressed = true, ShotSequence = 1, ShotServerTick = requested });
+            // 两方都必须实际掉血，不能只验证收到开火/弹丸消息而漏测反向命中扫描。
+            for (uint entity = 1; entity <= 2; entity++)
+            {
+                Assert.That(manager.TryGetServerHealth(entity, out float health), Is.True);
+                Assert.That(health, Is.EqualTo(expectedHit ? 80f : 100f), "entity=" + entity);
+            }
+        }
+
         [Test]
         public void RewindHitscan_RejectsShotTickOutsideMaximumWindow()
         {

@@ -24,11 +24,11 @@ namespace AFPS.Simulation.Characters
     public static class SimulationWorldPackageCodec
     {
         public const int HeaderSize = 40;
-        public const int ConfigurationWordCount = 70;
+        public const int ConfigurationWordCount = 71;
         public const int ConfigurationSize = ConfigurationWordCount * 4;
         public const int MaximumWorldBytes = 64 * 1024 * 1024;
         private const uint Magic = 0x50534641; // ASCII AFSP，小端。
-        private const uint FormatVersion = 1;
+        private const uint FormatVersion = 2; // v2在配置尾部追加包含边界的命中回溯Tick数。
 
         public static byte[] Serialize(SimulationWorldContext context)
         {
@@ -186,6 +186,7 @@ namespace AFPS.Simulation.Characters
             }
             var weapon = new WeaponSimulationConfig((ushort)weaponId, (WeaponFireMode)fireMode,
                 magazine, interval, damage, range, projectileSpeed, eyeHeight);
+            uint maximumRewindTicks = unchecked((uint)raw.Int());
             if (raw.Count != ConfigurationWordCount)
             {
                 throw new InvalidOperationException("独立世界包读取字段数与版本不一致。");
@@ -193,7 +194,7 @@ namespace AFPS.Simulation.Characters
             var configuration = new PlayerMovementConfig(speed, acceleration, gravity, jumpSpeed,
                 collision, sprint, dash, jump, wall, stance, wallRun, climb, grapple);
             // 坡度法线阈值、最小位移和副武器等派生值由当前算法重建，再用完整配置指纹校验。
-            return new SimulationWorldContext(world, configuration, step, layerMask, spatial, weapon);
+            return new SimulationWorldContext(world, configuration, step, layerMask, spatial, weapon, maximumRewindTicks);
         }
 
         private sealed class RawReader
@@ -289,7 +290,8 @@ namespace AFPS.Simulation.Characters
                 weapon.DamageFixed.Raw,
                 weapon.RangeFixed.Raw,
                 weapon.ProjectileSpeedFixed.Raw,
-                weapon.EyeHeightFixed.Raw
+                weapon.EyeHeightFixed.Raw,
+                unchecked((int)context.MaximumRewindTicks)
             };
         }
     }

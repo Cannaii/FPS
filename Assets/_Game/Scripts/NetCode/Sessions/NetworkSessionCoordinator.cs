@@ -170,7 +170,7 @@ namespace AFPS.NetCode.Sessions
             double remoteMaxExtrapolationTicks = 2.0,
             float remoteTeleportDistance = 5f,
             WeaponSimulationConfig? weaponConfig = null,
-            uint maximumRewindTicks = 10,
+            uint? maximumRewindTicks = null,
             float interestRadius = 150f,
             int snapshotBudgetPerClientPerTick = 32,
             uint fullSnapshotIntervalTicks = 10,
@@ -187,6 +187,9 @@ namespace AFPS.NetCode.Sessions
             // 仅远端表现复制频率，单位Hz；不改变权威模拟步长/结果，最高每Tick一包。
             int remoteSnapshotRate = 20)
         {
+            // 世界上下文是回溯预算的唯一兼容性来源；显式旧后端仍允许测试注入有界窗口。
+            uint rewindTicks = maximumRewindTicks ?? simulationWorld?.MaximumRewindTicks
+                ?? SimulationWorldContext.DefaultMaximumRewindTicks;
             if (isLocalPractice && (!(serverTransport is LocalGameTransport) || !(clientTransport is LocalGameTransport)))
             {
                 throw new ArgumentException("单人练习只能使用本地传输对，不能改变联网对局规则。", nameof(isLocalPractice));
@@ -237,7 +240,7 @@ namespace AFPS.NetCode.Sessions
                 throw new ArgumentOutOfRangeException(nameof(velocityErrorThreshold));
             }
 
-            if (maximumRewindTicks > 2048)
+            if (rewindTicks > SimulationWorldContext.MaximumSupportedRewindTicks)
             {
                 throw new ArgumentOutOfRangeException(nameof(maximumRewindTicks), "最大回溯窗口不能超过 2048 Tick。");
             }
@@ -293,10 +296,10 @@ namespace AFPS.NetCode.Sessions
 
                 var actual = new SimulationWorldContext(simulationWorld.World, simulationConfig,
                     SimulationStep.FromSeconds(tickDeltaTime), simulationWorld.CollisionLayerMask,
-                    sessionSpatial, this.weaponConfig);
+                    sessionSpatial, this.weaponConfig, rewindTicks);
                 if (!simulationWorld.Identity.Equals(actual.Identity))
                 {
-                    throw new ArgumentException("移动、空间或武器配置与世界上下文不一致。", nameof(simulationWorld));
+                    throw new ArgumentException("移动、空间、武器或回溯配置与世界上下文不一致。", nameof(simulationWorld));
                 }
             }
 
@@ -306,7 +309,7 @@ namespace AFPS.NetCode.Sessions
                     "必须提供SimulationWorldContext或显式旧碰撞后端，禁止隐式平地回退。");
             }
             this.collisionWorld = simulationWorld == null ? collisionWorld : null;
-            this.maximumRewindTicks = maximumRewindTicks;
+            this.maximumRewindTicks = rewindTicks;
             this.snapshotBudgetPerClientPerTick = snapshotBudgetPerClientPerTick;
             this.fullSnapshotIntervalTicks = fullSnapshotIntervalTicks;
             if (remoteSnapshotRate <= 0)
@@ -747,6 +750,7 @@ namespace AFPS.NetCode.Sessions
         }
 
         public DeathmatchPhase ServerDeathmatchPhase => deathmatchPhase;
+        public uint MaximumRewindTicks => maximumRewindTicks;
 
         private void ResolveCombatTick(uint serverWorldTick)
         {

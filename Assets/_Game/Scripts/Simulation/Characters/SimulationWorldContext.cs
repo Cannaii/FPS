@@ -9,6 +9,10 @@ namespace AFPS.Simulation.Characters
     /// <summary>绑定不可变世界、移动/空间/武器配置及碰撞后端，供预测、权威与引擎外重放共用。</summary>
     public sealed class SimulationWorldContext
     {
+        // Tick数，包含上限；50Hz默认32Tick约640ms，覆盖插值、输入排队及往返调度余量。
+        public const uint DefaultMaximumRewindTicks = 32;
+        public const uint MaximumSupportedRewindTicks = 2048;
+        public uint MaximumRewindTicks { get; }
         public FixedWorld World { get; }
         public FixedCharacterCollisionWorld CollisionWorld { get; }
         /// <summary>移动与移动能力配置；武器规则由WeaponConfiguration独立提供。</summary>
@@ -31,9 +35,15 @@ namespace AFPS.Simulation.Characters
             Fix tickDeltaTime,
             int collisionLayerMask = ~0,
             SimulationSessionSpatialConfig? sessionSpatial = null,
-            WeaponSimulationConfig? weaponConfiguration = null)
+            WeaponSimulationConfig? weaponConfiguration = null,
+            uint maximumRewindTicks = DefaultMaximumRewindTicks)
         {
             World = world ?? throw new ArgumentNullException(nameof(world));
+            if (maximumRewindTicks > MaximumSupportedRewindTicks)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maximumRewindTicks));
+            }
+            MaximumRewindTicks = maximumRewindTicks;
             if (tickDeltaTime.Raw <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(tickDeltaTime));
@@ -68,7 +78,7 @@ namespace AFPS.Simulation.Characters
                 SimulationWorldIdentity.CurrentAlgorithmVersion,
                 world.VersionHash,
                 ComputeConfigurationHash(configuration, tickDeltaTime, collisionLayerMask,
-                    SessionSpatial, WeaponConfiguration));
+                    SessionSpatial, WeaponConfiguration, MaximumRewindTicks));
         }
 
         /// <summary>只接受完整规范快照；加载失败必须阻止装配，不能悄悄退回平地或 PhysX。</summary>
@@ -78,7 +88,8 @@ namespace AFPS.Simulation.Characters
             Fix tickDeltaTime,
             int collisionLayerMask = ~0,
             SimulationSessionSpatialConfig? sessionSpatial = null,
-            WeaponSimulationConfig? weaponConfiguration = null)
+            WeaponSimulationConfig? weaponConfiguration = null,
+            uint maximumRewindTicks = DefaultMaximumRewindTicks)
         {
             if (!FixedWorldCodec.TryDeserialize(snapshot, out FixedWorld world, out FixedWorldReadError error))
             {
@@ -86,7 +97,7 @@ namespace AFPS.Simulation.Characters
             }
 
             return new SimulationWorldContext(world, configuration, tickDeltaTime,
-                collisionLayerMask, sessionSpatial, weaponConfiguration);
+                collisionLayerMask, sessionSpatial, weaponConfiguration, maximumRewindTicks);
         }
 
         private static ulong ComputeConfigurationHash(
@@ -94,12 +105,13 @@ namespace AFPS.Simulation.Characters
             Fix tickDeltaTime,
             int collisionLayerMask,
             in SimulationSessionSpatialConfig sessionSpatial,
-            in WeaponSimulationConfig weapon)
+            in WeaponSimulationConfig weapon,
+            uint maximumRewindTicks)
         {
-            // AFCD追加Combined钩索七项规则；固定顺序小端int32。
+            // AFCE在既有字段之后追加命中回溯窗口；固定顺序小端int32。
             // 新增会改变模拟结果的参数时必须纳入字段，并升级域版本及黄金值。
             ulong hash = 14695981039346656037UL;
-            Add(ref hash, 0x44434641);
+            Add(ref hash, 0x45434641);
             Add(ref hash, tickDeltaTime.Raw);
             Add(ref hash, collisionLayerMask);
             Add(ref hash, configuration.MaxGroundSpeedFixed.Raw);
@@ -170,6 +182,7 @@ namespace AFPS.Simulation.Characters
             AddWeapon(ref hash, WeaponCatalog.SecondaryFor(weapon));
             Add(ref hash, unchecked((int)WeaponCatalog.EquipDurationTicks));
             Add(ref hash, WeaponCatalog.LauncherExplosionRadius.Raw);
+            Add(ref hash, unchecked((int)maximumRewindTicks));
             return hash;
         }
 
